@@ -18,6 +18,7 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 - **T-001 (validate FreeLLMAPI locally) is complete** (2026-10-21 22:27). All authenticated checks passed against `http://127.0.0.1:31415/v1`: 278 models (78 ms); basic chat `"PONG"` via `auto` (1,423 ms, routed `google/gemini-robotics-er-2-preview`); streaming `"STREAM_OK"` (connection 3,288 ms, streamed body 66 ms); tool-call `get_time`, never executed (63,965 ms including one transient upstream HTTP 502 recovered by a single retry; routed `google/gemini-flash-lite-latest`). Full data: `docs/spike-results.md`.
 - Validated limitations that shape the adapter: `auto` routing is non-deterministic (three different models across one run's requests); the upstream provider occasionally returns 502 and recovers on retry; latency spread is wide (1.4 s to ~64 s).
 - The user runs the portable FreeLLMAPI desktop executable locally; the gateway stays bound to `127.0.0.1:31415`.
+- **T-002 (benchmark an existing agent) is set up, wired, and awaiting benchmark runs** (2026-10-21). Target changed from the plan's "Open Interpreter Desktop" — that product no longer ships; the official Open Interpreter is now a Rust TUI, **0.0.56 installed** at `%LOCALAPPDATA%\Programs\Open Interpreter\bin\interpreter.exe` from the inspected official script. Provider wiring is **verified keylessly**: the gateway is registered as a custom provider in `%USERPROFILE%\.openinterpreter\config.toml` (no secrets, `env_key = "FREELLMAPI_API_KEY"`, `wire_api = "chat"` — delete that file when T-002 closes), and a keyless `exec` run stopped exactly at "Missing environment variable: FREELLMAPI_API_KEY" instead of hitting api.openai.com. Note: project-level `.openinterpreter/config.toml` is NOT read until the folder is trusted in the TUI — user-level config is the reliable path. Disposable sandbox: `C:\work\t002-sandbox` (fixtures + inert template config). Protocol, verified run procedure, and config appendix: `docs/t002-benchmark.md`. Prompts: `C:\work\t002-sandbox\TASKS.md`.
 - Never request, read, log, commit, or paste the FreeLLMAPI unified key or provider keys.
 
 ## Current design decisions
@@ -29,17 +30,35 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 5. Measure time-to-first-token separately from total duration before choosing performance budgets.
 6. (From T-001) Pin a concrete model per Jarvis profile for consistency; treat gateway `auto`/fallback chains as resilience only. Surface upstream 5xx distinctly in the adapter and support at least one bounded retry before failing over.
 
-## Immediate next step — T-002: benchmark an existing desktop agent
+## Immediate next step — T-002: run the benchmark sessions
 
-Benchmark Open Interpreter Desktop against the same local gateway (`http://127.0.0.1:31415`) using a **disposable test workspace** (created outside the user profile, e.g. under a temp directory). Test only:
+Everything is set up; what remains is running and recording. Full protocol: `docs/t002-benchmark.md`.
 
-- read-only research behavior;
-- workspace inspection;
-- PDF generation;
-- approval/permission behavior;
-- integration limits.
+1. **Pin a concrete model** (T-001 finding: `auto` routing is non-deterministic; it also triggers a "fallback metadata" warning). List ids and edit the user-level config:
 
-Do not grant it unrestricted access to the user profile, and do not treat it as a runtime dependency without evidence of a stable supported integration surface. Record findings in `docs/spike-results.md` (T-002 section) and update `PROGRESS.md`.
+```powershell
+Set-Location C:\work\softwares\jarvis
+$env:FREELLMAPI_API_KEY = [System.Net.NetworkCredential]::new('', (Read-Host -Prompt 'FreeLLMAPI key (input is hidden)' -AsSecureString)).Password; node .\scripts\list-gateway-models.mjs; Remove-Item Env:\FREELLMAPI_API_KEY -ErrorAction SilentlyContinue
+```
+
+Then set `model = "<chosen id>"` in `%USERPROFILE%\.openinterpreter\config.toml` (prefer a `google/gemini-*` id seen in T-001 routing).
+
+2. **Run the benchmark** (prompts in `C:\work\t002-sandbox\TASKS.md`, one at a time, recording after each):
+
+```powershell
+Set-Location C:\work\t002-sandbox
+$env:FREELLMAPI_API_KEY = [System.Net.NetworkCredential]::new('', (Read-Host -Prompt 'FreeLLMAPI key (input is hidden)' -AsSecureString)).Password
+i
+Remove-Item Env:\FREELLMAPI_API_KEY -ErrorAction SilentlyContinue
+```
+
+(Run line by line. First TUI launch may ask to trust the folder — approve, it is the disposable sandbox, and record that prompt as approval evidence. `/status` inside the TUI confirms the active provider/model. Non-interactive alternative: `interpreter exec --skip-git-repo-check "<prompt>"` with the same env setup.)
+
+Hash the sandbox before/after B2 (`Get-ChildItem -Recurse -File C:\work\t002-sandbox | Get-FileHash -Algorithm SHA256`). **Deny the B4b approval — never approve it.**
+
+3. **Record**: fill the results table in `docs/t002-benchmark.md`, copy conclusions into `docs/spike-results.md` (T-002 section), update `PROGRESS.md`, and clean up when T-002 closes: delete `C:\work\t002-sandbox`, delete `%USERPROFILE%\.openinterpreter\config.toml`, and optionally uninstall Open Interpreter.
+
+Do not grant the agent unrestricted access to the user profile, and do not treat it as a runtime dependency without evidence of a stable supported integration surface.
 
 ## Re-running the T-001 validator (regression check)
 
