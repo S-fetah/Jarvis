@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { PolicyEngine } from './policy/policy-engine'
 import { TaskState, TimelineEvent, JarvisSettings } from '../shared/types'
@@ -19,6 +20,12 @@ const settings: JarvisSettings = {
 }
 
 function createWindow(): void {
+  const preloadPath = fs.existsSync(join(__dirname, '../preload/index.mjs'))
+    ? join(__dirname, '../preload/index.mjs')
+    : join(__dirname, '../preload/index.js')
+
+  console.log('[Jarvis Main] Preload path resolved:', preloadPath)
+
   mainWindow = new BrowserWindow({
     width: 1050,
     height: 720,
@@ -29,33 +36,46 @@ function createWindow(): void {
     title: 'Jarvis — Personal AI Assistant',
     backgroundColor: '#0d1117',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false, // sandbox: false ensures local preload scripts load reliably across Electron versions
       webSecurity: true
     }
   })
 
   mainWindow.on('ready-to-show', () => {
+    console.log('[Jarvis Main] Window ready-to-show')
     mainWindow?.show()
   })
 
-  // Enforce Restrictive Content Security Policy
+  mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
+    console.error('[Jarvis Main] did-fail-load:', errorCode, errorDescription, validatedURL)
+  })
+
+  mainWindow.webContents.on('console-message', (_, level, message, line, sourceId) => {
+    console.log(`[Renderer Console L${level}]: ${message} (${sourceId}:${line})`)
+  })
+
+  // Enforce Content Security Policy (compatible with Vite dev server HMR in dev mode)
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    const csp = is.dev
+      ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 ws://localhost:5173; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173; style-src 'self' 'unsafe-inline' http://localhost:5173; img-src 'self' data: http://localhost:5173; connect-src 'self' http://localhost:5173 ws://localhost:5173 http://127.0.0.1:31415"
+      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:31415"
+
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:31415"
-        ]
+        'Content-Security-Policy': [csp]
       }
     })
   })
 
   // Load renderer
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    console.log('[Jarvis Main] Loading dev URL:', process.env['ELECTRON_RENDERER_URL'])
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
