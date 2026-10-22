@@ -19,6 +19,8 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 - **T-001 (validate FreeLLMAPI locally) complete** (2026-10-21): all authenticated checks passed against `http://127.0.0.1:31415/v1`. Limitations recorded: non-deterministic `auto` routing, transient upstream 502s, latency spread 1.4 s–64 s.
 - **T-002 (benchmark an existing agent) complete** (2026-10-22): Open Interpreter 0.0.56 (Rust TUI; the plan's "Desktop" app no longer ships) benchmarked via the gateway (session: `gpt-6-astra`, high reasoning, Native harness, non-admin sandbox). Headline findings: outside-workspace reads and in-workspace writes run with **no approval**; outside-workspace writes are approval-gated and denial honored; ~1–2 min turns at high reasoning; the TUI model picker can silently bypass the configured gateway; agent shells inherit the user's PowerShell profile (noise/errors). Full records: `docs/t002-benchmark.md`; conclusions: `docs/spike-results.md` (T-002 section).
 - **T-002 cleanup complete** (2026-10-22): sandbox and user-level OI config deleted; Open Interpreter uninstalled (directories + PATH entry removed). Reinstall if ever needed: `irm https://www.openinterpreter.com/install.ps1 | iex`.
+- **T-003 complete (2026-10-22):** Architecture decision records ADR-001 through ADR-004 created and accepted in `docs/decisions/`. Phase 0 exit criteria satisfied.
+- **Git remote linked:** `origin` points to `https://github.com/S-fetah/myJarvis.git` on branch `main`. Monorepo architecture maintained.
 - Never request, read, log, commit, or paste the FreeLLMAPI unified key or provider keys.
 
 ## Current design decisions
@@ -28,18 +30,18 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 3. Multi-agent mode (later) uses separate visible model roles, not unrestricted simultaneous tool control.
 4. No response race for tool execution, downloads, file mutations, process control, or sensitive prompts by default.
 5. Measure time-to-first-token separately from total duration before choosing performance budgets.
-6. (T-001) Pin a concrete model per Jarvis profile; treat gateway `auto`/fallback chains as resilience only; surface upstream 5xx distinctly and retry once before failing over.
-7. (T-002) Jarvis must be **stricter** than the benchmarked default: gate outside-workspace reads by approval, surface every in-workspace mutation in an activity timeline; tool shells run `-NoProfile` with a minimal explicit environment; the UI always shows the actual endpoint + model and never switches providers implicitly.
+6. (T-001 / ADR-003) Pin a concrete model per Jarvis profile; treat gateway `auto`/fallback chains as resilience only; surface upstream 5xx distinctly and retry once before failing over.
+7. (T-002 / ADR-002 / ADR-004) Jarvis must be **stricter** than the benchmarked default: gate outside-workspace reads by approval, surface every in-workspace mutation in an activity timeline; tool shells run `-NoProfile` with a minimal explicit environment; the UI always shows the actual endpoint + model and never switches providers implicitly.
 
-## Immediate next step — T-003: record architecture decisions
+## Immediate next step — T-004: scaffold the Electron/React/TypeScript app
 
-Create ADRs in `docs/decisions/` (follow ADR-001's format):
-
-- **ADR-002 — Desktop shell and security model**: Electron/React/TypeScript shell; process separation; why a custom runtime rather than embedding Open Interpreter (use T-002 conclusions: not embeddable, weaker default gates).
-- **ADR-003 — Gateway boundary and failure semantics**: OpenAI-compatible adapter over FreeLLMAPI; upstream 5xx handling, single bounded retry, concrete model pinning, TTFT measured from request issuance.
-- **ADR-004 — Permission categories and approval binding**: categories for read-in/read-out/write-in/write-out/process/network; defaults informed by the T-002 permission-model table; approval binding, expiry, and denial semantics (denial must never be retried silently).
-
-Then update `PROGRESS.md` (T-003 complete, Phase 0 exit check) and proceed to T-004 (scaffold the Electron/React/TypeScript app).
+Proceed to Phase 1:
+1. Initialize `package.json` with Electron, React, Vite, TypeScript, and Vitest.
+2. Configure multi-process structure: `src/main`, `src/preload`, `src/renderer`, `src/shared`.
+3. Set secure window defaults (`contextIsolation: true`, `nodeIntegration: false`, restrictive CSP).
+4. Implement typed IPC channels and mocked event timeline.
+5. Setup SQLite database (`better-sqlite3` or `sqlite3`) and migrations for tasks, approvals, events, and settings.
+6. Build standalone policy engine adhering to ADR-004.
 
 ## Re-running gateway checks (regression)
 
