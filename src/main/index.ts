@@ -3,6 +3,7 @@ import { join } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { PolicyEngine } from './policy/policy-engine'
+import { ModelGatewayAdapter } from './gateway/model-adapter'
 import { TaskState, TimelineEvent, JarvisSettings } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
@@ -13,11 +14,18 @@ let activeTask: TaskState | null = null
 
 const settings: JarvisSettings = {
   gatewayUrl: 'http://127.0.0.1:31415/v1',
+  apiKey: process.env.FREELLMAPI_API_KEY,
   defaultModel: 'gemini-3.6-flash',
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
   theme: 'dark',
   outputDirectory: 'C:\\work\\softwares\\jarvis\\output'
 }
+
+const modelAdapter = new ModelGatewayAdapter({
+  baseUrl: settings.gatewayUrl,
+  apiKey: settings.apiKey,
+  model: settings.defaultModel
+})
 
 function createWindow(): void {
   const preloadPath = fs.existsSync(join(__dirname, '../preload/index.cjs'))
@@ -113,130 +121,164 @@ function sendTimelineEvent(event: TimelineEvent): void {
   mainWindow?.webContents.send('timeline:event', event)
 }
 
+function executeNextStep(task: TaskState, stepIndex: number, workspacePath: string): void {
+  if (stepIndex >= task.steps.length) {
+    task.status = 'completed'
+    sendTaskUpdate({ ...task, updatedAt: Date.now() })
+    sendTimelineEvent({
+      id: crypto.randomUUID(),
+      taskId: task.id,
+      timestamp: Date.now(),
+      type: 'log',
+      title: 'Task Completed',
+      details: 'All planned steps verified successfully.'
+    })
+    return
+  }
+
+  const step = task.steps[stepIndex]
+  task.activeStepId = step.id
+  step.status = 'in_progress'
+  sendTaskUpdate({ ...task, updatedAt: Date.now() })
+
+  // Route step execution by category / action
+  if (step.category === 'read_in') {
+    const res = policyEngine.evaluateAction({
+      actionType: 'workspace_list',
+      workspacePath,
+      targetPath: workspacePath,
+      arguments: { path: workspacePath }
+    })
+
+    sendTimelineEvent({
+      id: crypto.randomUUID(),
+      taskId: task.id,
+      timestamp: Date.now(),
+      type: 'tool_call',
+      title: step.title,
+      details: res.reason,
+      category: 'read_in'
+    })
+
+    step.status = 'completed'
+    setTimeout(() => executeNextStep(task, stepIndex + 1, workspacePath), 800)
+  } else if (step.category === 'write_in') {
+    const targetFile = join(workspacePath, 'output', 'project-summary.pdf')
+    const res = policyEngine.evaluateAction({
+      actionType: 'file_write_new',
+      workspacePath,
+      targetPath: targetFile,
+      arguments: { targetFile }
+    })
+
+    sendTimelineEvent({
+      id: crypto.randomUUID(),
+      taskId: task.id,
+      timestamp: Date.now(),
+      type: 'artifact_created',
+      title: step.title,
+      details: res.reason,
+      category: 'write_in'
+    })
+
+    step.status = 'completed'
+    setTimeout(() => executeNextStep(task, stepIndex + 1, workspacePath), 800)
+  } else if (step.category === 'process') {
+    // Process requires explicit approval per ADR-004
+    const evalRes = policyEngine.evaluateAction({
+      actionType: 'start_dev_server',
+      workspacePath,
+      command: 'npm run dev',
+      title: 'Start Development Server (npm run dev)',
+      workingDirectory: workspacePath,
+      explanation: 'Starts the project development server to serve the frontend on local port 3000.',
+      safetyImpact: 'Spawns a local Node child process listening on port 3000. Jarvis tracks its PID and can stop it anytime.',
+      arguments: { command: 'npm run dev', script: 'dev', port: 3000, workingDirectory: workspacePath }
+    })
+
+    if (evalRes.requiresApproval && evalRes.approvalRequest) {
+      task.status = 'waiting_for_approval'
+      task.currentApproval = evalRes.approvalRequest
+      sendTaskUpdate({ ...task, updatedAt: Date.now() })
+
+      sendTimelineEvent({
+        id: crypto.randomUUID(),
+        taskId: task.id,
+        timestamp: Date.now(),
+        type: 'approval_prompt',
+        title: 'Action Requires Approval: Start Dev Server',
+        details: 'Review the command, working directory, and arguments before approving.',
+        category: 'process'
+      })
+    }
+  }
+}
+
 function registerIpcHandlers(): void {
-  // Task submission & simulation
+  // Task submission & dynamic execution
   ipcMain.handle('task:submit-goal', async (_, { goal, workspacePath }) => {
     const taskId = crypto.randomUUID()
     const chosenWorkspace = workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
-
-    const initialState: TaskState = {
-      id: taskId,
-      goal,
-      status: 'planning',
-      workspacePath: chosenWorkspace,
-      activeModel: settings.defaultModel,
-      steps: [
-        {
-          id: 'step-1',
-          title: 'Inspect Workspace',
-          description: 'Read workspace files and project manifest.',
-          category: 'read_in',
-          status: 'in_progress'
-        },
-        {
-          id: 'step-2',
-          title: 'Generate Project Summary PDF',
-          description: 'Synthesize research and output document.',
-          category: 'write_in',
-          status: 'pending'
-        },
-        {
-          id: 'step-3',
-          title: 'Start Development Server',
-          description: 'Run project start script on local port.',
-          category: 'process',
-          status: 'pending'
-        }
-      ],
-      activeStepId: 'step-1',
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    }
-
-    sendTaskUpdate(initialState)
 
     sendTimelineEvent({
       id: crypto.randomUUID(),
       taskId,
       timestamp: Date.now(),
       type: 'log',
-      title: 'Goal received',
+      title: 'Goal Received',
       details: goal
     })
 
-    // Simulate Step 1: Read-in (Allowed without approval)
-    setTimeout(() => {
-      const evalStep1 = policyEngine.evaluateAction({
-        actionType: 'workspace_list',
+    // Plan generation via ModelGatewayAdapter
+    const planResult = await modelAdapter.generatePlanForGoal(goal, chosenWorkspace)
+
+    // Direct Conversational Response (e.g. "who are u ?")
+    if (planResult.directResponse) {
+      const finishedState: TaskState = {
+        id: taskId,
+        goal,
+        status: 'completed',
         workspacePath: chosenWorkspace,
-        targetPath: chosenWorkspace,
-        arguments: { recursive: true }
-      })
+        activeModel: settings.defaultModel,
+        steps: planResult.steps,
+        activeStepId: planResult.steps[0]?.id,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }
+
+      sendTaskUpdate(finishedState)
 
       sendTimelineEvent({
         id: crypto.randomUUID(),
         taskId,
         timestamp: Date.now(),
-        type: 'tool_call',
-        title: 'workspace_list executed',
-        details: evalStep1.reason,
-        category: 'read_in'
+        type: 'log',
+        title: 'Jarvis Response',
+        details: planResult.directResponse
       })
 
-      // Update plan to Step 2
-      initialState.steps[0].status = 'completed'
-      initialState.steps[1].status = 'in_progress'
-      initialState.activeStepId = 'step-2'
-      sendTaskUpdate({ ...initialState, updatedAt: Date.now() })
+      return finishedState
+    }
 
-      // Simulate Step 2: Write-in (Allowed for new files)
-      setTimeout(() => {
-        const evalStep2 = policyEngine.evaluateAction({
-          actionType: 'file_write_new',
-          workspacePath: chosenWorkspace,
-          targetPath: join(chosenWorkspace, 'summary.pdf'),
-          arguments: { filename: 'summary.pdf', sizeBytes: 15400 }
-        })
+    // Operational Task Execution
+    const initialState: TaskState = {
+      id: taskId,
+      goal,
+      status: 'running',
+      workspacePath: chosenWorkspace,
+      activeModel: settings.defaultModel,
+      steps: planResult.steps,
+      activeStepId: planResult.steps[0]?.id,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
 
-        sendTimelineEvent({
-          id: crypto.randomUUID(),
-          taskId,
-          timestamp: Date.now(),
-          type: 'artifact_created',
-          title: 'summary.pdf generated',
-          details: evalStep2.reason,
-          category: 'write_in'
-        })
+    sendTaskUpdate(initialState)
 
-        initialState.steps[1].status = 'completed'
-        initialState.steps[2].status = 'in_progress'
-        initialState.activeStepId = 'step-3'
-
-        // Step 3: Process execution -> Requires Approval!
-        const evalStep3 = policyEngine.evaluateAction({
-          actionType: 'start_dev_server',
-          workspacePath: chosenWorkspace,
-          command: 'npm run dev',
-          arguments: { script: 'dev', port: 3000 }
-        })
-
-        if (evalStep3.requiresApproval && evalStep3.approvalRequest) {
-          initialState.status = 'waiting_for_approval'
-          initialState.currentApproval = evalStep3.approvalRequest
-          sendTaskUpdate({ ...initialState, updatedAt: Date.now() })
-
-          sendTimelineEvent({
-            id: crypto.randomUUID(),
-            taskId,
-            timestamp: Date.now(),
-            type: 'approval_prompt',
-            title: 'Approval Required: Start Dev Server',
-            details: 'Action requires user permission before launching process.',
-            category: 'process'
-          })
-        }
-      }, 1000)
-    }, 1000)
+    // Sequentially process steps
+    setTimeout(() => {
+      executeNextStep(initialState, 0, chosenWorkspace)
+    }, 500)
 
     return initialState
   })
@@ -255,17 +297,24 @@ function registerIpcHandlers(): void {
       details: `User ${decision} the action execution.`
     })
 
+    const task = activeTask
+    const currentStep =
+      task.steps.find((s) => s.id === task.activeStepId) ||
+      task.steps[task.steps.length - 1]
+
     if (decision === 'granted') {
-      activeTask.status = 'completed'
-      activeTask.steps[2].status = 'completed'
-      activeTask.currentApproval = undefined
-      sendTaskUpdate({ ...activeTask, updatedAt: Date.now() })
+      if (currentStep) currentStep.status = 'completed'
+      task.status = 'completed'
+      task.currentApproval = undefined
+      sendTaskUpdate({ ...task, updatedAt: Date.now() })
     } else {
-      activeTask.status = 'cancelled'
-      activeTask.steps[2].status = 'skipped'
-      activeTask.steps[2].error = 'Action denied by user.'
-      activeTask.currentApproval = undefined
-      sendTaskUpdate({ ...activeTask, updatedAt: Date.now() })
+      if (currentStep) {
+        currentStep.status = 'skipped'
+        currentStep.error = 'Action denied by user.'
+      }
+      task.status = 'cancelled'
+      task.currentApproval = undefined
+      sendTaskUpdate({ ...task, updatedAt: Date.now() })
     }
 
     return true

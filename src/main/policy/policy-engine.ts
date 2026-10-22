@@ -7,6 +7,10 @@ export interface ActionPayload {
   workspacePath: string
   targetPath?: string
   command?: string
+  title?: string
+  explanation?: string
+  workingDirectory?: string
+  safetyImpact?: string
   arguments: Record<string, unknown>
 }
 
@@ -135,8 +139,11 @@ export class PolicyEngine {
       id: approvalId,
       actionType,
       category,
-      title: `Approve: ${actionType}`,
+      title: payload.title || `Approve: ${actionType}`,
       description: reason,
+      explanation: payload.explanation,
+      workingDirectory: payload.workingDirectory || workspacePath,
+      safetyImpact: payload.safetyImpact,
       workspacePath,
       targetPath,
       command,

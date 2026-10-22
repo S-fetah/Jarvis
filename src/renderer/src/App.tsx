@@ -217,49 +217,87 @@ export default function App(): React.JSX.Element {
 
       {/* Approval Modal (ADR-004 Gating) */}
       {taskState?.currentApproval && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#161b22] border border-amber-500/50 rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center space-x-3 text-amber-400">
-              <ShieldAlert className="w-6 h-6 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-base text-white">Action Requires Approval</h3>
-                <p className="text-xs text-slate-400">
-                  ADR-004 Policy Engine: Approval required before execution.
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#161b22] border border-amber-500/60 rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start space-x-3 text-amber-400">
+              <ShieldAlert className="w-6 h-6 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-base text-white">
+                    {taskState.currentApproval.title || 'Action Requires Approval'}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-950/80 border border-amber-700 text-amber-300">
+                    {taskState.currentApproval.category}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  ADR-004 Policy Engine: Gated execution requires explicit permission.
                 </p>
               </div>
             </div>
 
-            <div className="bg-[#0d1117] rounded-lg p-3.5 border border-[#30363d] space-y-2 text-xs font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Category:</span>
-                <span className="text-amber-300 uppercase font-semibold">
-                  {taskState.currentApproval.category}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Action:</span>
-                <span className="text-slate-200">{taskState.currentApproval.actionType}</span>
-              </div>
+            <div className="bg-[#0d1117] rounded-lg p-3.5 border border-[#30363d] space-y-3 text-xs">
+              {/* Command Box */}
               {taskState.currentApproval.command && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Command:</span>
-                  <span className="text-emerald-400">{taskState.currentApproval.command}</span>
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-400 block mb-1 uppercase tracking-wider">
+                    Exact Command to Execute:
+                  </span>
+                  <div className="bg-[#05080f] p-2.5 rounded border border-[#1e293b] font-mono text-emerald-400 text-xs flex items-center justify-between">
+                    <code>{taskState.currentApproval.command}</code>
+                    <span className="text-[10px] text-slate-500 font-sans">powershell -NoProfile</span>
+                  </div>
                 </div>
               )}
-              <div className="pt-2 border-t border-[#21262d]">
-                <span className="text-slate-500 block mb-1">Arguments:</span>
-                <pre className="text-slate-300 bg-[#161b22] p-2 rounded text-[11px] overflow-x-auto">
-                  {JSON.stringify(taskState.currentApproval.arguments, null, 2)}
-                </pre>
+
+              {/* Working Directory */}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 block mb-0.5 uppercase tracking-wider">
+                  Target Directory:
+                </span>
+                <code className="text-slate-300 font-mono text-[11px] break-all">
+                  {taskState.currentApproval.workingDirectory || taskState.currentApproval.workspacePath}
+                </code>
               </div>
+
+              {/* Plain English Purpose */}
+              {taskState.currentApproval.explanation && (
+                <div className="p-2.5 rounded bg-blue-950/30 border border-blue-900/50 text-blue-200 text-xs">
+                  <strong className="block text-blue-300 font-semibold mb-0.5">Purpose:</strong>
+                  {taskState.currentApproval.explanation}
+                </div>
+              )}
+
+              {/* Safety Impact */}
+              {taskState.currentApproval.safetyImpact && (
+                <div className="p-2.5 rounded bg-slate-900/50 border border-slate-800 text-slate-300 text-[11px]">
+                  <strong className="block text-slate-200 font-semibold mb-0.5">Safety & Process Impact:</strong>
+                  {taskState.currentApproval.safetyImpact}
+                </div>
+              )}
+
+              {/* Collapsible Arguments Details */}
+              <details className="pt-1 text-[11px] text-slate-400">
+                <summary className="cursor-pointer hover:text-slate-300 select-none">
+                  View Technical Argument Digest & Payload
+                </summary>
+                <div className="mt-2 p-2 bg-[#161b22] rounded border border-[#21262d] font-mono">
+                  <div className="mb-1 text-slate-500">
+                    Token Hash: {taskState.currentApproval.argumentsHash.slice(0, 16)}...
+                  </div>
+                  <pre className="text-slate-300 text-[10px] overflow-x-auto">
+                    {JSON.stringify(taskState.currentApproval.arguments, null, 2)}
+                  </pre>
+                </div>
+              </details>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-2">
+            <div className="flex justify-end space-x-3 pt-1">
               <button
                 onClick={() =>
                   handleResolveApproval(taskState.currentApproval!, 'denied')
                 }
-                className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-700/50 rounded-lg text-xs font-medium transition"
+                className="px-4 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-700/60 rounded-lg text-xs font-semibold transition"
               >
                 Deny Action
               </button>
@@ -267,7 +305,7 @@ export default function App(): React.JSX.Element {
                 onClick={() =>
                   handleResolveApproval(taskState.currentApproval!, 'granted')
                 }
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium shadow-md transition"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-emerald-950/50 transition"
               >
                 Approve & Execute
               </button>

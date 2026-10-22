@@ -19,6 +19,9 @@ export interface ApprovalRequest {
   category: PermissionCategory
   title: string
   description: string
+  explanation?: string
+  workingDirectory?: string
+  safetyImpact?: string
   workspacePath: string
   targetPath?: string
   command?: string
@@ -74,6 +77,7 @@ export interface TimelineEvent {
 
 export interface JarvisSettings {
   gatewayUrl: string
+  apiKey?: string
   defaultModel: string
   workspacePaths: string[]
   theme: 'dark' | 'light' | 'system'
