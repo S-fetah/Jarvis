@@ -3,7 +3,7 @@
 This file records implementation progress against [the working plan](./Jarvis_Project_Implementation_Plan.md). Update it whenever a milestone, ticket, decision, or validation result changes.
 
 **Last updated:** 2026-10-22  
-**Overall state:** Phase 0 nearly complete — T-001 (gateway validation) and T-002 (agent benchmark) done; T-003 ADRs remain. Implementation (Phase 1) not started. T-002 cleanup pending (sandbox + user-level OI config).
+**Overall state:** Phase 0 nearly complete — T-001 (gateway validation) and T-002 (agent benchmark) done; T-003 ADRs remain. Implementation (Phase 1) not started. T-002 cleanup done (sandbox and user-level OI config deleted; Open Interpreter uninstalled 2026-10-22 — reinstall via `irm https://www.openinterpreter.com/install.ps1 | iex` if ever needed).
 
 ## Milestones
 
@@ -23,7 +23,7 @@ This file records implementation progress against [the working plan](./Jarvis_Pr
 | Ticket | Status | Notes |
 | --- | --- | --- |
 | T-001 — Validate FreeLLMAPI locally | Complete | 2026-10-21 22:27: models ✓ (278, 78 ms); chat ✓ (`PONG`, 1.4 s); streaming ✓ (connection 3.3 s, body 66 ms); tool-call ✓ (`get_time`, ~64 s incl. one retried upstream 502). Limitations recorded in `docs/spike-results.md`: non-deterministic `auto` routing, occasional upstream 502, wide latency spread. |
-| T-002 — Benchmark an existing desktop agent | Complete | 2026-10-22: B1–B4 + B6 recorded vs Open Interpreter 0.0.56 (Rust TUI) via the local gateway (B5 N/A). Key findings: outside-workspace reads and in-workspace writes run with NO approval; outside writes approval-gated and denial honored; ~1–2 min turns at high reasoning; provider picker can silently bypass the gateway. Conclusions for T-003 ADRs in `docs/spike-results.md`. Cleanup (sandbox, user-level OI config, optional uninstall) pending. |
+| T-002 — Benchmark an existing desktop agent | Complete | 2026-10-22: B1–B4 + B6 recorded vs Open Interpreter 0.0.56 (Rust TUI) via the local gateway (B5 N/A). Key findings: outside-workspace reads and in-workspace writes run with NO approval; outside writes approval-gated and denial honored; ~1–2 min turns at high reasoning; provider picker can silently bypass the gateway. Conclusions for T-003 ADRs in `docs/spike-results.md`. Cleanup complete: sandbox + config deleted, Open Interpreter uninstalled. |
 | T-003 through T-012 | Not started | Follow the defined order in the working plan. |
 
 ## Completed in this repository

@@ -18,7 +18,7 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 - Git on branch `main`; commits: `46cda5f` (T-001 baseline), `2780ff3` + `7d4c142` (T-002 setup/model pin), plus the T-002 closure commit.
 - **T-001 (validate FreeLLMAPI locally) complete** (2026-10-21): all authenticated checks passed against `http://127.0.0.1:31415/v1`. Limitations recorded: non-deterministic `auto` routing, transient upstream 502s, latency spread 1.4 s–64 s.
 - **T-002 (benchmark an existing agent) complete** (2026-10-22): Open Interpreter 0.0.56 (Rust TUI; the plan's "Desktop" app no longer ships) benchmarked via the gateway (session: `gpt-6-astra`, high reasoning, Native harness, non-admin sandbox). Headline findings: outside-workspace reads and in-workspace writes run with **no approval**; outside-workspace writes are approval-gated and denial honored; ~1–2 min turns at high reasoning; the TUI model picker can silently bypass the configured gateway; agent shells inherit the user's PowerShell profile (noise/errors). Full records: `docs/t002-benchmark.md`; conclusions: `docs/spike-results.md` (T-002 section).
-- **Cleanup pending after the user closes the TUI session:** delete `C:\work\t002-sandbox` and `%USERPROFILE%\.openinterpreter\config.toml`; optionally uninstall Open Interpreter (`%LOCALAPPDATA%\Programs\Open Interpreter\bin\interpreter.exe`).
+- **T-002 cleanup complete** (2026-10-22): sandbox and user-level OI config deleted; Open Interpreter uninstalled (directories + PATH entry removed). Reinstall if ever needed: `irm https://www.openinterpreter.com/install.ps1 | iex`.
 - Never request, read, log, commit, or paste the FreeLLMAPI unified key or provider keys.
 
 ## Current design decisions
