@@ -39,11 +39,21 @@ export default function App(): React.JSX.Element {
 
   const handleStartTask = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
-    if (!goal.trim() || !window.jarvisAPI) return
+    if (!goal.trim()) return
+
+    if (!window.jarvisAPI) {
+      console.error('[Jarvis Renderer] window.jarvisAPI is not available!')
+      alert('Jarvis IPC bridge is not connected. Check dev console.')
+      return
+    }
 
     setTimelineEvents([])
-    const initial = await window.jarvisAPI.submitGoal(goal, workspace)
-    setTaskState(initial)
+    try {
+      const initial = await window.jarvisAPI.submitGoal(goal, workspace)
+      setTaskState(initial)
+    } catch (err) {
+      console.error('[Jarvis Renderer] Error submitting goal:', err)
+    }
   }
 
   const handleResolveApproval = async (

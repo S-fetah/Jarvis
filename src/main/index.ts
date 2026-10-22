@@ -20,9 +20,11 @@ const settings: JarvisSettings = {
 }
 
 function createWindow(): void {
-  const preloadPath = fs.existsSync(join(__dirname, '../preload/index.mjs'))
-    ? join(__dirname, '../preload/index.mjs')
-    : join(__dirname, '../preload/index.js')
+  const preloadPath = fs.existsSync(join(__dirname, '../preload/index.cjs'))
+    ? join(__dirname, '../preload/index.cjs')
+    : fs.existsSync(join(__dirname, '../preload/index.mjs'))
+      ? join(__dirname, '../preload/index.mjs')
+      : join(__dirname, '../preload/index.js')
 
   console.log('[Jarvis Main] Preload path resolved:', preloadPath)
 
@@ -39,7 +41,7 @@ function createWindow(): void {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // sandbox: false ensures local preload scripts load reliably across Electron versions
+      sandbox: false,
       webSecurity: true
     }
   })

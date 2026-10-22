@@ -16,6 +16,10 @@ release/
 *.sqlite-shm
 output/
 
+# Documentation builds & slides
+docs/*.pdf
+docs/slides.html
+
 # Logs
 *.log
 npm-debug.log*
