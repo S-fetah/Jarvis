@@ -93,6 +93,15 @@ const api: JarvisAPI = {
 
   selectWorkspaceFolder: (): Promise<string | null> => {
     return ipcRenderer.invoke('workspace:select-folder')
+  },
+
+  // System & External Links
+  openExternalUrl: (url: string): Promise<void> => {
+    return ipcRenderer.invoke('system:open-external-url', url)
+  },
+
+  openFreeLLMDashboard: (): Promise<void> => {
+    return ipcRenderer.invoke('system:open-freellm-dashboard')
   }
 }
 

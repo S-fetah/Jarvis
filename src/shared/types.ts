@@ -140,4 +140,8 @@ export interface JarvisAPI {
   getSettings: () => Promise<JarvisSettings>
   updateSettings: (settings: Partial<JarvisSettings>) => Promise<JarvisSettings>
   selectWorkspaceFolder: () => Promise<string | null>
+
+  // System & External Links
+  openExternalUrl: (url: string) => Promise<void>
+  openFreeLLMDashboard: () => Promise<void>
 }

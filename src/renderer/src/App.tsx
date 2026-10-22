@@ -12,7 +12,9 @@ import {
   User,
   PanelLeftClose,
   PanelLeftOpen,
-  Sparkles
+  Sparkles,
+  KeyRound,
+  Cpu
 } from 'lucide-react'
 import {
   Conversation,
@@ -27,6 +29,8 @@ import { MarkdownRenderer } from './components/MarkdownRenderer'
 import { ThinkingBlock } from './components/ThinkingBlock'
 import { ModelSelector } from './components/ModelSelector'
 import { SettingsModal } from './components/SettingsModal'
+import { RateLimitCard } from './components/RateLimitCard'
+import { FreeModelsHubModal } from './components/FreeModelsHubModal'
 
 export default function App(): React.JSX.Element {
   // --- State Management ---
@@ -38,12 +42,13 @@ export default function App(): React.JSX.Element {
   const [currentThought, setCurrentThought] = useState('')
   const [currentReply, setCurrentReply] = useState('')
 
-  // UI Panels
+  // UI Modals & Drawers
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [timelineOpen, setTimelineOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hubOpen, setHubOpen] = useState(false)
 
-  // App Settings & Tasks
+  // App Settings & Models
   const [settings, setSettings] = useState<JarvisSettings>({
     gatewayUrl: 'http://127.0.0.1:31415/v1',
     defaultModel: 'gemini-3.6-flash',
@@ -91,7 +96,6 @@ export default function App(): React.JSX.Element {
         setActiveConvId(list[0].id)
         setMessages(list[0].messages || [])
       } else {
-        // Create initial conversation
         window.jarvisAPI.createConversation('Jarvis General Chat').then((newConv) => {
           setConversations([newConv])
           setActiveConvId(newConv.id)
@@ -188,14 +192,12 @@ export default function App(): React.JSX.Element {
     setCurrentReply('')
 
     try {
-      // Stream live response from LLM
       const res = await window.jarvisAPI.sendMessage(
         activeConvId,
         promptToSend,
         settings.workspacePaths[0]
       )
 
-      // Add finalized assistant message to state
       const finalAssistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -206,7 +208,6 @@ export default function App(): React.JSX.Element {
 
       setMessages((prev) => [...prev, finalAssistantMsg])
 
-      // Refresh conversations list to update titles/timestamps
       const updatedList = await window.jarvisAPI.getConversations()
       setConversations(updatedList)
     } catch (err: any) {
@@ -247,6 +248,13 @@ export default function App(): React.JSX.Element {
       const updated = await window.jarvisAPI.updateSettings({ workspacePaths: [selected] })
       setSettings(updated)
     }
+  }
+
+  // Refresh Catalog
+  const handleRefreshCatalog = async (): Promise<void> => {
+    if (!window.jarvisAPI) return
+    const catalog = await window.jarvisAPI.getAvailableModels()
+    setModelCatalog(catalog)
   }
 
   // Resolve ADR-004 Approvals
@@ -362,14 +370,24 @@ export default function App(): React.JSX.Element {
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Free Models & Keys Hub Button */}
+            <button
+              onClick={() => setHubOpen(true)}
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded-md bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-500/40 hover:border-blue-400 text-blue-200 transition"
+              title="Explore free model providers & get free API keys"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden sm:inline font-medium">Free Models Hub</span>
+            </button>
+
             {/* Workspace Directory Selector */}
             <button
               onClick={handleSelectWorkspace}
-              className="hidden md:flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded border border-[#30363d] bg-[#21262d] hover:bg-[#30363d] transition"
+              className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded border border-[#30363d] bg-[#21262d] hover:bg-[#30363d] transition"
               title="Select active workspace directory"
             >
               <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
-              <span className="truncate max-w-[160px]">{settings.workspacePaths[0] || 'Select Folder'}</span>
+              <span className="truncate max-w-[150px]">{settings.workspacePaths[0] || 'Select Folder'}</span>
             </button>
 
             {/* Model Selector & Fast Light Mode Switch */}
@@ -410,7 +428,7 @@ export default function App(): React.JSX.Element {
           {/* Chat Messages Section */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Scrollable Conversation Stream */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-5">
               {messages.length === 0 && !isStreaming ? (
                 /* Welcome Hero & Quick Suggestions */
                 <div className="h-full flex flex-col items-center justify-center max-w-xl mx-auto text-center px-4 space-y-6">
@@ -430,13 +448,13 @@ export default function App(): React.JSX.Element {
                   {/* Suggestion Chips */}
                   <div className="grid grid-cols-2 gap-2.5 w-full text-left">
                     <button
-                      onClick={() => handleSendMessage(undefined, 'Who are you and what models are available?')}
+                      onClick={() => handleSendMessage(undefined, 'What can you actually do and where is chat history saved?')}
                       className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-blue-500/60 hover:bg-[#1c2128] transition group text-xs"
                     >
                       <div className="font-semibold text-slate-200 group-hover:text-blue-300">
-                        Who are you & models?
+                        Capabilities & Local Storage
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Explore capabilities & models</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">Where SQLite history is stored</div>
                     </button>
 
                     <button
@@ -471,49 +489,86 @@ export default function App(): React.JSX.Element {
                   </div>
                 </div>
               ) : (
-                /* Message Bubbles */
+                /* Message Stream */
                 messages.map((msg) => {
                   const isUser = msg.role === 'user'
+
+                  // Check if message content is structured rate limit error
+                  let isRateLimit = false
+                  let rateLimitInfo: { retrySeconds?: number; model?: string } = {}
+                  try {
+                    const parsed = JSON.parse(msg.content)
+                    if (parsed.__rateLimit__) {
+                      isRateLimit = true
+                      rateLimitInfo = parsed
+                    }
+                  } catch {
+                    if (msg.content.includes('429') && msg.content.includes('rate_limit_exceeded')) {
+                      isRateLimit = true
+                    }
+                  }
+
                   return (
                     <div
                       key={msg.id}
                       className={`flex items-start space-x-3 ${isUser ? 'justify-end' : 'justify-start'}`}
                     >
                       {!isUser && (
-                        <div className="h-7 w-7 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center flex-shrink-0 mt-0.5 text-blue-300">
+                        <div className="h-7 w-7 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center flex-shrink-0 mt-1 text-blue-300">
                           <Bot className="w-4 h-4" />
                         </div>
                       )}
 
-                      <div
-                        className={`max-w-[85%] rounded-xl p-3.5 ${
-                          isUser
-                            ? 'bg-blue-600 text-white rounded-tr-none'
-                            : 'bg-[#161b22] border border-[#30363d] text-slate-200 rounded-tl-none shadow-md'
-                        }`}
-                      >
-                        {/* Thinking Block (If present) */}
+                      <div className={`max-w-[85%] flex flex-col space-y-2`}>
+                        {/* 1. SEPARATE THINKING CARD (If reasoning is recorded) */}
                         {!isUser && msg.reasoning && (
                           <ThinkingBlock reasoning={msg.reasoning} isStreaming={false} />
                         )}
 
-                        {/* Clean Markdown Response */}
+                        {/* 2. SEPARATE RESPONSE CARD */}
                         {isUser ? (
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                          <div className="bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-md">
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                            <div className="mt-1 text-[10px] text-blue-200 flex justify-end">
+                              {new Date(msg.timestamp).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                        ) : isRateLimit ? (
+                          <RateLimitCard
+                            initialSeconds={rateLimitInfo.retrySeconds || 75}
+                            model={rateLimitInfo.model || settings.defaultModel}
+                            onSwitchLightMode={() => handleToggleLightMode(true)}
+                            onOpenHub={() => setHubOpen(true)}
+                            onRetry={() => {
+                              const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+                              if (lastUserMsg) handleSendMessage(undefined, lastUserMsg.content)
+                            }}
+                          />
                         ) : (
-                          <MarkdownRenderer content={msg.content} />
-                        )}
+                          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl rounded-tl-none p-4 shadow-md text-slate-200 space-y-2">
+                            <MarkdownRenderer content={msg.content} />
 
-                        <div className="mt-1.5 text-[10px] text-slate-400/80 flex items-center justify-end">
-                          {new Date(msg.timestamp).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
+                            <div className="pt-2 border-t border-[#21262d] flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                              <span className="flex items-center space-x-1.5">
+                                <Cpu className="w-3 h-3 text-emerald-400" />
+                                <span>{settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel}</span>
+                              </span>
+                              <span>
+                                {new Date(msg.timestamp).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {isUser && (
-                        <div className="h-7 w-7 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5 text-slate-300">
+                        <div className="h-7 w-7 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1 text-slate-300">
                           <User className="w-4 h-4" />
                         </div>
                       )}
@@ -522,26 +577,28 @@ export default function App(): React.JSX.Element {
                 })
               )}
 
-              {/* Live Streaming Message */}
+              {/* Live Streaming Message Display */}
               {isStreaming && (
                 <div className="flex items-start space-x-3 justify-start animate-in fade-in duration-200">
-                  <div className="h-7 w-7 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center flex-shrink-0 mt-0.5 text-blue-300">
+                  <div className="h-7 w-7 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center flex-shrink-0 mt-1 text-blue-300">
                     <Bot className="w-4 h-4" />
                   </div>
 
-                  <div className="max-w-[85%] rounded-xl p-3.5 bg-[#161b22] border border-blue-500/40 text-slate-200 rounded-tl-none shadow-md">
+                  <div className="max-w-[85%] flex flex-col space-y-2 w-full">
                     {/* Live Thinking Block */}
                     {(currentThought || (!currentReply && isStreaming)) && (
                       <ThinkingBlock reasoning={currentThought} isStreaming={!currentReply} />
                     )}
 
-                    {/* Live Output Stream */}
+                    {/* Live Response Bubble */}
                     {currentReply ? (
-                      <MarkdownRenderer content={currentReply} />
+                      <div className="bg-[#161b22] border border-blue-500/40 rounded-2xl rounded-tl-none p-4 shadow-md text-slate-200 animate-in fade-in duration-150">
+                        <MarkdownRenderer content={currentReply} />
+                      </div>
                     ) : (
-                      <div className="flex items-center space-x-2 text-xs text-slate-400 py-1">
+                      <div className="bg-[#161b22]/70 border border-[#30363d] rounded-xl px-4 py-3 text-slate-400 text-xs flex items-center space-x-2">
                         <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping"></span>
-                        <span>Jarvis is generating response...</span>
+                        <span>Deliberating and preparing response...</span>
                       </div>
                     )}
                   </div>
@@ -714,10 +771,16 @@ export default function App(): React.JSX.Element {
           if (!window.jarvisAPI) return
           const newSettings = await window.jarvisAPI.updateSettings(updated)
           setSettings(newSettings)
-          // Refresh model catalog with updated settings
           const catalog = await window.jarvisAPI.getAvailableModels()
           setModelCatalog(catalog)
         }}
+      />
+
+      {/* --- Free Models & Providers Hub Modal --- */}
+      <FreeModelsHubModal
+        isOpen={hubOpen}
+        onClose={() => setHubOpen(false)}
+        onRefreshCatalog={handleRefreshCatalog}
       />
     </div>
   )

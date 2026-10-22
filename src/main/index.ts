@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -332,10 +332,30 @@ function registerIpcHandlers(): void {
         }
       } catch (err: any) {
         console.error('[Jarvis Main] Error in chatStream:', err)
-        const fallbackReply = `Gateway communication error: ${err.message || 'Model did not respond'}`
-        db.addMessage(conversationId, 'assistant', fallbackReply)
+        let replyContent = `Gateway communication error: ${err.message || 'Model did not respond'}`
+
+        try {
+          const parsed = JSON.parse(err.message)
+          if (parsed.isRateLimit) {
+            replyContent = JSON.stringify({
+              __rateLimit__: true,
+              retrySeconds: parsed.retrySeconds || 75,
+              model: parsed.model || settings.defaultModel
+            })
+          }
+        } catch {
+          if (err.message && err.message.includes('429')) {
+            replyContent = JSON.stringify({
+              __rateLimit__: true,
+              retrySeconds: 75,
+              model: settings.defaultModel
+            })
+          }
+        }
+
+        db.addMessage(conversationId, 'assistant', replyContent)
         return {
-          reply: fallbackReply,
+          reply: replyContent,
           reasoning: undefined
         }
       }
@@ -496,5 +516,16 @@ function registerIpcHandlers(): void {
       return result.filePaths[0]
     }
     return null
+  })
+
+  // System & External Links
+  ipcMain.handle('system:open-external-url', async (_, url: string) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      await shell.openExternal(url)
+    }
+  })
+
+  ipcMain.handle('system:open-freellm-dashboard', async () => {
+    await shell.openExternal('http://127.0.0.1:31415')
   })
 }

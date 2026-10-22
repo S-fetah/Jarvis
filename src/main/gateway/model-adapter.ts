@@ -158,16 +158,19 @@ export class ModelGatewayAdapter {
     options?: { model?: string; isLightMode?: boolean }
   ): Promise<{ reply: string; reasoning: string }> {
     const apiKey = await this.getEffectiveApiKey()
-    const chosenModel = options?.isLightMode
+    let chosenModel = options?.isLightMode
       ? this.config.lightModel || 'gemini-flash-lite'
       : options?.model || this.config.model
 
     const systemPrompt: ChatCompletionMessage = {
       role: 'system',
       content:
-        'You are Jarvis, an intelligent, assistive desktop AI assistant for Windows. ' +
-        'Always enclose your internal reasoning, step-by-step thinking, and execution plan within <think>...</think> tags. ' +
-        'After </think>, deliver your clean, helpful, concise response in GitHub-flavored markdown.'
+        'You are Jarvis, a local-first Windows AI assistant built with Electron, React, and TypeScript.\n\n' +
+        'Core Knowledge about your environment and capabilities:\n' +
+        '1. Storage: All conversation history and user settings are stored locally on the user\'s machine in a SQLite database located at `userData/jarvis.sqlite` within the app folder.\n' +
+        '2. Gateways & Models: You connect to a local FreeLLMAPI gateway (http://127.0.0.1:31415). FreeLLMAPI connects to free provider tiers (Google AI Studio Gemini, Groq, OpenRouter, GitHub Models, etc.). Multiple free keys can be configured in FreeLLMAPI to automatically rotate and avoid 429 rate limits.\n' +
+        '3. Assistive Autonomy (ADR-004): You safely inspect local workspaces and git status without prompt; file modifications, external network requests, and shell command executions (like starting dev servers) require explicit user approval.\n' +
+        '4. Thinking Protocol: Always enclose your internal reasoning, step-by-step thinking, and execution plan within <think>...</think> tags. After </think>, output your clean, direct, helpful response in GitHub-flavored markdown.'
     }
 
     const payloadMessages = [systemPrompt, ...messages]
@@ -176,7 +179,7 @@ export class ModelGatewayAdapter {
     let fullReasoning = ''
     let insideThinkTag = false
 
-    const sendRequest = async (attempt = 1): Promise<Response> => {
+    const sendRequest = async (modelToUse: string, attempt = 1): Promise<Response> => {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }
@@ -188,7 +191,7 @@ export class ModelGatewayAdapter {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: chosenModel,
+          model: modelToUse,
           messages: payloadMessages,
           stream: true,
           temperature: 0.3
@@ -196,22 +199,51 @@ export class ModelGatewayAdapter {
         signal: AbortSignal.timeout(45000)
       })
 
-      // ADR-003: Retry on transient 502/503/504
+      // Transient 502/503/504 retry
       if ([502, 503, 504].includes(res.status) && attempt <= 2) {
         console.warn(`[ModelGatewayAdapter] Received ${res.status}, retrying (attempt ${attempt})...`)
         await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
-        return sendRequest(attempt + 1)
+        return sendRequest(modelToUse, attempt + 1)
+      }
+
+      // Handle 429 Rate Limit: Try fallback to light model if not already using it
+      if (res.status === 429 && modelToUse !== 'gemini-flash-lite' && attempt === 1) {
+        console.warn(
+          `[ModelGatewayAdapter] Model ${modelToUse} rate limited (429), attempting fallback to gemini-flash-lite...`
+        )
+        return sendRequest('gemini-flash-lite', 2)
       }
 
       if (!res.ok) {
         const errorText = await res.text()
+        let retrySeconds = 75
+        try {
+          const parsed = JSON.parse(errorText)
+          const match = parsed?.error?.message?.match(/reset ~(\d+)s/)
+          if (match) {
+            retrySeconds = parseInt(match[1], 10)
+          } else if (parsed?.error?.retryAtMs) {
+            retrySeconds = Math.max(5, Math.round((parsed.error.retryAtMs - Date.now()) / 1000))
+          }
+        } catch {}
+
+        if (res.status === 429) {
+          throw new Error(
+            JSON.stringify({
+              isRateLimit: true,
+              retrySeconds,
+              model: modelToUse
+            })
+          )
+        }
+
         throw new Error(`Gateway returned HTTP ${res.status}: ${errorText}`)
       }
 
       return res
     }
 
-    const response = await sendRequest()
+    const response = await sendRequest(chosenModel)
     if (!response.body) {
       throw new Error('Response body is empty')
     }
@@ -325,7 +357,9 @@ export class ModelGatewayAdapter {
           }
         ],
         directResponse:
-          'I am Jarvis, an open-source, local-first Windows AI desktop assistant. I help you inspect codebases, synthesize PDF research documents, and execute approved development tasks using strict assistive autonomy (ADR-004).'
+          'I am Jarvis, an open-source, local-first Windows AI desktop assistant. ' +
+          'All your chats are saved locally in SQLite (`userData/jarvis.sqlite`). ' +
+          'I help you inspect codebases, execute approved tasks, and synthesize reports with strict assistive autonomy (ADR-004).'
       }
     }
 
