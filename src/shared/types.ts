@@ -96,9 +96,27 @@ export interface JarvisSettings {
   apiKey?: string
   defaultModel: string
   lightMode: boolean
+  mascotEnabled?: boolean
+  reduceMotion?: boolean
   workspacePaths: string[]
   theme: 'dark' | 'light' | 'system'
   outputDirectory: string
+}
+
+export type MascotState =
+  | 'loading'
+  | 'idle'
+  | 'attention'
+  | 'thinking'
+  | 'working'
+  | 'needsApproval'
+  | 'completed'
+  | 'error'
+  | 'hidden'
+
+export interface MascotPosition {
+  x: number
+  y: number
 }
 
 export interface ModelCatalog {
@@ -144,4 +162,17 @@ export interface JarvisAPI {
   // System & External Links
   openExternalUrl: (url: string) => Promise<void>
   openFreeLLMDashboard: () => Promise<void>
+
+  // Mascot Companion & Quick-Chat (Surfaces A & B)
+  getMascotState: () => Promise<MascotState>
+  setMascotState: (state: MascotState) => Promise<void>
+  getMascotPosition: () => Promise<MascotPosition>
+  moveMascotBy: (deltaX: number, deltaY: number) => Promise<void>
+  saveMascotPosition: () => Promise<void>
+  toggleQuickChat: () => Promise<void>
+  openQuickChat: () => Promise<void>
+  closeQuickChat: () => Promise<void>
+  openMainWindow: () => Promise<void>
+  toggleMascotVisibility: () => Promise<boolean>
+  onMascotStateChanged: (callback: (state: MascotState) => void) => () => void
 }

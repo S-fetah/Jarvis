@@ -14,7 +14,8 @@ import {
   PanelLeftOpen,
   Sparkles,
   KeyRound,
-  Cpu
+  Cpu,
+  Eye
 } from 'lucide-react'
 import {
   Conversation,
@@ -410,6 +411,20 @@ export default function App(): React.JSX.Element {
               title="Toggle activity and audit timeline"
             >
               <Activity className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Mascot Companion Toggle */}
+            <button
+              onClick={async () => {
+                if (window.jarvisAPI) {
+                  const visible = await window.jarvisAPI.toggleMascotVisibility()
+                  setSettings((prev) => ({ ...prev, mascotEnabled: visible }))
+                }
+              }}
+              className="p-1.5 rounded border border-[#30363d] bg-[#21262d] text-indigo-400 hover:text-white hover:border-indigo-500 transition"
+              title="Toggle Floating 3D Owl Mascot on Desktop"
+            >
+              <Eye className="w-3.5 h-3.5" />
             </button>
 
             {/* Settings Modal Button */}

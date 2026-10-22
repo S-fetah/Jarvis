@@ -17,6 +17,8 @@ export function SettingsModal({
 }: SettingsModalProps): React.JSX.Element | null {
   const [gatewayUrl, setGatewayUrl] = useState(settings.gatewayUrl || 'http://127.0.0.1:31415/v1')
   const [apiKey, setApiKey] = useState(settings.apiKey || '')
+  const [mascotEnabled, setMascotEnabled] = useState(settings.mascotEnabled !== false)
+  const [reduceMotion, setReduceMotion] = useState(settings.reduceMotion === true)
   const [showKey, setShowKey] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
@@ -29,7 +31,9 @@ export function SettingsModal({
     try {
       await onSave({
         gatewayUrl,
-        apiKey: apiKey.trim() ? apiKey.trim() : undefined
+        apiKey: apiKey.trim() ? apiKey.trim() : undefined,
+        mascotEnabled,
+        reduceMotion
       })
       setSavedSuccess(true)
       setTimeout(() => {
@@ -123,6 +127,33 @@ export function SettingsModal({
             <div className="flex items-center space-x-2 bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-slate-300 font-mono text-[11px]">
               <Folder className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
               <span className="truncate">{settings.workspacePaths[0] || 'Default'}</span>
+            </div>
+          </div>
+
+          {/* Mascot Companion Preferences */}
+          <div className="pt-2 border-t border-[#30363d] space-y-2">
+            <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              3D Mascot Desktop Companion
+            </label>
+            <div className="space-y-1.5">
+              <label className="flex items-center space-x-2 text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mascotEnabled}
+                  onChange={(e) => setMascotEnabled(e.target.checked)}
+                  className="rounded bg-[#0d1117] border-[#30363d] text-blue-600 focus:ring-0"
+                />
+                <span>Enable Floating 3D Owl Desktop Companion</span>
+              </label>
+              <label className="flex items-center space-x-2 text-slate-400 cursor-pointer text-[11px]">
+                <input
+                  type="checkbox"
+                  checked={reduceMotion}
+                  onChange={(e) => setReduceMotion(e.target.checked)}
+                  className="rounded bg-[#0d1117] border-[#30363d] text-blue-600 focus:ring-0"
+                />
+                <span>Reduce Motion (Minimal low-frequency animation)</span>
+              </label>
             </div>
           </div>
 

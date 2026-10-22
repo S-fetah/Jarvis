@@ -5,7 +5,9 @@ import {
   TaskState,
   TimelineEvent,
   Conversation,
-  ModelCatalog
+  ModelCatalog,
+  MascotState,
+  MascotPosition
 } from '../shared/types'
 
 const api: JarvisAPI = {
@@ -102,6 +104,53 @@ const api: JarvisAPI = {
 
   openFreeLLMDashboard: (): Promise<void> => {
     return ipcRenderer.invoke('system:open-freellm-dashboard')
+  },
+
+  // Mascot Companion & Quick-Chat (Surfaces A & B)
+  getMascotState: (): Promise<MascotState> => {
+    return ipcRenderer.invoke('mascot:get-state')
+  },
+
+  setMascotState: (state: MascotState): Promise<void> => {
+    return ipcRenderer.invoke('mascot:set-state', state)
+  },
+
+  getMascotPosition: (): Promise<MascotPosition> => {
+    return ipcRenderer.invoke('mascot:get-position')
+  },
+
+  moveMascotBy: (deltaX: number, deltaY: number): Promise<void> => {
+    return ipcRenderer.invoke('mascot:move-by', { deltaX, deltaY })
+  },
+
+  saveMascotPosition: (): Promise<void> => {
+    return ipcRenderer.invoke('mascot:save-position')
+  },
+
+  toggleQuickChat: (): Promise<void> => {
+    return ipcRenderer.invoke('mascot:toggle-quickchat')
+  },
+
+  openQuickChat: (): Promise<void> => {
+    return ipcRenderer.invoke('mascot:open-quickchat')
+  },
+
+  closeQuickChat: (): Promise<void> => {
+    return ipcRenderer.invoke('mascot:close-quickchat')
+  },
+
+  openMainWindow: (): Promise<void> => {
+    return ipcRenderer.invoke('mascot:open-main-window')
+  },
+
+  toggleMascotVisibility: (): Promise<boolean> => {
+    return ipcRenderer.invoke('mascot:toggle-visibility')
+  },
+
+  onMascotStateChanged: (callback: (state: MascotState) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: MascotState): void => callback(state)
+    ipcRenderer.on('mascot:state-changed', handler)
+    return () => ipcRenderer.removeListener('mascot:state-changed', handler)
   }
 }
 

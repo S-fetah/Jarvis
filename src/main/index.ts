@@ -5,9 +5,17 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { PolicyEngine } from './policy/policy-engine'
 import { ModelGatewayAdapter } from './gateway/model-adapter'
 import { JarvisDatabase } from './storage/database'
-import { TaskState, TimelineEvent, JarvisSettings, Conversation } from '../shared/types'
+import { MascotManager } from './windows/mascot-manager'
+import {
+  TaskState,
+  TimelineEvent,
+  JarvisSettings,
+  Conversation,
+  MascotState
+} from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
+let mascotManager: MascotManager | null = null
 const policyEngine = new PolicyEngine()
 
 // Persistent SQLite Storage
@@ -22,6 +30,8 @@ const settings: JarvisSettings = {
   apiKey: process.env.FREELLMAPI_API_KEY,
   defaultModel: 'gemini-3.6-flash',
   lightMode: false,
+  mascotEnabled: true,
+  reduceMotion: false,
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
   theme: 'dark',
   outputDirectory: 'C:\\work\\softwares\\jarvis\\output'
@@ -34,13 +44,16 @@ const modelAdapter = new ModelGatewayAdapter({
   lightModel: 'gemini-flash-lite'
 })
 
-function createWindow(): void {
-  const preloadPath = fs.existsSync(join(__dirname, '../preload/index.cjs'))
+function getPreloadPath(): string {
+  return fs.existsSync(join(__dirname, '../preload/index.cjs'))
     ? join(__dirname, '../preload/index.cjs')
     : fs.existsSync(join(__dirname, '../preload/index.mjs'))
       ? join(__dirname, '../preload/index.mjs')
       : join(__dirname, '../preload/index.js')
+}
 
+function createWindow(): void {
+  const preloadPath = getPreloadPath()
   console.log('[Jarvis Main] Preload path resolved:', preloadPath)
 
   mainWindow = new BrowserWindow({
@@ -66,6 +79,10 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+
   mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
     console.error('[Jarvis Main] did-fail-load:', errorCode, errorDescription, validatedURL)
   })
@@ -77,8 +94,8 @@ function createWindow(): void {
   // Enforce Content Security Policy (compatible with Vite dev server HMR in dev mode)
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     const csp = is.dev
-      ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 ws://localhost:5173; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173; style-src 'self' 'unsafe-inline' http://localhost:5173; img-src 'self' data: http://localhost:5173; connect-src 'self' http://localhost:5173 ws://localhost:5173 http://127.0.0.1:31415"
-      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:31415"
+      ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 ws://localhost:5173 blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 blob:; style-src 'self' 'unsafe-inline' http://localhost:5173; img-src 'self' data: blob: http://localhost:5173; connect-src 'self' http://localhost:5173 ws://localhost:5173 http://127.0.0.1:31415 blob: data:"
+      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:31415 blob: data:"
 
     callback({
       responseHeaders: {
@@ -105,7 +122,6 @@ app.whenReady().then(async () => {
     await db.initialize()
     console.log('[Jarvis Main] SQLite database initialized successfully at:', dbPath)
 
-    // Load persisted settings if any
     const savedApiKey = db.getSetting('apiKey')
     if (savedApiKey) settings.apiKey = savedApiKey
 
@@ -118,13 +134,15 @@ app.whenReady().then(async () => {
     const savedGatewayUrl = db.getSetting('gatewayUrl')
     if (savedGatewayUrl) settings.gatewayUrl = savedGatewayUrl
 
+    const savedMascot = db.getSetting('mascot_enabled')
+    if (savedMascot !== null) settings.mascotEnabled = savedMascot === 'true'
+
     modelAdapter.updateConfig({
       baseUrl: settings.gatewayUrl,
       apiKey: settings.apiKey,
       model: settings.defaultModel
     })
 
-    // Auto-create default conversation if empty
     const convs = db.getConversations()
     if (convs.length === 0) {
       db.createConversation('Jarvis General Chat')
@@ -137,6 +155,21 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  const preloadPath = getPreloadPath()
+
+  // Initialize Mascot & Quick-Chat Manager (Surfaces A & B)
+  mascotManager = new MascotManager(
+    db,
+    preloadPath,
+    is.dev,
+    process.env['ELECTRON_RENDERER_URL'],
+    () => mainWindow
+  )
+
+  if (settings.mascotEnabled !== false) {
+    mascotManager.init()
+  }
+
   registerIpcHandlers()
   createWindow()
 
@@ -146,22 +179,38 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // If mascot is enabled and floating, do not quit app on mainWindow close
+  if (!settings.mascotEnabled && process.platform !== 'darwin') {
     app.quit()
   }
 })
 
+function broadcastToWindows(channel: string, ...args: any[]): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(channel, ...args)
+    }
+  }
+}
+
 function sendTaskUpdate(state: TaskState): void {
   activeTask = state
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('task:updated', state)
+  broadcastToWindows('task:updated', state)
+
+  if (state.status === 'waiting_for_approval') {
+    mascotManager?.setMascotState('needsApproval')
+  } else if (state.status === 'completed') {
+    mascotManager?.setMascotState('completed')
+  } else if (state.status === 'cancelled') {
+    mascotManager?.setMascotState('error')
+  } else if (state.status === 'running') {
+    mascotManager?.setMascotState('working')
   }
 }
 
 function sendTimelineEvent(event: TimelineEvent): void {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('timeline:event', event)
-  }
+  broadcastToWindows('timeline:event', event)
 }
 
 function executeNextStep(task: TaskState, stepIndex: number, workspacePath: string): void {
@@ -184,7 +233,6 @@ function executeNextStep(task: TaskState, stepIndex: number, workspacePath: stri
   step.status = 'in_progress'
   sendTaskUpdate({ ...task, updatedAt: Date.now() })
 
-  // Route step execution by category / action
   if (step.category === 'read_in') {
     const res = policyEngine.evaluateAction({
       actionType: 'workspace_list',
@@ -227,7 +275,6 @@ function executeNextStep(task: TaskState, stepIndex: number, workspacePath: stri
     step.status = 'completed'
     setTimeout(() => executeNextStep(task, stepIndex + 1, workspacePath), 800)
   } else if (step.category === 'process') {
-    // Process requires explicit approval per ADR-004
     const evalRes = policyEngine.evaluateAction({
       actionType: 'start_dev_server',
       workspacePath,
@@ -281,7 +328,7 @@ function registerIpcHandlers(): void {
     return true
   })
 
-  // --- Live LLM Streaming Chat with Thinking & Persistence ---
+  // --- Live LLM Streaming Chat ---
   ipcMain.handle(
     'chat:send',
     async (
@@ -296,10 +343,9 @@ function registerIpcHandlers(): void {
         workspacePath?: string
       }
     ) => {
-      // 1. Save user message to SQLite
       db.addMessage(conversationId, 'user', content)
+      mascotManager?.setMascotState('thinking')
 
-      // 2. Fetch past conversation context (last 8 messages)
       const pastMessages = db.getMessages(conversationId).slice(-8).map((m) => ({
         role: m.role,
         content: m.content
@@ -309,13 +355,11 @@ function registerIpcHandlers(): void {
         const streamResult = await modelAdapter.chatStream(
           pastMessages,
           (chunkData) => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('chat:stream', {
-                conversationId,
-                chunk: chunkData.chunk,
-                type: chunkData.type
-              })
-            }
+            broadcastToWindows('chat:stream', {
+              conversationId,
+              chunk: chunkData.chunk,
+              type: chunkData.type
+            })
           },
           {
             model: settings.defaultModel,
@@ -323,8 +367,8 @@ function registerIpcHandlers(): void {
           }
         )
 
-        // 3. Persist assistant reply and internal reasoning in SQLite
         db.addMessage(conversationId, 'assistant', streamResult.reply, streamResult.reasoning)
+        mascotManager?.setMascotState('idle')
 
         return {
           reply: streamResult.reply,
@@ -354,6 +398,8 @@ function registerIpcHandlers(): void {
         }
 
         db.addMessage(conversationId, 'assistant', replyContent)
+        mascotManager?.setMascotState('error')
+
         return {
           reply: replyContent,
           reasoning: undefined
@@ -384,7 +430,6 @@ function registerIpcHandlers(): void {
 
     const planResult = await modelAdapter.generatePlanForGoal(goal, chosenWorkspace)
 
-    // Direct Conversational Response
     if (planResult.directResponse) {
       const finishedState: TaskState = {
         id: taskId,
@@ -411,7 +456,6 @@ function registerIpcHandlers(): void {
       return finishedState
     }
 
-    // Operational Task Execution
     const initialState: TaskState = {
       id: taskId,
       goal,
@@ -496,6 +540,14 @@ function registerIpcHandlers(): void {
     if (newSettings.gatewayUrl !== undefined) {
       db.setSetting('gatewayUrl', newSettings.gatewayUrl)
     }
+    if (newSettings.mascotEnabled !== undefined) {
+      db.setSetting('mascot_enabled', String(newSettings.mascotEnabled))
+      if (newSettings.mascotEnabled) {
+        mascotManager?.createMascotWindow()
+      } else {
+        mascotManager?.dispose()
+      }
+    }
 
     modelAdapter.updateConfig({
       baseUrl: settings.gatewayUrl,
@@ -518,7 +570,7 @@ function registerIpcHandlers(): void {
     return null
   })
 
-  // System & External Links
+  // --- System & External Links ---
   ipcMain.handle('system:open-external-url', async (_, url: string) => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       await shell.openExternal(url)
@@ -527,5 +579,46 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('system:open-freellm-dashboard', async () => {
     await shell.openExternal('http://127.0.0.1:31415')
+  })
+
+  // --- Mascot & Quick-Chat (Surfaces A & B) ---
+  ipcMain.handle('mascot:get-state', async (): Promise<MascotState> => {
+    return mascotManager ? mascotManager.getMascotState() : 'idle'
+  })
+
+  ipcMain.handle('mascot:set-state', async (_, state: MascotState) => {
+    mascotManager?.setMascotState(state)
+  })
+
+  ipcMain.handle('mascot:get-position', async () => {
+    return mascotManager ? mascotManager.getMascotPosition() : { x: 0, y: 0 }
+  })
+
+  ipcMain.handle('mascot:move-by', async (_, { deltaX, deltaY }) => {
+    mascotManager?.moveMascotBy(deltaX, deltaY)
+  })
+
+  ipcMain.handle('mascot:save-position', async () => {
+    mascotManager?.saveMascotPosition()
+  })
+
+  ipcMain.handle('mascot:toggle-quickchat', async () => {
+    mascotManager?.toggleQuickChat()
+  })
+
+  ipcMain.handle('mascot:open-quickchat', async () => {
+    mascotManager?.openQuickChat()
+  })
+
+  ipcMain.handle('mascot:close-quickchat', async () => {
+    mascotManager?.closeQuickChat()
+  })
+
+  ipcMain.handle('mascot:open-main-window', async () => {
+    mascotManager?.openMainWindow()
+  })
+
+  ipcMain.handle('mascot:toggle-visibility', async () => {
+    return mascotManager ? mascotManager.toggleMascotVisibility() : false
   })
 }
