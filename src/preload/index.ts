@@ -1,7 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { JarvisAPI, JarvisSettings, TaskState, TimelineEvent } from '../shared/types'
+import {
+  JarvisAPI,
+  JarvisSettings,
+  TaskState,
+  TimelineEvent,
+  Conversation,
+  ModelCatalog
+} from '../shared/types'
 
 const api: JarvisAPI = {
+  // Task Control
   submitGoal: (goal: string, workspacePath?: string): Promise<TaskState> => {
     return ipcRenderer.invoke('task:submit-goal', { goal, workspacePath })
   },
@@ -14,10 +22,42 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('task:get-state', taskId)
   },
 
+  // Conversation & Chat History
+  getConversations: (): Promise<Conversation[]> => {
+    return ipcRenderer.invoke('conversation:list')
+  },
+
+  getActiveConversation: (): Promise<Conversation> => {
+    return ipcRenderer.invoke('conversation:get-active')
+  },
+
+  createConversation: (title?: string): Promise<Conversation> => {
+    return ipcRenderer.invoke('conversation:create', title)
+  },
+
+  deleteConversation: (id: string): Promise<boolean> => {
+    return ipcRenderer.invoke('conversation:delete', id)
+  },
+
+  sendMessage: (
+    conversationId: string,
+    content: string,
+    workspacePath?: string
+  ): Promise<{ reply: string; reasoning?: string; task?: TaskState }> => {
+    return ipcRenderer.invoke('chat:send', { conversationId, content, workspacePath })
+  },
+
+  // Models & Gateway
+  getAvailableModels: (): Promise<ModelCatalog> => {
+    return ipcRenderer.invoke('models:list')
+  },
+
+  // Approvals (ADR-004)
   resolveApproval: (approvalId: string, decision: 'granted' | 'denied'): Promise<boolean> => {
     return ipcRenderer.invoke('approval:resolve', { approvalId, decision })
   },
 
+  // Events & Subscriptions
   onTaskUpdated: (callback: (state: TaskState) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, state: TaskState): void => callback(state)
     ipcRenderer.on('task:updated', handler)
@@ -31,6 +71,18 @@ const api: JarvisAPI = {
     return () => ipcRenderer.removeListener('timeline:event', handler)
   },
 
+  onMessageStream: (
+    callback: (data: { conversationId: string; chunk: string; type: 'thought' | 'content' }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { conversationId: string; chunk: string; type: 'thought' | 'content' }
+    ): void => callback(data)
+    ipcRenderer.on('chat:stream', handler)
+    return () => ipcRenderer.removeListener('chat:stream', handler)
+  },
+
+  // Settings & Workspaces
   getSettings: (): Promise<JarvisSettings> => {
     return ipcRenderer.invoke('settings:get')
   },

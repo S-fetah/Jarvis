@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import initSqlJs, { Database } from 'sql.js'
+import { Conversation, ChatMessage } from '../../shared/types'
 
 export class JarvisDatabase {
   private db: Database | null = null
@@ -23,9 +24,10 @@ export class JarvisDatabase {
       this.db = new SQL.Database(buffer)
     } else {
       this.db = new SQL.Database()
-      this.applyMigrations()
-      this.save()
     }
+
+    this.applyMigrations()
+    this.save()
   }
 
   private applyMigrations(): void {
@@ -68,7 +70,137 @@ export class JarvisDatabase {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS conversations (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        reasoning TEXT,
+        timestamp INTEGER NOT NULL
+      );
     `)
+  }
+
+  public getConversations(): Conversation[] {
+    if (!this.db) return []
+    const stmt = this.db.prepare(
+      'SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC'
+    )
+    const list: Conversation[] = []
+    while (stmt.step()) {
+      const row = stmt.getAsObject()
+      const convId = row.id as string
+      list.push({
+        id: convId,
+        title: row.title as string,
+        createdAt: row.created_at as number,
+        updatedAt: row.updated_at as number,
+        messages: this.getMessages(convId)
+      })
+    }
+    stmt.free()
+    return list
+  }
+
+  public getMessages(conversationId: string): ChatMessage[] {
+    if (!this.db) return []
+    const stmt = this.db.prepare(
+      'SELECT id, role, content, reasoning, timestamp FROM messages WHERE conversation_id = :id ORDER BY timestamp ASC'
+    )
+    stmt.bind({ ':id': conversationId })
+    const msgs: ChatMessage[] = []
+    while (stmt.step()) {
+      const row = stmt.getAsObject()
+      msgs.push({
+        id: row.id as string,
+        role: row.role as 'user' | 'assistant',
+        content: row.content as string,
+        reasoning: (row.reasoning as string) || undefined,
+        timestamp: row.timestamp as number
+      })
+    }
+    stmt.free()
+    return msgs
+  }
+
+  public createConversation(title?: string): Conversation {
+    if (!this.db) throw new Error('DB not initialized')
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    const convTitle = title || 'New Conversation'
+
+    this.db.run(
+      'INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      [id, convTitle, now, now]
+    )
+    this.save()
+
+    return {
+      id,
+      title: convTitle,
+      createdAt: now,
+      updatedAt: now,
+      messages: []
+    }
+  }
+
+  public addMessage(
+    conversationId: string,
+    role: 'user' | 'assistant',
+    content: string,
+    reasoning?: string
+  ): ChatMessage {
+    if (!this.db) throw new Error('DB not initialized')
+    const id = crypto.randomUUID()
+    const now = Date.now()
+
+    this.db.run(
+      'INSERT INTO messages (id, conversation_id, role, content, reasoning, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, conversationId, role, content, reasoning || null, now]
+    )
+    this.db.run('UPDATE conversations SET updated_at = ? WHERE id = ?', [now, conversationId])
+    this.save()
+
+    return {
+      id,
+      role,
+      content,
+      reasoning,
+      timestamp: now
+    }
+  }
+
+  public deleteConversation(id: string): void {
+    if (!this.db) return
+    this.db.run('DELETE FROM messages WHERE conversation_id = ?', [id])
+    this.db.run('DELETE FROM conversations WHERE id = ?', [id])
+    this.save()
+  }
+
+  public getSetting(key: string): string | null {
+    if (!this.db) return null
+    const stmt = this.db.prepare('SELECT value FROM settings WHERE key = :key')
+    stmt.bind({ ':key': key })
+    let val: string | null = null
+    if (stmt.step()) {
+      val = stmt.getAsObject().value as string
+    }
+    stmt.free()
+    return val
+  }
+
+  public setSetting(key: string, value: string): void {
+    if (!this.db) return
+    this.db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value])
+    this.save()
   }
 
   public save(): void {

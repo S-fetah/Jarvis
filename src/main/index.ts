@@ -4,10 +4,15 @@ import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { PolicyEngine } from './policy/policy-engine'
 import { ModelGatewayAdapter } from './gateway/model-adapter'
-import { TaskState, TimelineEvent, JarvisSettings } from '../shared/types'
+import { JarvisDatabase } from './storage/database'
+import { TaskState, TimelineEvent, JarvisSettings, Conversation } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
 const policyEngine = new PolicyEngine()
+
+// Persistent SQLite Storage
+const dbPath = join(process.cwd(), 'userData', 'jarvis.sqlite')
+const db = new JarvisDatabase(dbPath)
 
 // In-memory runtime state for tasks
 let activeTask: TaskState | null = null
@@ -16,6 +21,7 @@ const settings: JarvisSettings = {
   gatewayUrl: 'http://127.0.0.1:31415/v1',
   apiKey: process.env.FREELLMAPI_API_KEY,
   defaultModel: 'gemini-3.6-flash',
+  lightMode: false,
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
   theme: 'dark',
   outputDirectory: 'C:\\work\\softwares\\jarvis\\output'
@@ -24,7 +30,8 @@ const settings: JarvisSettings = {
 const modelAdapter = new ModelGatewayAdapter({
   baseUrl: settings.gatewayUrl,
   apiKey: settings.apiKey,
-  model: settings.defaultModel
+  model: settings.defaultModel,
+  lightModel: 'gemini-flash-lite'
 })
 
 function createWindow(): void {
@@ -37,10 +44,10 @@ function createWindow(): void {
   console.log('[Jarvis Main] Preload path resolved:', preloadPath)
 
   mainWindow = new BrowserWindow({
-    width: 1050,
-    height: 720,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1200,
+    height: 800,
+    minWidth: 850,
+    minHeight: 620,
     show: false,
     autoHideMenuBar: true,
     title: 'Jarvis — Personal AI Assistant',
@@ -85,14 +92,46 @@ function createWindow(): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     console.log('[Jarvis Main] Loading dev URL:', process.env['ELECTRON_RENDERER_URL'])
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.jarvis.desktop')
+
+  // Initialize SQLite storage
+  try {
+    await db.initialize()
+    console.log('[Jarvis Main] SQLite database initialized successfully at:', dbPath)
+
+    // Load persisted settings if any
+    const savedApiKey = db.getSetting('apiKey')
+    if (savedApiKey) settings.apiKey = savedApiKey
+
+    const savedModel = db.getSetting('defaultModel')
+    if (savedModel) settings.defaultModel = savedModel
+
+    const savedLightMode = db.getSetting('lightMode')
+    if (savedLightMode !== null) settings.lightMode = savedLightMode === 'true'
+
+    const savedGatewayUrl = db.getSetting('gatewayUrl')
+    if (savedGatewayUrl) settings.gatewayUrl = savedGatewayUrl
+
+    modelAdapter.updateConfig({
+      baseUrl: settings.gatewayUrl,
+      apiKey: settings.apiKey,
+      model: settings.defaultModel
+    })
+
+    // Auto-create default conversation if empty
+    const convs = db.getConversations()
+    if (convs.length === 0) {
+      db.createConversation('Jarvis General Chat')
+    }
+  } catch (err) {
+    console.error('[Jarvis Main] Failed to initialize SQLite:', err)
+  }
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -114,11 +153,15 @@ app.on('window-all-closed', () => {
 
 function sendTaskUpdate(state: TaskState): void {
   activeTask = state
-  mainWindow?.webContents.send('task:updated', state)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('task:updated', state)
+  }
 }
 
 function sendTimelineEvent(event: TimelineEvent): void {
-  mainWindow?.webContents.send('timeline:event', event)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('timeline:event', event)
+  }
 }
 
 function executeNextStep(task: TaskState, stepIndex: number, workspacePath: string): void {
@@ -192,7 +235,8 @@ function executeNextStep(task: TaskState, stepIndex: number, workspacePath: stri
       title: 'Start Development Server (npm run dev)',
       workingDirectory: workspacePath,
       explanation: 'Starts the project development server to serve the frontend on local port 3000.',
-      safetyImpact: 'Spawns a local Node child process listening on port 3000. Jarvis tracks its PID and can stop it anytime.',
+      safetyImpact:
+        'Spawns a local Node child process listening on port 3000. Jarvis tracks its PID and can stop it anytime.',
       arguments: { command: 'npm run dev', script: 'dev', port: 3000, workingDirectory: workspacePath }
     })
 
@@ -215,10 +259,99 @@ function executeNextStep(task: TaskState, stepIndex: number, workspacePath: stri
 }
 
 function registerIpcHandlers(): void {
-  // Task submission & dynamic execution
+  // --- Conversations & Chat History ---
+  ipcMain.handle('conversation:list', async () => {
+    return db.getConversations()
+  })
+
+  ipcMain.handle('conversation:get-active', async (): Promise<Conversation> => {
+    const list = db.getConversations()
+    if (list.length > 0) {
+      return list[0]
+    }
+    return db.createConversation('Jarvis General Chat')
+  })
+
+  ipcMain.handle('conversation:create', async (_, title?: string) => {
+    return db.createConversation(title)
+  })
+
+  ipcMain.handle('conversation:delete', async (_, id: string) => {
+    db.deleteConversation(id)
+    return true
+  })
+
+  // --- Live LLM Streaming Chat with Thinking & Persistence ---
+  ipcMain.handle(
+    'chat:send',
+    async (
+      _,
+      {
+        conversationId,
+        content,
+        workspacePath: _workspacePath
+      }: {
+        conversationId: string
+        content: string
+        workspacePath?: string
+      }
+    ) => {
+      // 1. Save user message to SQLite
+      db.addMessage(conversationId, 'user', content)
+
+      // 2. Fetch past conversation context (last 8 messages)
+      const pastMessages = db.getMessages(conversationId).slice(-8).map((m) => ({
+        role: m.role,
+        content: m.content
+      }))
+
+      try {
+        const streamResult = await modelAdapter.chatStream(
+          pastMessages,
+          (chunkData) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('chat:stream', {
+                conversationId,
+                chunk: chunkData.chunk,
+                type: chunkData.type
+              })
+            }
+          },
+          {
+            model: settings.defaultModel,
+            isLightMode: settings.lightMode
+          }
+        )
+
+        // 3. Persist assistant reply and internal reasoning in SQLite
+        db.addMessage(conversationId, 'assistant', streamResult.reply, streamResult.reasoning)
+
+        return {
+          reply: streamResult.reply,
+          reasoning: streamResult.reasoning
+        }
+      } catch (err: any) {
+        console.error('[Jarvis Main] Error in chatStream:', err)
+        const fallbackReply = `Gateway communication error: ${err.message || 'Model did not respond'}`
+        db.addMessage(conversationId, 'assistant', fallbackReply)
+        return {
+          reply: fallbackReply,
+          reasoning: undefined
+        }
+      }
+    }
+  )
+
+  // --- Model Catalog & Discovery ---
+  ipcMain.handle('models:list', async () => {
+    return await modelAdapter.listModels()
+  })
+
+  // --- Task submission & dynamic execution ---
   ipcMain.handle('task:submit-goal', async (_, { goal, workspacePath }) => {
     const taskId = crypto.randomUUID()
-    const chosenWorkspace = workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
+    const chosenWorkspace =
+      workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
 
     sendTimelineEvent({
       id: crypto.randomUUID(),
@@ -229,17 +362,16 @@ function registerIpcHandlers(): void {
       details: goal
     })
 
-    // Plan generation via ModelGatewayAdapter
     const planResult = await modelAdapter.generatePlanForGoal(goal, chosenWorkspace)
 
-    // Direct Conversational Response (e.g. "who are u ?")
+    // Direct Conversational Response
     if (planResult.directResponse) {
       const finishedState: TaskState = {
         id: taskId,
         goal,
         status: 'completed',
         workspacePath: chosenWorkspace,
-        activeModel: settings.defaultModel,
+        activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
         steps: planResult.steps,
         activeStepId: planResult.steps[0]?.id,
         createdAt: Date.now(),
@@ -247,7 +379,6 @@ function registerIpcHandlers(): void {
       }
 
       sendTaskUpdate(finishedState)
-
       sendTimelineEvent({
         id: crypto.randomUUID(),
         taskId,
@@ -266,7 +397,7 @@ function registerIpcHandlers(): void {
       goal,
       status: 'running',
       workspacePath: chosenWorkspace,
-      activeModel: settings.defaultModel,
+      activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
       steps: planResult.steps,
       activeStepId: planResult.steps[0]?.id,
       createdAt: Date.now(),
@@ -275,7 +406,6 @@ function registerIpcHandlers(): void {
 
     sendTaskUpdate(initialState)
 
-    // Sequentially process steps
     setTimeout(() => {
       executeNextStep(initialState, 0, chosenWorkspace)
     }, 500)
@@ -283,7 +413,7 @@ function registerIpcHandlers(): void {
     return initialState
   })
 
-  // Approval resolution
+  // --- Approvals (ADR-004 Gating) ---
   ipcMain.handle('approval:resolve', async (_, { approvalId, decision }) => {
     const success = policyEngine.resolveApproval(approvalId, decision)
     if (!success || !activeTask) return false
@@ -299,8 +429,7 @@ function registerIpcHandlers(): void {
 
     const task = activeTask
     const currentStep =
-      task.steps.find((s) => s.id === task.activeStepId) ||
-      task.steps[task.steps.length - 1]
+      task.steps.find((s) => s.id === task.activeStepId) || task.steps[task.steps.length - 1]
 
     if (decision === 'granted') {
       if (currentStep) currentStep.status = 'completed'
@@ -329,10 +458,31 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('task:get-state', async () => activeTask)
 
+  // --- Settings ---
   ipcMain.handle('settings:get', async () => settings)
 
-  ipcMain.handle('settings:update', async (_, newSettings) => {
+  ipcMain.handle('settings:update', async (_, newSettings: Partial<JarvisSettings>) => {
     Object.assign(settings, newSettings)
+
+    if (newSettings.apiKey !== undefined) {
+      db.setSetting('apiKey', newSettings.apiKey)
+    }
+    if (newSettings.defaultModel !== undefined) {
+      db.setSetting('defaultModel', newSettings.defaultModel)
+    }
+    if (newSettings.lightMode !== undefined) {
+      db.setSetting('lightMode', String(newSettings.lightMode))
+    }
+    if (newSettings.gatewayUrl !== undefined) {
+      db.setSetting('gatewayUrl', newSettings.gatewayUrl)
+    }
+
+    modelAdapter.updateConfig({
+      baseUrl: settings.gatewayUrl,
+      apiKey: settings.apiKey,
+      model: settings.defaultModel
+    })
+
     return settings
   })
 

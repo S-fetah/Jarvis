@@ -75,13 +75,35 @@ export interface TimelineEvent {
   metadata?: Record<string, unknown>
 }
 
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  reasoning?: string
+  timestamp: number
+}
+
+export interface Conversation {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: ChatMessage[]
+}
+
 export interface JarvisSettings {
   gatewayUrl: string
   apiKey?: string
   defaultModel: string
+  lightMode: boolean
   workspacePaths: string[]
   theme: 'dark' | 'light' | 'system'
   outputDirectory: string
+}
+
+export interface ModelCatalog {
+  all: string[]
+  light: string[]
 }
 
 export interface JarvisAPI {
@@ -90,12 +112,29 @@ export interface JarvisAPI {
   cancelTask: (taskId: string) => Promise<void>
   getTaskState: (taskId: string) => Promise<TaskState | null>
 
+  // Conversation & Chat History
+  getConversations: () => Promise<Conversation[]>
+  getActiveConversation: () => Promise<Conversation>
+  createConversation: (title?: string) => Promise<Conversation>
+  deleteConversation: (id: string) => Promise<boolean>
+  sendMessage: (
+    conversationId: string,
+    content: string,
+    workspacePath?: string
+  ) => Promise<{ reply: string; reasoning?: string; task?: TaskState }>
+
+  // Models & Gateway
+  getAvailableModels: () => Promise<ModelCatalog>
+
   // Approvals (ADR-004)
   resolveApproval: (approvalId: string, decision: 'granted' | 'denied') => Promise<boolean>
 
   // Events & Subscriptions
   onTaskUpdated: (callback: (state: TaskState) => void) => () => void
   onTimelineEvent: (callback: (event: TimelineEvent) => void) => () => void
+  onMessageStream: (
+    callback: (data: { conversationId: string; chunk: string; type: 'thought' | 'content' }) => void
+  ) => () => void
 
   // Settings & Workspaces
   getSettings: () => Promise<JarvisSettings>
