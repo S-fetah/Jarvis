@@ -96,7 +96,8 @@ Remove-Item Env:\FREELLMAPI_API_KEY -ErrorAction SilentlyContinue
 
 ```toml
 model_provider = "freellmapi"
-model = "auto"
+# Pinned 2026-10-22 from the live listing (279 models): gemini-3.6-flash proven in T-001 streaming.
+model = "gemini-3.6-flash"
 
 [model_providers.freellmapi]
 name = "FreeLLMAPI (local)"
@@ -106,7 +107,7 @@ wire_api = "chat"
 ```
 
 No secrets: the key comes from the `FREELLMAPI_API_KEY` environment variable set per session.
-Set `model = "<concrete id>"` before the recorded runs. Delete this file when T-002 closes.
+Delete this file when T-002 closes.
 
 ## Results template
 

@@ -32,16 +32,9 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 
 ## Immediate next step — T-002: run the benchmark sessions
 
-Everything is set up; what remains is running and recording. Full protocol: `docs/t002-benchmark.md`.
+Everything is set up and the model is pinned; what remains is running and recording. Full protocol: `docs/t002-benchmark.md`.
 
-1. **Pin a concrete model** (T-001 finding: `auto` routing is non-deterministic; it also triggers a "fallback metadata" warning). List ids and edit the user-level config:
-
-```powershell
-Set-Location C:\work\softwares\jarvis
-$env:FREELLMAPI_API_KEY = [System.Net.NetworkCredential]::new('', (Read-Host -Prompt 'FreeLLMAPI key (input is hidden)' -AsSecureString)).Password; node .\scripts\list-gateway-models.mjs; Remove-Item Env:\FREELLMAPI_API_KEY -ErrorAction SilentlyContinue
-```
-
-Then set `model = "<chosen id>"` in `%USERPROFILE%\.openinterpreter\config.toml` (prefer a `google/gemini-*` id seen in T-001 routing).
+1. ~~Pin a concrete model~~ — **done 2026-10-22**: `model = "gemini-3.6-flash"` (279-model live listing; chosen because T-001 proved it in streaming). If chat turns fail on it, swap to another id via `scripts/list-gateway-models.mjs` — the config to edit is `%USERPROFILE%\.openinterpreter\config.toml`.
 
 2. **Run the benchmark** (prompts in `C:\work\t002-sandbox\TASKS.md`, one at a time, recording after each):
 

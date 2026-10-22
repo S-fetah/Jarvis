@@ -31,4 +31,4 @@ console.log(`${ids.length} models available. First ${Math.min(20, ids.length)}:`
 for (const id of ids.slice(0, 20)) {
   console.log(`  ${id}`);
 }
-console.log("Pick one concrete id to pin in C:\\work\\t002-sandbox\\.openinterpreter\\config.toml (model = \"...\").");
+console.log("Pick one concrete id to pin in %USERPROFILE%\\.openinterpreter\\config.toml (model = \"...\") — that is the ACTIVE config; the sandbox copy is an inert template.");

@@ -23,7 +23,7 @@ This file records implementation progress against [the working plan](./Jarvis_Pr
 | Ticket | Status | Notes |
 | --- | --- | --- |
 | T-001 — Validate FreeLLMAPI locally | Complete | 2026-10-21 22:27: models ✓ (278, 78 ms); chat ✓ (`PONG`, 1.4 s); streaming ✓ (connection 3.3 s, body 66 ms); tool-call ✓ (`get_time`, ~64 s incl. one retried upstream 502). Limitations recorded in `docs/spike-results.md`: non-deterministic `auto` routing, occasional upstream 502, wide latency spread. |
-| T-002 — Benchmark an existing desktop agent | In progress | Setup complete and wiring verified 2026-10-21: Open Interpreter 0.0.56 (Rust TUI — the planned "Desktop" app no longer ships) installed; gateway registered as custom provider in user-level config (`env_key`, no stored secrets); keyless exec confirmed the tool stops exactly at the key boundary (provider + base URL accepted). Sandbox `C:\work\t002-sandbox`; protocol `docs/t002-benchmark.md`. Remaining: pin a concrete model, run B1–B6, record results. |
+| T-002 — Benchmark an existing desktop agent | In progress | Setup complete and wiring verified 2026-10-21; model pinned 2026-10-22 (`gemini-3.6-flash` from the 279-model listing, proven in T-001 streaming) in the user-level config. Sandbox `C:\work\t002-sandbox`; protocol `docs/t002-benchmark.md`. Remaining: run B1–B6, record results. |
 | T-003 through T-012 | Not started | Follow the defined order in the working plan. |
 
 ## Completed in this repository
