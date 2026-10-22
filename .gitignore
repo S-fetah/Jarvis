@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+out/
+dist/
+release/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# SQLite databases & temp files
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
