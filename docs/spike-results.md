@@ -85,6 +85,37 @@ The planned mitigation is documented in `docs/decisions/ADR-001-response-latency
 
 `scripts/validate-freellmapi.mjs` performs the remaining model-listing, basic-chat, streaming, and non-executed tool-call checks. It reads the unified key only from the `FREELLMAPI_API_KEY` environment variable of the process that runs it and does not write or log that key.
 
+## T-002 — Open Interpreter benchmark (2026-10-22)
+
+Target: Open Interpreter 0.0.56 (Rust TUI) against the local gateway, in a disposable sandbox (`C:\work\t002-sandbox`). Provider registered as a custom OpenAI-compatible endpoint with an env-var key (`FREELLMAPI_API_KEY`, never stored). Session: FreeLLMAPI (local) / `gpt-6-astra`, reasoning high, Native harness, non-admin sandbox. Full protocol and per-test records: `docs/t002-benchmark.md`.
+
+### Results
+
+- **B1 connectivity: PASS** — correct workspace listing, replied READY, 1 m 48 s turn.
+- **B2 read-only inspection: PASS** — accurate five-bullet summary; workspace hashes unchanged.
+- **B3 file creation: PASS** — valid `summary.pdf` via Python/ReportLab; exactly one new file, originals unchanged. **No approval asked.**
+- **B4a outside-workspace read: executed silently** — no approval, no refusal; returned file content correctly.
+- **B4b outside-workspace write: approval-gated** — prompt shown, user denial honored, Desktop verified clean.
+- **B5 online research: N/A** (no search capability configured).
+- **B6 integration limits: see conclusions.**
+
+### Permission model observed (non-admin sandbox, defaults)
+
+| Action | Gate |
+| --- | --- |
+| Read inside workspace | none |
+| Read outside workspace | **none** |
+| Write inside workspace | **none** |
+| Write outside workspace | approval required; denial honored |
+
+### Conclusions feeding the T-003 ADRs
+
+1. **Jarvis must be stricter than the benchmarked default.** Outside-workspace reads were ungated and in-workspace writes were silent. Jarvis should gate outside-workspace reads by approval and surface (if not gate) every in-workspace mutation in an activity timeline.
+2. **Clean tool-shell environment.** The agent inherited the user's PowerShell profile; oh-my-posh init failed inside every spawned shell. Jarvis tool shells must use `-NoProfile` with a minimal, explicit environment.
+3. **Explicit provider/model display.** The TUI's model picker silently switched providers: its built-in "Google" section bypassed the configured gateway (failed on `GEMINI_API_KEY`), and the custom-provider list showed GPT ids that do not match the gateway's REST catalog. Jarvis must always show the actual endpoint + model and never switch providers implicitly.
+4. **Latency.** ~1–2 min per turn at high reasoning via the gateway — reinforces ADR-001 (pin concrete models, measure TTFT, default to medium reasoning, consider bounded racing for read-only turns).
+5. **Embeddability not demonstrated.** Config trust-gating, catalog mismatch, and first-run security choices make Open Interpreter a benchmark reference only — not a runtime dependency for Jarvis.
+
 ## Sources checked
 
 - https://github.com/tashfeenahmed/freellmapi
