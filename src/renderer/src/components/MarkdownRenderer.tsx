@@ -22,28 +22,28 @@ function CodeBlock({ language, value }: CodeBlockProps): React.JSX.Element {
   }
 
   return (
-    <div className="my-3 rounded-lg overflow-hidden border border-[#30363d] bg-[#0d1117] text-slate-200">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-[#30363d] text-xs font-mono text-slate-400">
+    <div className="my-3 rounded-xl overflow-hidden border border-[#1f3832] bg-[#070d0f] text-[#d1d7d0]">
+      <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#111f1e] border-b border-[#1f3832] text-xs font-mono text-[#8a9992]">
         <span>{language || 'code'}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center space-x-1 hover:text-slate-200 transition px-2 py-0.5 rounded bg-[#21262d] hover:bg-[#30363d]"
+          className="flex items-center space-x-1 text-[#8a9992] hover:text-[#f5f1ee] transition px-2 py-0.5 rounded bg-[#172c29] hover:bg-[#1e3834] border border-[#1f3832]"
           title="Copy code"
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-[11px] text-emerald-400">Copied</span>
+              <Check className="w-3.5 h-3.5 text-[#3ba172]" />
+              <span className="text-[11px] text-[#3ba172]">Copied</span>
             </>
           ) : (
             <>
-              <Copy className="w-3.5 h-3.5 text-slate-400" />
+              <Copy className="w-3.5 h-3.5 text-[#8a9992]" />
               <span className="text-[11px]">Copy</span>
             </>
           )}
         </button>
       </div>
-      <pre className="p-3 overflow-x-auto text-xs font-mono leading-relaxed text-slate-100">
+      <pre className="p-3.5 overflow-x-auto text-xs font-mono leading-relaxed text-[#f5f1ee]">
         <code>{value}</code>
       </pre>
     </div>
@@ -56,7 +56,7 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.Element {
   return (
-    <div className="prose prose-invert max-w-none text-sm text-slate-200 leading-relaxed space-y-2">
+    <div className="prose prose-invert max-w-none text-xs text-[#d1d7d0] leading-relaxed space-y-2">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -68,7 +68,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
             if (isInline) {
               return (
                 <code
-                  className="bg-[#21262d] text-blue-300 font-mono text-[12px] px-1.5 py-0.5 rounded border border-[#30363d]"
+                  className="bg-[#172c29] text-[#52c48e] font-mono text-[11px] px-1.5 py-0.5 rounded border border-[#1f3832]"
                   {...props}
                 >
                   {children}
@@ -79,47 +79,47 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
             return <CodeBlock language={match ? match[1] : ''} value={textContent} />
           },
           p({ children }) {
-            return <p className="mb-2.5 last:mb-0 leading-relaxed">{children}</p>
+            return <p className="mb-2 last:mb-0 leading-relaxed text-[#d1d7d0]">{children}</p>
           },
           ul({ children }) {
-            return <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>
+            return <ul className="list-disc pl-5 my-2 space-y-1 text-[#d1d7d0]">{children}</ul>
           },
           ol({ children }) {
-            return <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>
+            return <ol className="list-decimal pl-5 my-2 space-y-1 text-[#d1d7d0]">{children}</ol>
           },
           li({ children }) {
-            return <li className="text-slate-300 text-sm leading-relaxed">{children}</li>
+            return <li className="text-[#d1d7d0] text-xs leading-relaxed">{children}</li>
           },
           h1({ children }) {
-            return <h1 className="text-lg font-bold text-white mt-4 mb-2 pb-1 border-b border-[#30363d]">{children}</h1>
+            return <h1 className="text-base font-bold text-[#f5f1ee] mt-3 mb-2 pb-1 border-b border-[#1f3832]">{children}</h1>
           },
           h2({ children }) {
-            return <h2 className="text-base font-semibold text-slate-100 mt-3 mb-1.5">{children}</h2>
+            return <h2 className="text-sm font-semibold text-[#f5f1ee] mt-2.5 mb-1.5">{children}</h2>
           },
           h3({ children }) {
-            return <h3 className="text-sm font-semibold text-slate-200 mt-2.5 mb-1">{children}</h3>
+            return <h3 className="text-xs font-semibold text-[#f5f1ee] mt-2 mb-1">{children}</h3>
           },
           blockquote({ children }) {
             return (
-              <blockquote className="border-l-4 border-blue-500 pl-3 py-1 my-2 text-slate-400 italic bg-[#161b22]/50 rounded-r">
+              <blockquote className="border-l-4 border-[#3ba172] pl-3 py-1 my-2 text-[#8a9992] italic bg-[#111f1e]/60 rounded-r">
                 {children}
               </blockquote>
             )
           },
           table({ children }) {
             return (
-              <div className="overflow-x-auto my-3">
-                <table className="min-w-full divide-y divide-[#30363d] border border-[#30363d] text-xs">
+              <div className="overflow-x-auto my-2.5">
+                <table className="min-w-full divide-y divide-[#1f3832] border border-[#1f3832] text-xs">
                   {children}
                 </table>
               </div>
             )
           },
           th({ children }) {
-            return <th className="px-3 py-2 bg-[#161b22] text-left font-semibold text-slate-200">{children}</th>
+            return <th className="px-3 py-1.5 bg-[#111f1e] text-left font-semibold text-[#f5f1ee]">{children}</th>
           },
           td({ children }) {
-            return <td className="px-3 py-1.5 border-t border-[#21262d] text-slate-300">{children}</td>
+            return <td className="px-3 py-1 border-t border-[#1f3832] text-[#d1d7d0]">{children}</td>
           }
         }}
       >

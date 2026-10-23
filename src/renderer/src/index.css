@@ -2,20 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --jarvis-base: #0a1114;
+  --jarvis-surface: #111f1e;
+  --jarvis-elevated: #172c29;
+  --jarvis-hover: #1e3834;
+  --jarvis-border: #1f3832;
+  --jarvis-border-strong: #2b5049;
+  --jarvis-accent: #3ba172;
+  --jarvis-accent-hover: #46b883;
+  --jarvis-accent-glow: #52c48e;
+  --jarvis-ivory: #f5f1ee;
+  --jarvis-sage: #d1d7d0;
+  --jarvis-muted: #8a9992;
+}
+
+body {
+  color: var(--jarvis-ivory);
+  background-color: var(--jarvis-base);
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0d1117;
+  background: #0a1114;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: #1f3832;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
+  background: #2b5049;
 }

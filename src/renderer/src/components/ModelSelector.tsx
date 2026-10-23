@@ -47,11 +47,11 @@ export function ModelSelector({
         className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded-md border transition ${
           isLightMode
             ? 'bg-amber-950/60 border-amber-600 text-amber-200 font-semibold shadow-sm shadow-amber-950/50'
-            : 'bg-[#21262d] border-[#30363d] text-slate-400 hover:text-slate-200 hover:border-slate-500'
+            : 'bg-jarvis-elevated border-jarvis-border text-jarvis-muted hover:text-jarvis-ivory hover:border-jarvis-borderStrong'
         }`}
         title={isLightMode ? 'Light Mode is Active (~1.5s response)' : 'Switch to Fast Light Mode'}
       >
-        <Zap className={`w-3.5 h-3.5 ${isLightMode ? 'text-amber-400 fill-amber-400' : 'text-slate-400'}`} />
+        <Zap className={`w-3.5 h-3.5 ${isLightMode ? 'text-amber-400 fill-amber-400' : 'text-jarvis-muted'}`} />
         <span>Light Mode</span>
         {isLightMode && (
           <span className="text-[10px] bg-amber-800 text-amber-100 px-1 rounded font-mono">ON</span>
@@ -62,33 +62,33 @@ export function ModelSelector({
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded-md bg-[#161b22] border border-[#30363d] text-slate-300 hover:border-slate-500 hover:text-white transition"
+          className="flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded-md bg-jarvis-surface border border-jarvis-border text-jarvis-sage hover:border-jarvis-accent hover:text-jarvis-ivory transition"
         >
-          <Cpu className="w-3.5 h-3.5 text-blue-400" />
+          <Cpu className="w-3.5 h-3.5 text-jarvis-accentGlow" />
           <span className="font-mono text-[11px] max-w-[140px] truncate">
             {isLightMode ? 'gemini-flash-lite' : currentModel}
           </span>
-          <ChevronDown className="w-3 h-3 text-slate-400" />
+          <ChevronDown className="w-3 h-3 text-jarvis-muted" />
         </button>
 
         {/* Dropdown Menu */}
         {isOpen && (
-          <div className="absolute right-0 mt-2 w-80 bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-            <div className="p-2 border-b border-[#30363d] bg-[#0d1117]">
+          <div className="absolute right-0 mt-2 w-80 bg-jarvis-surface border border-jarvis-borderStrong rounded-lg shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+            <div className="p-2 border-b border-jarvis-border bg-jarvis-base">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-jarvis-muted" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search 270+ models..."
-                  className="w-full bg-[#161b22] border border-[#30363d] rounded pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-jarvis-surface border border-jarvis-border rounded pl-8 pr-3 py-1.5 text-xs text-jarvis-ivory placeholder-jarvis-muted focus:outline-none focus:border-jarvis-accent"
                   autoFocus
                 />
               </div>
             </div>
 
-            <div className="max-h-72 overflow-y-auto p-1 divide-y divide-[#21262d]">
+            <div className="max-h-72 overflow-y-auto p-1 divide-y divide-jarvis-border">
               {/* Recommended Light Models */}
               {!searchQuery && (
                 <div className="p-1">
@@ -103,11 +103,11 @@ export function ModelSelector({
                         onSelectModel(model)
                         setIsOpen(false)
                       }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#21262d] text-left text-xs transition"
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-jarvis-elevated text-left text-xs transition"
                     >
-                      <span className="font-mono text-slate-200 text-[11px] truncate">{model}</span>
+                      <span className="font-mono text-jarvis-sage text-[11px] truncate">{model}</span>
                       {currentModel === model && !isLightMode && (
-                        <Check className="w-3.5 h-3.5 text-blue-400" />
+                        <Check className="w-3.5 h-3.5 text-jarvis-accentGlow" />
                       )}
                     </button>
                   ))}
@@ -116,12 +116,12 @@ export function ModelSelector({
 
               {/* All / Filtered Models */}
               <div className="p-1">
-                <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-2 py-1 flex items-center space-x-1">
-                  <Sparkles className="w-3 h-3 text-blue-400" />
+                <div className="text-[10px] font-semibold text-jarvis-muted uppercase tracking-wider px-2 py-1 flex items-center space-x-1">
+                  <Sparkles className="w-3 h-3 text-jarvis-accentGlow" />
                   <span>{searchQuery ? `Matching Models (${filteredAll.length})` : 'All Available Models'}</span>
                 </div>
                 {filteredAll.length === 0 ? (
-                  <div className="text-center py-4 text-xs text-slate-500">No models found</div>
+                  <div className="text-center py-4 text-xs text-jarvis-muted">No models found</div>
                 ) : (
                   filteredAll.slice(0, 30).map((model) => {
                     const light = isLight(model)
@@ -132,10 +132,10 @@ export function ModelSelector({
                           onSelectModel(model)
                           setIsOpen(false)
                         }}
-                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#21262d] text-left text-xs transition"
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-jarvis-elevated text-left text-xs transition"
                       >
                         <div className="flex items-center space-x-1.5 truncate">
-                          <span className="font-mono text-slate-200 text-[11px] truncate">{model}</span>
+                          <span className="font-mono text-jarvis-sage text-[11px] truncate">{model}</span>
                           {light && (
                             <span className="text-[9px] bg-amber-950/70 border border-amber-800 text-amber-300 px-1 rounded">
                               fast
@@ -143,7 +143,7 @@ export function ModelSelector({
                           )}
                         </div>
                         {currentModel === model && !isLightMode && (
-                          <Check className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                          <Check className="w-3.5 h-3.5 text-jarvis-accentGlow flex-shrink-0" />
                         )}
                       </button>
                     )

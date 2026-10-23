@@ -3,13 +3,18 @@ import * as THREE from 'three'
 import { MascotAnimationController } from '../src/renderer/src/mascot/MascotAnimationController'
 
 describe('MascotAnimationController', () => {
-  it('initializes in idle state with identity scale', () => {
+  it('initializes in idle state with default base scale (0.65x)', () => {
     const controller = new MascotAnimationController()
     expect(controller.getState()).toBe('idle')
 
     const group = new THREE.Group()
     controller.update(0.016, group)
-    expect(group.scale.x).toBeCloseTo(1.0, 1)
+    expect(group.scale.x).toBeCloseTo(0.65, 1)
+
+    // Verify adjustable scaling
+    controller.setBaseScale(0.9)
+    controller.update(0.016, group)
+    expect(controller.getBaseScale()).toBeCloseTo(0.9, 2)
   })
 
   it('updates state to thinking and modulates rotation and position', () => {

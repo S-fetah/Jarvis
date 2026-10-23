@@ -33,7 +33,7 @@ export function RateLimitCard({
   }
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-gradient-to-br from-[#1c1811] to-[#12161f] p-4 text-xs shadow-xl space-y-3.5">
+    <div className="rounded-xl border border-amber-500/40 bg-gradient-to-br from-jarvis-elevated to-jarvis-base p-4 text-xs shadow-xl space-y-3.5">
       <div className="flex items-start justify-between">
         <div className="flex items-center space-x-2.5 text-amber-400">
           <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 flex-shrink-0">
@@ -55,7 +55,7 @@ export function RateLimitCard({
         </div>
       </div>
 
-      <div className="text-[11px] text-slate-300 leading-relaxed bg-[#0c0f17]/70 p-3 rounded-lg border border-[#21262d]">
+      <div className="text-[11px] text-jarvis-sage leading-relaxed bg-jarvis-base/80 p-3 rounded-lg border border-jarvis-border">
         <p>
           Your active Google AI Studio key has hit its temporary request limit. In FreeLLMAPI, you can add{' '}
           <strong className="text-amber-300">multiple free keys</strong> or add{' '}
@@ -75,7 +75,7 @@ export function RateLimitCard({
 
         <button
           onClick={onOpenHub}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/50 text-blue-200 font-medium text-xs transition"
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-jarvis-accent/20 hover:bg-jarvis-accent/30 border border-jarvis-accent/50 text-jarvis-accentGlow font-medium text-xs transition"
         >
           <Key className="w-3.5 h-3.5" />
           <span>Get More Free Keys</span>
@@ -83,17 +83,17 @@ export function RateLimitCard({
 
         <button
           onClick={handleOpenDashboard}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-slate-300 text-xs transition"
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-jarvis-surface hover:bg-jarvis-hover border border-jarvis-border text-jarvis-sage text-xs transition"
           title="Open FreeLLMAPI dashboard to paste keys"
         >
-          <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+          <ExternalLink className="w-3.5 h-3.5 text-jarvis-muted" />
           <span>Open FreeLLMAPI UI</span>
         </button>
 
         {secondsLeft === 0 && (
           <button
             onClick={onRetry}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition ml-auto"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-jarvis-base font-bold text-xs transition ml-auto"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Retry Now</span>

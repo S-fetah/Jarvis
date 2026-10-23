@@ -42,4 +42,19 @@ describe('ModelGatewayAdapter', () => {
     )
     expect(hasFastModel).toBe(true)
   })
+
+  it('generates an ADR-004 process step for opening Gmail in Chrome', async () => {
+    const adapter = new ModelGatewayAdapter({
+      baseUrl: 'http://127.0.0.1:31415/v1',
+      model: 'gemini-3.6-flash'
+    })
+
+    const res = await adapter.generatePlanForGoal('open my gmail from chrome', 'C:\\work\\softwares\\jarvis')
+    expect(res.steps).toBeDefined()
+    expect(res.steps.length).toBeGreaterThan(0)
+    const browserStep = res.steps.find((s) => s.category === 'process')
+    expect(browserStep).toBeDefined()
+    expect(browserStep?.title.toLowerCase()).toContain('chrome')
+    expect(browserStep?.description.toLowerCase()).toContain('mail.google.com')
+  }, 20000)
 })

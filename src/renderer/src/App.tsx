@@ -268,23 +268,23 @@ export default function App(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-screen bg-[#0d1117] text-slate-200 overflow-hidden font-sans">
+    <div className="flex h-screen bg-jarvis-base text-jarvis-sage overflow-hidden font-sans">
       {/* --- Left Sidebar: Saved Chats & History --- */}
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-0'
-        } transition-all duration-200 bg-[#161b22] border-r border-[#30363d] flex flex-col flex-shrink-0 z-20 overflow-hidden`}
+        } transition-all duration-200 bg-jarvis-surface border-r border-jarvis-border flex flex-col flex-shrink-0 z-20 overflow-hidden`}
       >
-        <div className="p-3 border-b border-[#30363d] flex items-center justify-between">
+        <div className="p-3 border-b border-jarvis-border flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-md">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-jarvis-accent to-jarvis-accentGlow flex items-center justify-center font-bold text-jarvis-base shadow-md">
               J
             </div>
-            <span className="font-semibold text-xs tracking-wide text-white">Conversations</span>
+            <span className="font-semibold text-xs tracking-wide text-jarvis-ivory">Conversations</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-[#21262d] transition"
+            className="p-1 rounded text-jarvis-muted hover:text-jarvis-ivory hover:bg-jarvis-hover transition"
             title="Collapse sidebar"
           >
             <PanelLeftClose className="w-4 h-4" />
@@ -295,7 +295,7 @@ export default function App(): React.JSX.Element {
         <div className="p-3">
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md transition"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-jarvis-base text-xs font-bold shadow-md transition"
           >
             <Plus className="w-4 h-4" />
             <span>New Chat</span>
@@ -305,7 +305,7 @@ export default function App(): React.JSX.Element {
         {/* Saved Conversations List */}
         <div className="flex-1 overflow-y-auto px-2 space-y-1">
           {conversations.length === 0 ? (
-            <div className="text-center py-6 text-xs text-slate-500">No chats yet</div>
+            <div className="text-center py-6 text-xs text-jarvis-muted">No chats yet</div>
           ) : (
             conversations.map((conv) => {
               const isActive = conv.id === activeConvId
@@ -315,12 +315,12 @@ export default function App(): React.JSX.Element {
                   onClick={() => handleSelectConversation(conv)}
                   className={`group flex items-center justify-between px-2.5 py-2 rounded-lg text-xs cursor-pointer transition select-none ${
                     isActive
-                      ? 'bg-[#21262d] text-white font-medium border-l-2 border-blue-500'
-                      : 'text-slate-400 hover:bg-[#1f242c] hover:text-slate-200'
+                      ? 'bg-jarvis-elevated text-jarvis-ivory font-medium border-l-2 border-jarvis-accent'
+                      : 'text-jarvis-muted hover:bg-jarvis-hover hover:text-jarvis-sage'
                   }`}
                 >
                   <div className="flex items-center space-x-2 truncate pr-2">
-                    <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 text-slate-400 group-hover:text-blue-400 transition" />
+                    <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 text-jarvis-muted group-hover:text-jarvis-accentGlow transition" />
                     <span className="truncate">{conv.title || 'Conversation'}</span>
                   </div>
                   <button
@@ -337,28 +337,28 @@ export default function App(): React.JSX.Element {
         </div>
 
         {/* Footer info */}
-        <div className="p-2.5 border-t border-[#30363d] text-[11px] text-slate-500 flex items-center justify-between">
+        <div className="p-2.5 border-t border-jarvis-border text-[11px] text-jarvis-muted flex items-center justify-between">
           <span>Local SQLite Storage</span>
-          <span className="text-emerald-400 font-mono">ADR-004 Safe</span>
+          <span className="text-jarvis-accentGlow font-mono">ADR-004 Safe</span>
         </div>
       </aside>
 
       {/* --- Main Workspace & Chat --- */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0d1117]">
+      <div className="flex-1 flex flex-col min-w-0 bg-jarvis-base">
         {/* Top Header Bar */}
-        <header className="h-14 border-b border-[#30363d] px-4 flex items-center justify-between bg-[#161b22] flex-shrink-0">
+        <header className="h-14 border-b border-jarvis-border px-4 flex items-center justify-between bg-jarvis-surface flex-shrink-0">
           <div className="flex items-center space-x-3">
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-1.5 rounded-lg border border-[#30363d] text-slate-400 hover:text-white hover:bg-[#21262d] transition"
+                className="p-1.5 rounded-lg border border-jarvis-border text-jarvis-muted hover:text-jarvis-ivory hover:bg-jarvis-hover transition"
                 title="Expand conversations sidebar"
               >
                 <PanelLeftOpen className="w-4 h-4" />
               </button>
             )}
             <div>
-              <h1 className="text-xs font-semibold tracking-wide text-white flex items-center space-x-1.5">
+              <h1 className="text-xs font-semibold tracking-wide text-jarvis-ivory flex items-center space-x-1.5">
                 <span>Jarvis for Windows</span>
                 {settings.lightMode && (
                   <span className="px-1.5 py-0.2 bg-amber-950/80 border border-amber-700 text-amber-300 text-[10px] rounded font-mono">
@@ -366,7 +366,7 @@ export default function App(): React.JSX.Element {
                   </span>
                 )}
               </h1>
-              <p className="text-[11px] text-slate-400">Assistive Autonomy & Local FreeLLMAPI Gateway</p>
+              <p className="text-[11px] text-jarvis-muted">Assistive Autonomy & Local FreeLLMAPI Gateway</p>
             </div>
           </div>
 
@@ -374,20 +374,20 @@ export default function App(): React.JSX.Element {
             {/* Free Models & Keys Hub Button */}
             <button
               onClick={() => setHubOpen(true)}
-              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded-md bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-500/40 hover:border-blue-400 text-blue-200 transition"
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded-md bg-jarvis-elevated border border-jarvis-borderStrong hover:border-jarvis-accent text-jarvis-sage hover:text-jarvis-ivory transition"
               title="Explore free model providers & get free API keys"
             >
-              <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+              <KeyRound className="w-3.5 h-3.5 text-jarvis-accentGlow" />
               <span className="hidden sm:inline font-medium">Free Models Hub</span>
             </button>
 
             {/* Workspace Directory Selector */}
             <button
               onClick={handleSelectWorkspace}
-              className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded border border-[#30363d] bg-[#21262d] hover:bg-[#30363d] transition"
+              className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded border border-jarvis-border bg-jarvis-elevated hover:bg-jarvis-hover text-jarvis-sage transition"
               title="Select active workspace directory"
             >
-              <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
+              <FolderOpen className="w-3.5 h-3.5 text-jarvis-accentGlow" />
               <span className="truncate max-w-[150px]">{settings.workspacePaths[0] || 'Select Folder'}</span>
             </button>
 
@@ -405,8 +405,8 @@ export default function App(): React.JSX.Element {
               onClick={() => setTimelineOpen(!timelineOpen)}
               className={`p-1.5 rounded border transition ${
                 timelineOpen
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-300'
-                  : 'border-[#30363d] bg-[#21262d] text-slate-400 hover:text-slate-200'
+                  ? 'bg-jarvis-accent/20 border-jarvis-accent text-jarvis-accentGlow'
+                  : 'border-jarvis-border bg-jarvis-elevated text-jarvis-muted hover:text-jarvis-ivory'
               }`}
               title="Toggle activity and audit timeline"
             >
@@ -421,7 +421,7 @@ export default function App(): React.JSX.Element {
                   setSettings((prev) => ({ ...prev, mascotEnabled: visible }))
                 }
               }}
-              className="p-1.5 rounded border border-[#30363d] bg-[#21262d] text-indigo-400 hover:text-white hover:border-indigo-500 transition"
+              className="p-1.5 rounded border border-jarvis-border bg-jarvis-elevated text-jarvis-accentGlow hover:text-jarvis-ivory hover:border-jarvis-accent transition"
               title="Toggle Floating 3D Owl Mascot on Desktop"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -430,7 +430,7 @@ export default function App(): React.JSX.Element {
             {/* Settings Modal Button */}
             <button
               onClick={() => setSettingsOpen(true)}
-              className="p-1.5 rounded border border-[#30363d] bg-[#21262d] text-slate-400 hover:text-slate-200 transition"
+              className="p-1.5 rounded border border-jarvis-border bg-jarvis-elevated text-jarvis-muted hover:text-jarvis-ivory transition"
               title="Gateway & Key Settings"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -448,15 +448,15 @@ export default function App(): React.JSX.Element {
                 /* Welcome Hero & Quick Suggestions */
                 <div className="h-full flex flex-col items-center justify-center max-w-xl mx-auto text-center px-4 space-y-6">
                   <div className="relative">
-                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-xl shadow-blue-900/30">
-                      <Sparkles className="w-8 h-8 text-white" />
+                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-jarvis-accent to-jarvis-accentGlow flex items-center justify-center shadow-xl shadow-jarvis-accent/20 text-jarvis-base font-bold">
+                      <Sparkles className="w-8 h-8 text-jarvis-base" />
                     </div>
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">How can Jarvis assist you today?</h2>
-                    <p className="text-xs text-slate-400 mt-1 max-w-md">
+                    <h2 className="text-lg font-bold text-jarvis-ivory">How can Jarvis assist you today?</h2>
+                    <p className="text-xs text-jarvis-muted mt-1 max-w-md">
                       Inspect your code, synthesize reports, or execute tasks. Low-risk operations proceed automatically;
-                      file changes and commands require explicit approval.
+                      file changes, external browser launches, and commands require explicit approval.
                     </p>
                   </div>
 
@@ -464,42 +464,42 @@ export default function App(): React.JSX.Element {
                   <div className="grid grid-cols-2 gap-2.5 w-full text-left">
                     <button
                       onClick={() => handleSendMessage(undefined, 'What can you actually do and where is chat history saved?')}
-                      className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-blue-500/60 hover:bg-[#1c2128] transition group text-xs"
+                      className="p-3 rounded-lg bg-jarvis-surface border border-jarvis-border hover:border-jarvis-accent hover:bg-jarvis-elevated transition group text-xs"
                     >
-                      <div className="font-semibold text-slate-200 group-hover:text-blue-300">
+                      <div className="font-semibold text-jarvis-ivory group-hover:text-jarvis-accentGlow">
                         Capabilities & Local Storage
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Where SQLite history is stored</div>
+                      <div className="text-[11px] text-jarvis-muted mt-0.5">Where SQLite history is stored</div>
                     </button>
 
                     <button
-                      onClick={() => handleSendMessage(undefined, 'Inspect project structure and summarize findings')}
-                      className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-blue-500/60 hover:bg-[#1c2128] transition group text-xs"
+                      onClick={() => handleSendMessage(undefined, 'open my gmail from chrome')}
+                      className="p-3 rounded-lg bg-jarvis-surface border border-jarvis-border hover:border-jarvis-accent hover:bg-jarvis-elevated transition group text-xs"
                     >
-                      <div className="font-semibold text-slate-200 group-hover:text-blue-300">
-                        Inspect Workspace
+                      <div className="font-semibold text-jarvis-ivory group-hover:text-jarvis-accentGlow">
+                        Open Gmail in Chrome
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Safe read-only codebase review</div>
+                      <div className="text-[11px] text-jarvis-muted mt-0.5">Triggers ADR-004 browser launch approval</div>
                     </button>
 
                     <button
                       onClick={() => handleSendMessage(undefined, 'Check git status and recent commits')}
-                      className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-blue-500/60 hover:bg-[#1c2128] transition group text-xs"
+                      className="p-3 rounded-lg bg-jarvis-surface border border-jarvis-border hover:border-jarvis-accent hover:bg-jarvis-elevated transition group text-xs"
                     >
-                      <div className="font-semibold text-slate-200 group-hover:text-blue-300">
+                      <div className="font-semibold text-jarvis-ivory group-hover:text-jarvis-accentGlow">
                         Git Status & Log
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Inspect branch & staged changes</div>
+                      <div className="text-[11px] text-jarvis-muted mt-0.5">Inspect branch & staged changes</div>
                     </button>
 
                     <button
                       onClick={() => handleSendMessage(undefined, 'Start the development server with npm run dev')}
-                      className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-blue-500/60 hover:bg-[#1c2128] transition group text-xs"
+                      className="p-3 rounded-lg bg-jarvis-surface border border-jarvis-border hover:border-jarvis-accent hover:bg-jarvis-elevated transition group text-xs"
                     >
-                      <div className="font-semibold text-slate-200 group-hover:text-blue-300">
-                        Test Approval Gating
+                      <div className="font-semibold text-jarvis-ivory group-hover:text-jarvis-accentGlow">
+                        Test Dev Server Approval
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Triggers ADR-004 process approval</div>
+                      <div className="text-[11px] text-jarvis-muted mt-0.5">Triggers ADR-004 process approval</div>
                     </button>
                   </div>
                 </div>
@@ -529,7 +529,7 @@ export default function App(): React.JSX.Element {
                       className={`flex items-start space-x-3 ${isUser ? 'justify-end' : 'justify-start'}`}
                     >
                       {!isUser && (
-                        <div className="h-7 w-7 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center flex-shrink-0 mt-1 text-blue-300">
+                        <div className="h-7 w-7 rounded-lg bg-jarvis-elevated border border-jarvis-borderStrong flex items-center justify-center flex-shrink-0 mt-1 text-jarvis-accentGlow">
                           <Bot className="w-4 h-4" />
                         </div>
                       )}
@@ -542,9 +542,9 @@ export default function App(): React.JSX.Element {
 
                         {/* 2. SEPARATE RESPONSE CARD */}
                         {isUser ? (
-                          <div className="bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-md">
+                          <div className="bg-jarvis-accent text-jarvis-base font-medium rounded-2xl rounded-tr-none px-4 py-3 shadow-md">
                             <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                            <div className="mt-1 text-[10px] text-blue-200 flex justify-end">
+                            <div className="mt-1 text-[10px] text-jarvis-base/70 flex justify-end">
                               {new Date(msg.timestamp).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit'
@@ -563,12 +563,12 @@ export default function App(): React.JSX.Element {
                             }}
                           />
                         ) : (
-                          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl rounded-tl-none p-4 shadow-md text-slate-200 space-y-2">
+                          <div className="bg-jarvis-surface border border-jarvis-border rounded-2xl rounded-tl-none p-4 shadow-md text-jarvis-ivory space-y-2">
                             <MarkdownRenderer content={msg.content} />
 
-                            <div className="pt-2 border-t border-[#21262d] flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                            <div className="pt-2 border-t border-jarvis-border flex items-center justify-between text-[11px] text-jarvis-muted font-mono">
                               <span className="flex items-center space-x-1.5">
-                                <Cpu className="w-3 h-3 text-emerald-400" />
+                                <Cpu className="w-3 h-3 text-jarvis-accentGlow" />
                                 <span>{settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel}</span>
                               </span>
                               <span>
@@ -583,7 +583,7 @@ export default function App(): React.JSX.Element {
                       </div>
 
                       {isUser && (
-                        <div className="h-7 w-7 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1 text-slate-300">
+                        <div className="h-7 w-7 rounded-lg bg-jarvis-elevated border border-jarvis-border flex items-center justify-center flex-shrink-0 mt-1 text-jarvis-sage">
                           <User className="w-4 h-4" />
                         </div>
                       )}
@@ -595,7 +595,7 @@ export default function App(): React.JSX.Element {
               {/* Live Streaming Message Display */}
               {isStreaming && (
                 <div className="flex items-start space-x-3 justify-start animate-in fade-in duration-200">
-                  <div className="h-7 w-7 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center flex-shrink-0 mt-1 text-blue-300">
+                  <div className="h-7 w-7 rounded-lg bg-jarvis-elevated border border-jarvis-borderStrong flex items-center justify-center flex-shrink-0 mt-1 text-jarvis-accentGlow">
                     <Bot className="w-4 h-4" />
                   </div>
 
@@ -607,12 +607,12 @@ export default function App(): React.JSX.Element {
 
                     {/* Live Response Bubble */}
                     {currentReply ? (
-                      <div className="bg-[#161b22] border border-blue-500/40 rounded-2xl rounded-tl-none p-4 shadow-md text-slate-200 animate-in fade-in duration-150">
+                      <div className="bg-jarvis-surface border border-jarvis-accent/40 rounded-2xl rounded-tl-none p-4 shadow-md text-jarvis-ivory animate-in fade-in duration-150">
                         <MarkdownRenderer content={currentReply} />
                       </div>
                     ) : (
-                      <div className="bg-[#161b22]/70 border border-[#30363d] rounded-xl px-4 py-3 text-slate-400 text-xs flex items-center space-x-2">
-                        <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping"></span>
+                      <div className="bg-jarvis-surface/80 border border-jarvis-border rounded-xl px-4 py-3 text-jarvis-muted text-xs flex items-center space-x-2">
+                        <span className="h-2 w-2 rounded-full bg-jarvis-accentGlow animate-ping"></span>
                         <span>Deliberating and preparing response...</span>
                       </div>
                     )}
@@ -624,7 +624,7 @@ export default function App(): React.JSX.Element {
             </div>
 
             {/* Input Bar */}
-            <div className="p-3 border-t border-[#30363d] bg-[#161b22]">
+            <div className="p-3 border-t border-jarvis-border bg-jarvis-surface">
               <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
                 <input
                   type="text"
@@ -635,16 +635,16 @@ export default function App(): React.JSX.Element {
                       ? 'Jarvis is processing...'
                       : settings.lightMode
                         ? 'Ask Jarvis (⚡ Fast Light Mode active)...'
-                        : 'Ask Jarvis or enter a goal to plan and execute...'
+                        : 'Ask Jarvis or enter an instruction (e.g. "open my gmail from chrome")...'
                   }
                   disabled={isStreaming}
-                  className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition disabled:opacity-50"
+                  className="flex-1 bg-jarvis-base border border-jarvis-border rounded-lg px-3.5 py-2.5 text-sm text-jarvis-ivory placeholder-jarvis-muted focus:outline-none focus:border-jarvis-accent transition disabled:opacity-50"
                   autoFocus
                 />
                 <button
                   type="submit"
                   disabled={!inputPrompt.trim() || isStreaming}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center space-x-1.5 transition shadow-md"
+                  className="px-4 py-2.5 bg-jarvis-accent hover:bg-jarvis-accentHover disabled:opacity-40 text-jarvis-base font-bold rounded-lg text-sm flex items-center space-x-1.5 transition shadow-md"
                 >
                   <Send className="w-4 h-4" />
                   <span>Send</span>
@@ -655,27 +655,27 @@ export default function App(): React.JSX.Element {
 
           {/* Optional Right Column: Audit Timeline & Plan */}
           {timelineOpen && (
-            <div className="w-80 border-l border-[#30363d] bg-[#161b22] flex flex-col min-h-0">
-              <div className="p-3 border-b border-[#30363d] flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            <div className="w-80 border-l border-jarvis-border bg-jarvis-surface flex flex-col min-h-0">
+              <div className="p-3 border-b border-jarvis-border flex items-center justify-between">
+                <span className="text-xs font-semibold text-jarvis-sage uppercase tracking-wider">
                   Audit Timeline
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">
+                <span className="text-[10px] text-jarvis-muted font-mono">
                   {timelineEvents.length} events
                 </span>
               </div>
 
               <div className="flex-1 overflow-y-auto p-3 space-y-2.5 font-mono text-xs">
                 {timelineEvents.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-500 font-sans">
+                  <div className="text-center py-8 text-xs text-jarvis-muted font-sans">
                     No timeline logs recorded yet.
                   </div>
                 ) : (
                   timelineEvents.map((ev) => (
-                    <div key={ev.id} className="p-2.5 rounded bg-[#0d1117] border border-[#21262d]">
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                        <span className="font-semibold text-slate-300 truncate">{ev.title}</span>
-                        <span className="text-slate-500">
+                    <div key={ev.id} className="p-2.5 rounded bg-jarvis-base border border-jarvis-border">
+                      <div className="flex items-center justify-between text-[10px] text-jarvis-muted mb-1">
+                        <span className="font-semibold text-jarvis-ivory truncate">{ev.title}</span>
+                        <span className="text-jarvis-muted">
                           {new Date(ev.timestamp).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -684,7 +684,7 @@ export default function App(): React.JSX.Element {
                         </span>
                       </div>
                       {ev.details && (
-                        <p className="text-slate-400 text-[11px] leading-relaxed break-words font-sans">
+                        <p className="text-jarvis-sage text-[11px] leading-relaxed break-words font-sans">
                           {ev.details}
                         </p>
                       )}
@@ -700,60 +700,60 @@ export default function App(): React.JSX.Element {
       {/* --- ADR-004 Gated Process Approval Modal --- */}
       {taskState?.currentApproval && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#161b22] border border-amber-500/60 rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-jarvis-surface border border-amber-500/60 rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start space-x-3 text-amber-400">
               <ShieldAlert className="w-6 h-6 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-base text-white">
+                  <h3 className="font-semibold text-base text-jarvis-ivory">
                     {taskState.currentApproval.title || 'Action Requires Approval'}
                   </h3>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-950/80 border border-amber-700 text-amber-300">
                     {taskState.currentApproval.category}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-jarvis-muted mt-0.5">
                   ADR-004 Policy Engine: Assistive Autonomy requires explicit approval.
                 </p>
               </div>
             </div>
 
-            <div className="bg-[#0d1117] rounded-lg p-3.5 border border-[#30363d] space-y-3 text-xs">
+            <div className="bg-jarvis-base rounded-lg p-3.5 border border-jarvis-border space-y-3 text-xs">
               {/* Command Box */}
               {taskState.currentApproval.command && (
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-400 block mb-1 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-jarvis-muted block mb-1 uppercase tracking-wider">
                     Exact Command to Execute:
                   </span>
-                  <div className="bg-[#05080f] p-2.5 rounded border border-[#1e293b] font-mono text-emerald-400 text-xs flex items-center justify-between">
+                  <div className="bg-[#05080f] p-2.5 rounded border border-jarvis-border font-mono text-jarvis-accentGlow text-xs flex items-center justify-between">
                     <code>{taskState.currentApproval.command}</code>
-                    <span className="text-[10px] text-slate-500 font-sans">powershell -NoProfile</span>
+                    <span className="text-[10px] text-jarvis-muted font-sans">powershell / system</span>
                   </div>
                 </div>
               )}
 
               {/* Target Directory */}
               <div>
-                <span className="text-[11px] font-semibold text-slate-400 block mb-0.5 uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-jarvis-muted block mb-0.5 uppercase tracking-wider">
                   Target Directory:
                 </span>
-                <code className="text-slate-300 font-mono text-[11px] break-all">
+                <code className="text-jarvis-sage font-mono text-[11px] break-all">
                   {taskState.currentApproval.workingDirectory || taskState.currentApproval.workspacePath}
                 </code>
               </div>
 
               {/* Purpose */}
               {taskState.currentApproval.explanation && (
-                <div className="p-2.5 rounded bg-blue-950/30 border border-blue-900/50 text-blue-200 text-xs">
-                  <strong className="block text-blue-300 font-semibold mb-0.5">Purpose:</strong>
+                <div className="p-2.5 rounded bg-jarvis-elevated border border-jarvis-border text-jarvis-sage text-xs">
+                  <strong className="block text-jarvis-accentGlow font-semibold mb-0.5">Purpose:</strong>
                   {taskState.currentApproval.explanation}
                 </div>
               )}
 
               {/* Safety Impact */}
               {taskState.currentApproval.safetyImpact && (
-                <div className="p-2.5 rounded bg-slate-900/50 border border-slate-800 text-slate-300 text-[11px]">
-                  <strong className="block text-slate-200 font-semibold mb-0.5">Safety & Process Impact:</strong>
+                <div className="p-2.5 rounded bg-jarvis-elevated/60 border border-jarvis-border text-jarvis-sage text-[11px]">
+                  <strong className="block text-jarvis-ivory font-semibold mb-0.5">Safety & Process Impact:</strong>
                   {taskState.currentApproval.safetyImpact}
                 </div>
               )}
@@ -768,7 +768,7 @@ export default function App(): React.JSX.Element {
               </button>
               <button
                 onClick={() => handleResolveApproval(taskState.currentApproval!, 'granted')}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-emerald-950/50 transition"
+                className="px-4 py-2 bg-jarvis-accent hover:bg-jarvis-accentHover text-jarvis-base rounded-lg text-xs font-bold shadow-lg shadow-jarvis-accent/20 transition"
               >
                 Approve & Execute
               </button>

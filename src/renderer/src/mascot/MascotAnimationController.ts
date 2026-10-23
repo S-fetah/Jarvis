@@ -8,8 +8,9 @@ export class MascotAnimationController {
   private currentPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 0)
   private targetRotation: THREE.Euler = new THREE.Euler(0, 0, 0)
   private currentRotation: THREE.Euler = new THREE.Euler(0, 0, 0)
-  private targetScale: THREE.Vector3 = new THREE.Vector3(1, 1, 1)
-  private currentScale: THREE.Vector3 = new THREE.Vector3(1, 1, 1)
+  private targetScale: THREE.Vector3 = new THREE.Vector3(0.65, 0.65, 0.65)
+  private currentScale: THREE.Vector3 = new THREE.Vector3(0.65, 0.65, 0.65)
+  private baseScale: number = 0.65
 
   private mouseTarget: THREE.Vector2 = new THREE.Vector2(0, 0)
   private currentMouse: THREE.Vector2 = new THREE.Vector2(0, 0)
@@ -22,6 +23,14 @@ export class MascotAnimationController {
 
   public setReduceMotion(reduce: boolean): void {
     this.reduceMotion = reduce
+  }
+
+  public setBaseScale(scale: number): void {
+    this.baseScale = Math.max(0.25, Math.min(1.8, scale))
+  }
+
+  public getBaseScale(): number {
+    return this.baseScale
   }
 
   public setState(state: MascotState): void {
@@ -128,9 +137,9 @@ export class MascotAnimationController {
         break
     }
 
-    // Combine procedural motion with subtle mouse-cursor tracking
-    const lookYaw = this.currentMouse.x * 0.25 * motionFactor
-    const lookPitch = -this.currentMouse.y * 0.2 * motionFactor
+    // Combine procedural motion with extended full-screen desktop cursor tracking
+    const lookYaw = this.currentMouse.x * 0.55 * motionFactor
+    const lookPitch = -this.currentMouse.y * 0.40 * motionFactor
 
     this.targetPosition.set(0, hoverY, 0)
     this.targetRotation.set(
@@ -138,7 +147,8 @@ export class MascotAnimationController {
       breatheYaw + lookYaw,
       breatheRoll
     )
-    this.targetScale.set(scaleMultiplier, scaleMultiplier, scaleMultiplier)
+    const effectiveScale = this.baseScale * scaleMultiplier
+    this.targetScale.set(effectiveScale, effectiveScale, effectiveScale)
 
     // Smooth critically-damped interpolation
     const lerpSpeed = dt * 6.0
@@ -161,7 +171,7 @@ export class MascotAnimationController {
     this.currentPosition.set(0, 0, 0)
     this.targetRotation.set(0, 0, 0)
     this.currentRotation.set(0, 0, 0)
-    this.targetScale.set(1, 1, 1)
-    this.currentScale.set(1, 1, 1)
+    this.targetScale.set(this.baseScale, this.baseScale, this.baseScale)
+    this.currentScale.set(this.baseScale, this.baseScale, this.baseScale)
   }
 }

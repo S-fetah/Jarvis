@@ -11,11 +11,22 @@ export function MascotApp(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [currentState, setCurrentState] = useState<MascotState>('idle')
 
+  // Model scale (default 0.65x of current size)
+  const [scale, setScale] = useState<number>(() => {
+    const saved = localStorage.getItem('jarvis_mascot_scale')
+    return saved ? parseFloat(saved) : 0.65
+  })
+
   const controllerRef = useRef<MascotAnimationController>(new MascotAnimationController())
   const isMouseDownRef = useRef<boolean>(false)
+  const isResizingRef = useRef<boolean>(false)
   const startPosRef = useRef<{ screenX: number; screenY: number }>({ screenX: 0, screenY: 0 })
   const lastPosRef = useRef<{ screenX: number; screenY: number }>({ screenX: 0, screenY: 0 })
   const hasDraggedRef = useRef<boolean>(false)
+
+  useEffect(() => {
+    controllerRef.current.setBaseScale(scale)
+  }, [scale])
 
   useEffect(() => {
     // Ensure document and body are transparent for the frameless mascot window
@@ -50,7 +61,7 @@ export function MascotApp(): React.JSX.Element {
 
     container.appendChild(renderer.domElement)
 
-    // 2. Controlled Lighting
+    // 2. Controlled Studio Lighting matching Brand Palette
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.25)
     scene.add(ambientLight)
 
@@ -58,13 +69,15 @@ export function MascotApp(): React.JSX.Element {
     keyLight.position.set(2.5, 3.0, 3.5)
     scene.add(keyLight)
 
-    const fillLight = new THREE.DirectionalLight(0x818cf8, 0.6)
-    fillLight.position.set(-2.5, 1.2, 2.0)
-    scene.add(fillLight)
+    // Mint rim light extracted from owl iris highlights (#52c48e)
+    const mintRimLight = new THREE.DirectionalLight(0x52c48e, 0.55)
+    mintRimLight.position.set(-2.5, 1.2, 2.0)
+    scene.add(mintRimLight)
 
-    const rimLight = new THREE.DirectionalLight(0xfcd34d, 0.4)
-    rimLight.position.set(0, -2.0, -2.5)
-    scene.add(rimLight)
+    // Warm ivory bounce light extracted from breast plumage (#f5f1ee)
+    const ivoryBounceLight = new THREE.DirectionalLight(0xf5f1ee, 0.35)
+    ivoryBounceLight.position.set(0, -2.0, -2.5)
+    scene.add(ivoryBounceLight)
 
     // Parent group for non-destructive procedural transforms
     const parentGroup = new THREE.Group()
@@ -95,7 +108,6 @@ export function MascotApp(): React.JSX.Element {
       undefined,
       (err) => {
         console.error('[MascotApp] Failed to load GLB from primary path, trying absolute fallback:', err)
-        // Fallback relative path
         loader.load(
           '/assets/mascot/left-facing-jarvis.glb',
           (gltf) => {
@@ -147,13 +159,24 @@ export function MascotApp(): React.JSX.Element {
 
     window.addEventListener('resize', handleResize)
 
-    // 6. Listen to Mascot State from IPC
+    // 6. Listen to Mascot State & Full-Screen Cursor Tracking from IPC
     let unsubState: (() => void) | undefined
+    let unsubCursor: (() => void) | undefined
+
     if (window.jarvisAPI) {
       unsubState = window.jarvisAPI.onMascotStateChanged((state) => {
         setCurrentState(state)
         controllerRef.current.setState(state)
       })
+
+      if (window.jarvisAPI.onMascotCursorTracking) {
+        unsubCursor = window.jarvisAPI.onMascotCursorTracking((offset) => {
+          // Track desktop cursor unless locally dragging window
+          if (!isMouseDownRef.current && !isResizingRef.current) {
+            controllerRef.current.setMousePosition(offset.nx, -offset.ny)
+          }
+        })
+      }
 
       window.jarvisAPI.getSettings().then((s) => {
         if (s.reduceMotion) {
@@ -168,6 +191,7 @@ export function MascotApp(): React.JSX.Element {
       cancelAnimationFrame(animationFrameId)
       window.removeEventListener('resize', handleResize)
       if (unsubState) unsubState()
+      if (unsubCursor) unsubCursor()
 
       // Dispose GPU resources
       renderer.dispose()
@@ -190,68 +214,91 @@ export function MascotApp(): React.JSX.Element {
     }
   }, [])
 
-  // Mouse hover tracking
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>): void => {
-    if (!containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const normX = ((e.clientX - rect.left) / rect.width) * 2 - 1
-    const normY = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
-    controllerRef.current.setMousePosition(normX, normY)
-
-    // Handle Window Dragging
-    if (isMouseDownRef.current && window.jarvisAPI) {
-      const dx = e.screenX - lastPosRef.current.screenX
-      const dy = e.screenY - lastPosRef.current.screenY
-      const totalDist = Math.hypot(
-        e.screenX - startPosRef.current.screenX,
-        e.screenY - startPosRef.current.screenY
-      )
-
-      if (totalDist > 4) {
-        hasDraggedRef.current = true
-        window.jarvisAPI.moveMascotBy(dx, dy)
-        lastPosRef.current = { screenX: e.screenX, screenY: e.screenY }
-      }
-    }
-  }
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
+  // Desktop drag and click handling
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {
     if (e.button !== 0) return // Left click only
+    if ((e.target as HTMLElement).closest('button')) return // Don't drag if clicking buttons
+
     isMouseDownRef.current = true
     hasDraggedRef.current = false
     startPosRef.current = { screenX: e.screenX, screenY: e.screenY }
     lastPosRef.current = { screenX: e.screenX, screenY: e.screenY }
-  }
 
-  const handleMouseUp = (): void => {
-    if (!isMouseDownRef.current) return
-    isMouseDownRef.current = false
+    const onPointerMove = (ev: PointerEvent): void => {
+      if (!isMouseDownRef.current) return
+      const dx = ev.screenX - lastPosRef.current.screenX
+      const dy = ev.screenY - lastPosRef.current.screenY
+      const dist = Math.hypot(
+        ev.screenX - startPosRef.current.screenX,
+        ev.screenY - startPosRef.current.screenY
+      )
 
-    if (!hasDraggedRef.current) {
-      // User clicked without dragging -> Open Quick Chat!
-      controllerRef.current.setState('attention')
-      if (window.jarvisAPI) {
-        window.jarvisAPI.toggleQuickChat()
-      }
-    } else {
-      // Finished dragging -> Save position
-      if (window.jarvisAPI) {
-        window.jarvisAPI.saveMascotPosition()
+      if (dist > 5) {
+        hasDraggedRef.current = true
+        if (window.jarvisAPI) {
+          window.jarvisAPI.moveMascotBy(dx, dy)
+        }
+        lastPosRef.current = { screenX: ev.screenX, screenY: ev.screenY }
       }
     }
+
+    const onPointerUp = (): void => {
+      isMouseDownRef.current = false
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+
+      if (hasDraggedRef.current) {
+        if (window.jarvisAPI) {
+          window.jarvisAPI.saveMascotPosition()
+        }
+      } else {
+        // Clean click without drag -> Toggle Quick Chat
+        controllerRef.current.setState('attention')
+        if (window.jarvisAPI) {
+          window.jarvisAPI.toggleQuickChat()
+        }
+      }
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+  }
+
+  // Interactive Resizer Handle (<>)
+  const handleResizeStart = (e: React.PointerEvent<HTMLButtonElement>): void => {
+    e.stopPropagation()
+    e.preventDefault()
+    isResizingRef.current = true
+    const startX = e.clientX
+    const startY = e.clientY
+    const startScale = scale
+
+    const onPointerMove = (ev: PointerEvent): void => {
+      const deltaX = ev.clientX - startX
+      const deltaY = ev.clientY - startY
+      // Outward drag increases size, inward decreases size
+      const delta = (deltaX + deltaY) * 0.005
+      const newScale = Math.min(1.4, Math.max(0.35, startScale + delta))
+      setScale(newScale)
+      controllerRef.current.setBaseScale(newScale)
+      localStorage.setItem('jarvis_mascot_scale', newScale.toFixed(2))
+    }
+
+    const onPointerUp = (): void => {
+      isResizingRef.current = false
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
   }
 
   return (
     <div
       ref={containerRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={() => {
-        isMouseDownRef.current = false
-        controllerRef.current.setMousePosition(0, 0)
-      }}
-      className="relative w-full h-full select-none cursor-grab active:cursor-grabbing overflow-hidden"
+      onPointerDown={handlePointerDown}
+      className="group relative w-full h-full select-none cursor-grab active:cursor-grabbing overflow-hidden"
       style={{ background: 'transparent' }}
       title="Jarvis Owl Companion — Click for Quick Chat, Drag to Move"
     >
@@ -259,9 +306,9 @@ export function MascotApp(): React.JSX.Element {
       {isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-slate-400">
           <div className="relative">
-            <Sparkles className="w-6 h-6 text-indigo-400 animate-spin" style={{ animationDuration: '3s' }} />
+            <Sparkles className="w-6 h-6 text-[#3ba172] animate-spin" style={{ animationDuration: '3s' }} />
           </div>
-          <span className="text-[10px] mt-1.5 font-mono text-indigo-300/80 bg-black/60 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] mt-1.5 font-mono text-[#d1d7d0] bg-[#0a1114]/80 border border-[#1f3832] px-2 py-0.5 rounded-full">
             Awakening Owl...
           </span>
         </div>
@@ -269,12 +316,12 @@ export function MascotApp(): React.JSX.Element {
 
       {/* Error Fallback */}
       {loadError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-black/80 rounded-2xl text-xs border border-red-500/40">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-[#0a1114]/90 rounded-2xl text-xs border border-red-500/40">
           <p className="text-red-300 font-semibold text-[11px] mb-1">Mascot 3D Offline</p>
-          <p className="text-slate-400 text-[10px] mb-2">{loadError}</p>
+          <p className="text-[#8a9992] text-[10px] mb-2">{loadError}</p>
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center space-x-1 px-2.5 py-1 rounded bg-blue-600 text-white text-[10px]"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded bg-[#3ba172] text-[#f5f1ee] font-medium text-[10px]"
           >
             <RefreshCw className="w-3 h-3" />
             <span>Retry</span>
@@ -282,22 +329,33 @@ export function MascotApp(): React.JSX.Element {
         </div>
       )}
 
+      {/* Interactive Size Resizer Handle (<>) */}
+      {!isLoading && !loadError && (
+        <button
+          onPointerDown={handleResizeStart}
+          className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 hover:bg-[#3ba172] text-[#f5f1ee] hover:text-black border border-[#1f3832] px-1.5 py-0.5 rounded-md cursor-nwse-resize shadow-xl flex items-center justify-center select-none z-30 pointer-events-auto"
+          title="Drag outward to enlarge, inward to shrink"
+        >
+          <span className="font-mono text-[9px] font-bold tracking-tighter select-none">&lt;&gt;</span>
+        </button>
+      )}
+
       {/* Subtle State Badge (Only when active state occurs) */}
       {!isLoading && !loadError && currentState !== 'idle' && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none">
-          <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-black/75 border border-indigo-500/40 text-indigo-200 shadow-md flex items-center space-x-1 animate-in fade-in duration-150">
+          <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[#0a1114]/90 border border-[#1f3832] text-[#f5f1ee] shadow-md flex items-center space-x-1 animate-in fade-in duration-150">
             {currentState === 'thinking' && (
               <>
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-ping"></span>
-                <span>Thinking</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-[#3ba172] animate-ping"></span>
+                <span className="text-[#52c48e]">Thinking</span>
               </>
             )}
-            {currentState === 'attention' && <span>Ready</span>}
-            {currentState === 'working' && <span>Working</span>}
+            {currentState === 'attention' && <span className="text-[#52c48e]">Ready</span>}
+            {currentState === 'working' && <span className="text-[#3ba172]">Working</span>}
             {currentState === 'needsApproval' && (
               <span className="text-amber-300 font-semibold">Approval Needed</span>
             )}
-            {currentState === 'completed' && <span className="text-emerald-300">Done</span>}
+            {currentState === 'completed' && <span className="text-[#3ba172]">Done</span>}
           </span>
         </div>
       )}

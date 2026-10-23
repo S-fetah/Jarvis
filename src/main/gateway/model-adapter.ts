@@ -378,7 +378,20 @@ export class ModelGatewayAdapter {
 
     // Contextual Pattern Matching
     const steps: PlanStep[] = []
-    if (trimmed.includes('git') || trimmed.includes('status') || trimmed.includes('branch')) {
+    if (
+      trimmed.includes('gmail') ||
+      trimmed.includes('chrome') ||
+      trimmed.includes('mail.google.com') ||
+      (trimmed.includes('browser') && (trimmed.includes('open') || trimmed.includes('launch')))
+    ) {
+      steps.push({
+        id: 'step-browser-launch',
+        title: 'Launch Google Chrome with Gmail',
+        description: 'Launch Google Chrome browser navigating to https://mail.google.com (Requires approval).',
+        category: 'process',
+        status: 'pending'
+      })
+    } else if (trimmed.includes('git') || trimmed.includes('status') || trimmed.includes('branch')) {
       steps.push({
         id: 'step-git',
         title: 'Check Git Status',
