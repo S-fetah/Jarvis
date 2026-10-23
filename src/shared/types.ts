@@ -94,6 +94,7 @@ export interface Conversation {
 export interface JarvisSettings {
   gatewayUrl: string
   apiKey?: string
+  hasApiKey?: boolean
   defaultModel: string
   lightMode: boolean
   mascotEnabled?: boolean
@@ -175,4 +176,5 @@ export interface JarvisAPI {
   openMainWindow: () => Promise<void>
   toggleMascotVisibility: () => Promise<boolean>
   onMascotStateChanged: (callback: (state: MascotState) => void) => () => void
+  onMascotCursorTracking?: (callback: (offset: { nx: number; ny: number }) => void) => () => void
 }

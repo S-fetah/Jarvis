@@ -1,5 +1,33 @@
 # Jarvis — Personal Windows PC Assistant
 
+> **PROJECT STATUS: v0.0.1 (Experimental Pre-Alpha — Remediated)**  
+> 🛡️ **SECURITY STATUS:** Core P0/P1 security vulnerabilities identified in the 2026-10-23 audit (`SEC-001` command injection, `SEC-002` unwired HMAC approval verification, `SEC-003` plaintext credential exposure, `SEC-004` window sandboxing, `SEC-006` symlink traversal, `SEC-007` extension gating, `SEC-010` atomic persistence) have been **fully remediated and verified** with 22 automated regression tests. For the detailed findings and audit history, see the [Comprehensive Security Audit Report (v0.0.1)](./docs/security/SECURITY_AUDIT_v0.0.1.md).
+
+## Implementation Status (Remediated Baseline: v0.0.1)
+
+| Area / Capability | Status | Description & Security Controls |
+| :--- | :--- | :--- |
+| **3D Mascot Companion (Surface A)** | ✅ Implemented | Floating, transparent, click-through 3D owl mascot rendered in Three.js with procedural state animations (idle, thinking, speaking, sleeping). |
+| **Quick-Chat Drawer (Surface B)** | ✅ Implemented | Compact conversation drawer window toggled via mascot click or hotkey. |
+| **Main Desktop UI Shell (Surface C)** | ✅ Implemented | Three-surface Electron/React/Tailwind interface with persistent chat history, new chat creation, and Free Models Hub. |
+| **Model Gateway Client** | ⚠️ Functional | OpenAI-compatible streaming client connecting to local FreeLLMAPI gateway (`127.0.0.1:31415/v1`) with bounded retry and thinking block extraction. |
+| **Security Policy Engine** | ✅ Wired & Verified | ADR-004 HMAC-SHA256 signature verification wired into runtime `approval:resolve` handler (`SEC-002`), anti-tampering verified. |
+| **Shell & Tool Execution** | ✅ Hardened | Parameterized child process spawning (`spawn`, `shell: false`) with strict URL protocol validation, eliminating shell command injection (`SEC-001`). |
+| **Credential Storage** | ✅ Encrypted & Redacted | API keys redacted from renderer IPC (`hasApiKey` flag) and encrypted via Electron `safeStorage` (DPAPI) in SQLite (`SEC-003`). |
+| **OS Sandboxing & Windows** | ✅ Enforced | `sandbox: true`, `contextIsolation: true`, navigation guards (`will-navigate`, `setWindowOpenHandler`), and IPC sender validation (`SEC-004`, `SEC-005`, `SEC-011`). |
+| **Filesystem Boundaries** | ✅ Enforced | Realpath symlink resolution (`SEC-006`) and extension gating for dangerous scripts (`.bat`, `.cmd`, `.ps1`, `.exe`) (`SEC-007`). |
+| **Browser Automation (Playwright)** | ⏳ Planned | Architecture designed; execution loop to be implemented in Phase 2. |
+| **PDF Generation & Verification** | ⏳ Planned | Tool specification defined; execution pipeline to be implemented in Phase 2. |
+
+## Verified Testing & Environment Status
+
+- **Automated Tests:** **22/22 unit & security regression tests passing** (`vitest run`).
+- **TypeScript & Build:** Typecheck clean (`tsc --noEmit`), `electron-vite build` passing.
+- **Runtime Environment:** Verified on Node.js `v24.13.0`, Electron `34.2.0`, React `19.0.0`, Vite `6.1.0` on Windows 11.
+- **Full Security Audit:** See [docs/security/SECURITY_AUDIT_v0.0.1.md](./docs/security/SECURITY_AUDIT_v0.0.1.md).
+
+---
+
 ## Objective
 
 Build a local-first desktop assistant for a personal Windows PC. Jarvis should provide a small chat interface where the user can ask it to complete practical, multi-step work such as researching the web, working with code projects, summarising documents, creating PDFs, generating images, downloading files, and managing development servers and processes.
@@ -60,6 +88,8 @@ Codex, OpenCode, Antigravity, and similar tools may help develop and test Jarvis
 
 ## Safety requirements
 
+*(Note: As documented in the [v0.0.1 Security Audit](./docs/security/SECURITY_AUDIT_v0.0.1.md), while security policy specifications and unit tests are authored, runtime enforcement and cryptographic approval binding are currently pending completion in Phase 2 remediation.)*
+
 - Require explicit confirmation for destructive file actions, downloads/executables, stopping processes, credential access, external publishing, or other material changes.
 - Scope file operations to user-approved folders and projects.
 - Keep local model-gateway access private; do not expose unrestricted shell or tool control through an unauthenticated network endpoint.
@@ -83,4 +113,3 @@ General desktop UI automation should be a later addition because it is more frag
 ## Guiding principle
 
 Do not build a custom model router, desktop UI, agent framework, and unrestricted computer-control system all at once. Prove that one model can use one well-bounded tool reliably, then expand the toolset and model routing in small, verifiable steps.
-

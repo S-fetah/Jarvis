@@ -151,6 +151,12 @@ const api: JarvisAPI = {
     const handler = (_event: Electron.IpcRendererEvent, state: MascotState): void => callback(state)
     ipcRenderer.on('mascot:state-changed', handler)
     return () => ipcRenderer.removeListener('mascot:state-changed', handler)
+  },
+
+  onMascotCursorTracking: (callback: (offset: { nx: number; ny: number }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, offset: { nx: number; ny: number }): void => callback(offset)
+    ipcRenderer.on('mascot:cursor-tracking', handler)
+    return () => ipcRenderer.removeListener('mascot:cursor-tracking', handler)
   }
 }
 

@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, screen, shell } from 'electron'
 import { join } from 'path'
 import { JarvisDatabase } from '../storage/database'
 import { MascotState, MascotPosition } from '../../shared/types'
@@ -12,6 +12,7 @@ export class MascotManager {
   private isDev: boolean
   private devUrl?: string
   private preloadPath: string
+  private cursorInterval: NodeJS.Timeout | null = null
 
   constructor(
     database: JarvisDatabase,
@@ -73,8 +74,27 @@ export class MascotManager {
         preload: this.preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         webSecurity: true
+      }
+    })
+
+    // SEC-005: Window open and navigation guards
+    this.mascotWindow.webContents.setWindowOpenHandler(({ url }) => {
+      try {
+        const parsed = new URL(url)
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          shell.openExternal(url)
+        }
+      } catch {}
+      return { action: 'deny' }
+    })
+
+    this.mascotWindow.webContents.on('will-navigate', (event, url) => {
+      const isDevServer = this.isDev && this.devUrl && url.startsWith(this.devUrl)
+      const isLocalFile = url.startsWith('file://')
+      if (!isDevServer && !isLocalFile) {
+        event.preventDefault()
       }
     })
 
@@ -84,7 +104,10 @@ export class MascotManager {
       this.mascotWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'mascot' })
     }
 
+    this.startCursorTracking()
+
     this.mascotWindow.on('closed', () => {
+      this.stopCursorTracking()
       this.mascotWindow = null
     })
 
@@ -104,13 +127,32 @@ export class MascotManager {
       resizable: false,
       skipTaskbar: true,
       show: false,
-      backgroundColor: '#0d1117',
+      backgroundColor: '#0a1114',
       webPreferences: {
         preload: this.preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         webSecurity: true
+      }
+    })
+
+    // SEC-005: Window open and navigation guards
+    this.quickChatWindow.webContents.setWindowOpenHandler(({ url }) => {
+      try {
+        const parsed = new URL(url)
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          shell.openExternal(url)
+        }
+      } catch {}
+      return { action: 'deny' }
+    })
+
+    this.quickChatWindow.webContents.on('will-navigate', (event, url) => {
+      const isDevServer = this.isDev && this.devUrl && url.startsWith(this.devUrl)
+      const isLocalFile = url.startsWith('file://')
+      if (!isDevServer && !isLocalFile) {
+        event.preventDefault()
       }
     })
 
@@ -278,7 +320,54 @@ export class MascotManager {
     }
   }
 
+  public getMascotWindow(): BrowserWindow | null {
+    return this.mascotWindow
+  }
+
+  public getQuickChatWindow(): BrowserWindow | null {
+    return this.quickChatWindow
+  }
+
+  public getCursorOffsetFromMascot(): { nx: number; ny: number } {
+    if (!this.mascotWindow || this.mascotWindow.isDestroyed()) return { nx: 0, ny: 0 }
+
+    const cursor = screen.getCursorScreenPoint()
+    const [winX, winY] = this.mascotWindow.getPosition()
+    const [winW, winH] = this.mascotWindow.getSize()
+
+    const mascotCenterX = winX + winW / 2
+    const mascotCenterY = winY + winH / 2
+
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const screenW = primaryDisplay.workAreaSize.width
+    const screenH = primaryDisplay.workAreaSize.height
+
+    // Normalized offsets from -1.0 to +1.0 across full screen
+    const nx = Math.max(-1, Math.min(1, (cursor.x - mascotCenterX) / (screenW / 2)))
+    const ny = Math.max(-1, Math.min(1, (cursor.y - mascotCenterY) / (screenH / 2)))
+
+    return { nx, ny }
+  }
+
+  public startCursorTracking(): void {
+    if (this.cursorInterval) return
+    this.cursorInterval = setInterval(() => {
+      if (this.mascotWindow && !this.mascotWindow.isDestroyed() && this.mascotWindow.isVisible()) {
+        const offset = this.getCursorOffsetFromMascot()
+        this.mascotWindow.webContents.send('mascot:cursor-tracking', offset)
+      }
+    }, 40) // ~25 FPS full desktop cursor tracking
+  }
+
+  public stopCursorTracking(): void {
+    if (this.cursorInterval) {
+      clearInterval(this.cursorInterval)
+      this.cursorInterval = null
+    }
+  }
+
   public dispose(): void {
+    this.stopCursorTracking()
     if (this.quickChatWindow && !this.quickChatWindow.isDestroyed()) {
       this.quickChatWindow.close()
     }

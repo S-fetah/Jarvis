@@ -207,7 +207,24 @@ export class JarvisDatabase {
     if (!this.db) return
     const data = this.db.export()
     const buffer = Buffer.from(data)
-    fs.writeFileSync(this.dbPath, buffer)
+    // SEC-010: Atomic write using temporary file to prevent database corruption
+    const tempPath = `${this.dbPath}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`
+    try {
+      fs.writeFileSync(tempPath, buffer)
+      try {
+        fs.renameSync(tempPath, this.dbPath)
+      } catch {
+        fs.copyFileSync(tempPath, this.dbPath)
+        try {
+          fs.unlinkSync(tempPath)
+        } catch {}
+      }
+    } catch (err) {
+      console.error('[Jarvis Database] Failed to write database atomically:', err)
+      try {
+        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
+      } catch {}
+    }
   }
 
   public getRawDb(): Database {

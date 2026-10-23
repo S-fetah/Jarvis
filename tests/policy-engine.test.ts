@@ -91,4 +91,42 @@ describe('PolicyEngine (ADR-004 Verification)', () => {
     // Attempting to verify or execute a denied action fails
     expect(engine.verifyApprovedAction(approvalId, { path: 'src\\main.ts', append: 'malicious' })).toBe(false)
   })
+
+  it('gates executable file creation (.bat, .ps1, .exe) even inside workspace (SEC-007)', () => {
+    const resBat = engine.evaluateAction({
+      actionType: 'file_write_new',
+      workspacePath: workspace,
+      targetPath: 'C:\\work\\softwares\\jarvis\\payload.bat',
+      arguments: { path: 'payload.bat', content: 'calc.exe' }
+    })
+
+    expect(resBat.allowed).toBe(false)
+    expect(resBat.requiresApproval).toBe(true)
+    expect(resBat.category).toBe('write_in')
+    expect(resBat.reason).toContain('executable or hidden file')
+
+    const resTxt = engine.evaluateAction({
+      actionType: 'file_write_new',
+      workspacePath: workspace,
+      targetPath: 'C:\\work\\softwares\\jarvis\\notes.txt',
+      arguments: { path: 'notes.txt', content: 'hello' }
+    })
+
+    expect(resTxt.allowed).toBe(true)
+    expect(resTxt.requiresApproval).toBe(false)
+    expect(resTxt.category).toBe('write_in')
+  })
+
+  it('normalizes Windows drive casing when checking workspace boundary (SEC-006)', () => {
+    const resLower = engine.evaluateAction({
+      actionType: 'file_read',
+      workspacePath: 'c:\\work\\softwares\\jarvis',
+      targetPath: 'C:\\work\\softwares\\jarvis\\README.md',
+      arguments: { path: 'README.md' }
+    })
+
+    expect(resLower.allowed).toBe(true)
+    expect(resLower.requiresApproval).toBe(false)
+    expect(resLower.category).toBe('read_in')
+  })
 })

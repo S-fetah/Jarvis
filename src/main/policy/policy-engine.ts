@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import fs from 'fs'
 import path from 'path'
 import { ApprovalRequest, PermissionCategory } from '../../shared/types'
 
@@ -74,9 +75,24 @@ export class PolicyEngine {
 
       case 'file_write_new':
         if (isInsideWorkspace) {
-          category = 'write_in'
-          requiresApproval = false
-          reason = 'Creation of new file inside workspace allowed (surfaced in activity timeline).'
+          // SEC-007: Block unprompted creation of executable scripts, binaries, or hidden dotfiles
+          const ext = targetPath ? path.extname(targetPath).toLowerCase() : ''
+          const dangerousExtensions = [
+            '.bat', '.cmd', '.ps1', '.exe', '.vbs', '.vbe', '.js', '.jse',
+            '.wsf', '.wsh', '.msc', '.msi', '.com', '.scr', '.pif', '.sh'
+          ]
+          const baseName = targetPath ? path.basename(targetPath) : ''
+          const isHidden = baseName.startsWith('.')
+
+          if (dangerousExtensions.includes(ext) || isHidden) {
+            category = 'write_in'
+            requiresApproval = true
+            reason = `Creating executable or hidden file ('${baseName}') inside workspace requires explicit user approval.`
+          } else {
+            category = 'write_in'
+            requiresApproval = false
+            reason = 'Creation of non-executable file inside workspace allowed (surfaced in activity timeline).'
+          }
         } else {
           category = 'write_out'
           requiresApproval = true
@@ -215,8 +231,29 @@ export class PolicyEngine {
     return this.pendingApprovals.get(approvalId)
   }
 
+  /**
+   * Resolves canonical real path on disk to defeat symlink and junction traversals (SEC-006).
+   */
+  private resolveRealPath(targetPath: string): string {
+    try {
+      if (fs.existsSync(targetPath)) {
+        return fs.realpathSync.native ? fs.realpathSync.native(targetPath) : fs.realpathSync(targetPath)
+      }
+      const parentDir = path.dirname(targetPath)
+      if (fs.existsSync(parentDir)) {
+        const resolvedParent = fs.realpathSync.native
+          ? fs.realpathSync.native(parentDir)
+          : fs.realpathSync(parentDir)
+        return path.join(resolvedParent, path.basename(targetPath))
+      }
+    } catch {}
+    return path.resolve(targetPath)
+  }
+
   private isPathInsideWorkspace(childPath: string, parentWorkspace: string): boolean {
-    const relative = path.relative(parentWorkspace, childPath)
+    const realChild = this.resolveRealPath(childPath).toLowerCase()
+    const realParent = this.resolveRealPath(parentWorkspace).toLowerCase()
+    const relative = path.relative(realParent, realChild)
     return !relative.startsWith('..') && !path.isAbsolute(relative)
   }
 }

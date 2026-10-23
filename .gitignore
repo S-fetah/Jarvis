@@ -10,11 +10,17 @@ release/
 *.tsbuildinfo
 
 # SQLite databases & temp files
+userData/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
 output/
+
+# Environment files & local secrets
+.env
+.env.*
+*.env
 
 # Documentation builds & slides
 docs/*.pdf
