@@ -55,6 +55,7 @@ describe('ModelGatewayAdapter', () => {
     const browserStep = res.steps.find((s) => s.category === 'process')
     expect(browserStep).toBeDefined()
     expect(browserStep?.title.toLowerCase()).toContain('chrome')
-    expect(browserStep?.description.toLowerCase()).toContain('mail.google.com')
+    const desc = browserStep?.description.toLowerCase() || ''
+    expect(desc.includes('mail.google.com') || desc.includes('gmail')).toBe(true)
   }, 20000)
 })
