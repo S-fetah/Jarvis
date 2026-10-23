@@ -65,8 +65,9 @@ export class MascotAnimationController {
       }
     }
 
-    // Smoothly track mouse target
-    this.currentMouse.lerp(this.mouseTarget, dt * 4.0)
+    // Smoothly track mouse target with high responsiveness
+    const mouseLerp = Math.min(1.0, dt * 14.0)
+    this.currentMouse.lerp(this.mouseTarget, mouseLerp)
 
     const motionFactor = this.reduceMotion ? 0.2 : 1.0
     const t = this.elapsedTime
@@ -150,15 +151,16 @@ export class MascotAnimationController {
     const effectiveScale = this.baseScale * scaleMultiplier
     this.targetScale.set(effectiveScale, effectiveScale, effectiveScale)
 
-    // Smooth critically-damped interpolation
-    const lerpSpeed = dt * 6.0
-    this.currentPosition.lerp(this.targetPosition, lerpSpeed)
-    this.currentScale.lerp(this.targetScale, lerpSpeed)
+    // Responsive interpolation: quick head turns, smooth body hover
+    const rotLerpSpeed = Math.min(1.0, dt * 12.0)
+    const posLerpSpeed = Math.min(1.0, dt * 8.0)
+    this.currentPosition.lerp(this.targetPosition, posLerpSpeed)
+    this.currentScale.lerp(this.targetScale, posLerpSpeed)
 
     // Euler rotation interpolation
-    this.currentRotation.x = THREE.MathUtils.lerp(this.currentRotation.x, this.targetRotation.x, lerpSpeed)
-    this.currentRotation.y = THREE.MathUtils.lerp(this.currentRotation.y, this.targetRotation.y, lerpSpeed)
-    this.currentRotation.z = THREE.MathUtils.lerp(this.currentRotation.z, this.targetRotation.z, lerpSpeed)
+    this.currentRotation.x = THREE.MathUtils.lerp(this.currentRotation.x, this.targetRotation.x, rotLerpSpeed)
+    this.currentRotation.y = THREE.MathUtils.lerp(this.currentRotation.y, this.targetRotation.y, rotLerpSpeed)
+    this.currentRotation.z = THREE.MathUtils.lerp(this.currentRotation.z, this.targetRotation.z, rotLerpSpeed)
 
     rootGroup.position.copy(this.currentPosition)
     rootGroup.rotation.copy(this.currentRotation)

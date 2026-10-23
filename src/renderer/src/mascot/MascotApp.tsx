@@ -37,14 +37,14 @@ export function MascotApp(): React.JSX.Element {
     if (!containerRef.current) return
 
     const container = containerRef.current
-    const width = container.clientWidth || 180
-    const height = container.clientHeight || 200
+    const width = container.clientWidth || 200
+    const height = container.clientHeight || 230
 
     // 1. Scene & Transparent WebGL Renderer
     const scene = new THREE.Scene()
     scene.background = null // Transparent scene background
 
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 50)
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.01, 100)
     camera.position.set(0, 0, 3.25)
     camera.lookAt(0, 0, 0)
 
@@ -90,16 +90,36 @@ export function MascotApp(): React.JSX.Element {
     const loader = new GLTFLoader()
     const glbUrl = './assets/mascot/left-facing-jarvis.glb'
 
+    const configureModel = (sceneGroup: THREE.Group): void => {
+      // Center model bounds precisely at (0, 0, 0)
+      const box = new THREE.Box3().setFromObject(sceneGroup)
+      const center = box.getCenter(new THREE.Vector3())
+      sceneGroup.position.sub(center)
+
+      // Prevent model from ever disappearing/being hidden when rotated, scaled, or overlapping frame edges
+      sceneGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.frustumCulled = false
+          const mesh = child as THREE.Mesh
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m) => {
+                m.depthWrite = true
+              })
+            } else {
+              mesh.material.depthWrite = true
+            }
+          }
+        }
+      })
+    }
+
     loader.load(
       glbUrl,
       (gltf) => {
         if (isDisposed) return
         loadedModel = gltf.scene
-
-        // Center model bounds precisely at (0, 0, 0)
-        const box = new THREE.Box3().setFromObject(loadedModel)
-        const center = box.getCenter(new THREE.Vector3())
-        loadedModel.position.sub(center)
+        configureModel(loadedModel)
 
         parentGroup.add(loadedModel)
         setIsLoading(false)
@@ -113,9 +133,7 @@ export function MascotApp(): React.JSX.Element {
           (gltf) => {
             if (isDisposed) return
             loadedModel = gltf.scene
-            const box = new THREE.Box3().setFromObject(loadedModel)
-            const center = box.getCenter(new THREE.Vector3())
-            loadedModel.position.sub(center)
+            configureModel(loadedModel)
             parentGroup.add(loadedModel)
             setIsLoading(false)
             controllerRef.current.setState('idle')
@@ -302,15 +320,48 @@ export function MascotApp(): React.JSX.Element {
       style={{ background: 'transparent' }}
       title="Jarvis Owl Companion — Click for Quick Chat, Drag to Move"
     >
-      {/* Loading Indicator */}
+      {/* Friendly Transparent Holographic Lazy Loader */}
       {isLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-slate-400">
-          <div className="relative">
-            <Sparkles className="w-6 h-6 text-[#3ba172] animate-spin" style={{ animationDuration: '3s' }} />
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none animate-in fade-in duration-300">
+          {/* Luminous Pulsing Owl Silhouette */}
+          <div className="relative flex items-center justify-center">
+            {/* Ambient soft mint aura */}
+            <div className="absolute w-20 h-20 rounded-full bg-[#52c48e]/20 blur-xl animate-pulse" />
+
+            {/* Cute holographic glass owl icon */}
+            <div className="relative w-14 h-14 rounded-2xl bg-black/25 border border-[#52c48e]/50 backdrop-blur-sm flex items-center justify-center shadow-[0_0_25px_rgba(82,196,142,0.4)] animate-pulse">
+              <svg
+                viewBox="0 0 48 48"
+                className="w-9 h-9 text-[#52c48e] drop-shadow-[0_0_8px_rgba(82,196,142,0.8)]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {/* Owl Head & Body Silhouette */}
+                <path
+                  d="M13 18 L16 11 L24 15 L32 11 L35 18 C38 24 38 32 34 37 C30 41 18 41 14 37 C10 32 10 24 13 18 Z"
+                  fill="rgba(82,196,142,0.18)"
+                />
+                {/* Friendly Eyes */}
+                <circle cx="19" cy="24" r="3.5" fill="#f5f1ee" stroke="none" />
+                <circle cx="29" cy="24" r="3.5" fill="#f5f1ee" stroke="none" />
+                <circle cx="20" cy="24" r="1.5" fill="#0a1114" stroke="none" />
+                <circle cx="30" cy="24" r="1.5" fill="#0a1114" stroke="none" />
+                {/* Cute Beak */}
+                <polygon points="24,27.5 22,31 26,31" fill="#f59e0b" stroke="#f59e0b" />
+              </svg>
+            </div>
           </div>
-          <span className="text-[10px] mt-1.5 font-mono text-[#d1d7d0] bg-[#0a1114]/80 border border-[#1f3832] px-2 py-0.5 rounded-full">
-            Awakening Owl...
-          </span>
+
+          {/* Friendly Minimalist Status Badge */}
+          <div className="mt-2.5 flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-black/35 border border-[#52c48e]/35 shadow-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#52c48e] animate-ping" />
+            <span className="text-[10px] font-medium tracking-wide text-[#52c48e] drop-shadow-[0_0_6px_rgba(82,196,142,0.6)]">
+              Jarvis is waking up...
+            </span>
+          </div>
         </div>
       )}
 

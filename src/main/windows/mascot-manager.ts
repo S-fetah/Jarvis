@@ -45,22 +45,22 @@ export class MascotManager {
     const savedX = this.database.getSetting('mascot_pos_x')
     const savedY = this.database.getSetting('mascot_pos_y')
 
-    let initialX = workArea.x + workArea.width - 200
-    let initialY = workArea.y + workArea.height - 230
+    let initialX = workArea.x + workArea.width - 220
+    let initialY = workArea.y + workArea.height - 250
 
     if (savedX && savedY) {
       const parsedX = parseInt(savedX, 10)
       const parsedY = parseInt(savedY, 10)
       if (!isNaN(parsedX) && !isNaN(parsedY)) {
         // Clamp to ensure it's visible on available displays
-        initialX = Math.max(workArea.x, Math.min(parsedX, workArea.x + workArea.width - 180))
-        initialY = Math.max(workArea.y, Math.min(parsedY, workArea.y + workArea.height - 200))
+        initialX = Math.max(workArea.x, Math.min(parsedX, workArea.x + workArea.width - 200))
+        initialY = Math.max(workArea.y, Math.min(parsedY, workArea.y + workArea.height - 230))
       }
     }
 
     this.mascotWindow = new BrowserWindow({
-      width: 180,
-      height: 200,
+      width: 200,
+      height: 230,
       x: initialX,
       y: initialY,
       transparent: true,
@@ -356,7 +356,7 @@ export class MascotManager {
         const offset = this.getCursorOffsetFromMascot()
         this.mascotWindow.webContents.send('mascot:cursor-tracking', offset)
       }
-    }, 40) // ~25 FPS full desktop cursor tracking
+    }, 16) // ~60 FPS high-precision full desktop cursor tracking
   }
 
   public stopCursorTracking(): void {
