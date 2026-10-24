@@ -24,6 +24,7 @@ output/
 
 # Documentation builds & slides
 docs/*.pdf
+!docs/architecture-slides.pdf
 docs/slides.html
 
 # Logs
