@@ -2,10 +2,32 @@ import fs from 'fs'
 import path from 'path'
 import initSqlJs from 'sql.js'
 import { PlanStep, ModelCatalog } from '../../shared/types'
+import { ToolDefinition } from '../tools/tool-registry'
+
+export interface ToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
 
 export interface ChatCompletionMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string | null
+  name?: string
+  tool_call_id?: string
+  tool_calls?: ToolCall[]
+}
+
+export interface ChatWithToolsResult {
+  message: {
+    role: 'assistant'
+    content: string | null
+    tool_calls?: ToolCall[]
+  }
+  finishReason?: string
 }
 
 export interface ModelGatewayConfig {
@@ -322,6 +344,96 @@ export class ModelGatewayAdapter {
     return {
       reply: fullReply.trim(),
       reasoning: fullReasoning.trim()
+    }
+  }
+
+  /**
+   * Performs a chat completion step with OpenAI-compatible function calling (tools) enabled.
+   */
+  public async chatWithTools(
+    messages: ChatCompletionMessage[],
+    tools?: ToolDefinition[],
+    options?: { model?: string; isLightMode?: boolean }
+  ): Promise<ChatWithToolsResult> {
+    const apiKey = await this.getEffectiveApiKey()
+    const chosenModel = options?.isLightMode
+      ? this.config.lightModel || 'gemini-flash-lite'
+      : options?.model || this.config.model
+
+    const systemPrompt: ChatCompletionMessage = {
+      role: 'system',
+      content:
+        'You are Jarvis, a local-first Windows AI desktop assistant.\n\n' +
+        'Core Knowledge about your environment and capabilities:\n' +
+        '1. Storage: All conversation history and user settings are stored locally on the user\'s machine in SQLite (`userData/jarvis.sqlite`).\n' +
+        '2. Gateways & Models: You connect to a local FreeLLMAPI gateway (http://127.0.0.1:31415).\n' +
+        '3. Assistive Autonomy (ADR-004): You inspect local workspaces, read files, and search the web safely. Any process executions or destructive writes require approval.\n' +
+        '4. Tool Usage: Use provided tools proactively when questions involve workspace structure, configuration, dependencies, or files. When referencing files, cite exact file paths and line numbers.'
+    }
+
+    const payloadMessages = [systemPrompt, ...messages]
+
+    const sendRequest = async (modelToUse: string, attempt = 1): Promise<Response> => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`
+      }
+
+      const bodyPayload: Record<string, unknown> = {
+        model: modelToUse,
+        messages: payloadMessages,
+        temperature: 0.2
+      }
+
+      if (tools && tools.length > 0) {
+        bodyPayload.tools = tools
+        bodyPayload.tool_choice = 'auto'
+      }
+
+      const res = await fetch(`${this.config.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(bodyPayload),
+        signal: AbortSignal.timeout(35000)
+      })
+
+      // Transient 502/503/504 retry
+      if ([502, 503, 504].includes(res.status) && attempt <= 2) {
+        console.warn(`[ModelGatewayAdapter] chatWithTools received ${res.status}, retrying (attempt ${attempt})...`)
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
+        return sendRequest(modelToUse, attempt + 1)
+      }
+
+      // Handle 429 Rate Limit: Try fallback to light model
+      if (res.status === 429 && modelToUse !== 'gemini-flash-lite' && attempt === 1) {
+        console.warn(`[ModelGatewayAdapter] chatWithTools rate limited (429), falling back to gemini-flash-lite...`)
+        return sendRequest('gemini-flash-lite', 2)
+      }
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`Gateway returned HTTP ${res.status}: ${errorText}`)
+      }
+
+      return res
+    }
+
+    const res = await sendRequest(chosenModel)
+    const json = await res.json()
+    const choice = json.choices?.[0]
+    if (!choice || !choice.message) {
+      throw new Error('Invalid response structure from model gateway: no choices returned.')
+    }
+
+    return {
+      message: {
+        role: 'assistant',
+        content: choice.message.content ?? null,
+        tool_calls: choice.message.tool_calls
+      },
+      finishReason: choice.finish_reason
     }
   }
 

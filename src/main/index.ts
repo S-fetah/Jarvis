@@ -7,6 +7,8 @@ import { PolicyEngine } from './policy/policy-engine'
 import { ModelGatewayAdapter } from './gateway/model-adapter'
 import { JarvisDatabase } from './storage/database'
 import { MascotManager } from './windows/mascot-manager'
+import { ToolExecutor } from './tools/tool-executor'
+import { AgentOrchestrator } from './agent/agent-orchestrator'
 import {
   TaskState,
   TimelineEvent,
@@ -57,6 +59,11 @@ const modelAdapter = new ModelGatewayAdapter({
   apiKey: settings.apiKey,
   model: settings.defaultModel,
   lightModel: 'gemini-flash-lite'
+})
+
+const toolExecutor = new ToolExecutor(policyEngine)
+let agentOrchestrator = new AgentOrchestrator(modelAdapter, toolExecutor, {
+  defaultWorkspacePath: settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
 })
 
 function getPreloadPath(): string {
@@ -216,6 +223,10 @@ app.whenReady().then(async () => {
       model: settings.defaultModel
     })
 
+    agentOrchestrator = new AgentOrchestrator(modelAdapter, toolExecutor, {
+      defaultWorkspacePath: settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
+    })
+
     const convs = db.getConversations()
     if (convs.length === 0) {
       db.createConversation('Jarvis General Chat')
@@ -307,25 +318,37 @@ function executeNextStep(task: TaskState, stepIndex: number, workspacePath: stri
   sendTaskUpdate({ ...task, updatedAt: Date.now() })
 
   if (step.category === 'read_in') {
-    const res = policyEngine.evaluateAction({
-      actionType: 'workspace_list',
-      workspacePath,
-      targetPath: workspacePath,
-      arguments: { path: workspacePath }
-    })
+    const isProjectInspect =
+      step.title.toLowerCase().includes('package') ||
+      step.title.toLowerCase().includes('inspect') ||
+      step.title.toLowerCase().includes('script') ||
+      step.title.toLowerCase().includes('git')
 
-    sendTimelineEvent({
-      id: crypto.randomUUID(),
-      taskId: task.id,
-      timestamp: Date.now(),
-      type: 'tool_call',
-      title: step.title,
-      details: res.reason,
-      category: 'read_in'
-    })
+    const toolName = isProjectInspect ? 'project_inspect' : 'workspace_list'
+    const toolArgs = isProjectInspect ? { detail: 'summary' } : { maxDepth: 2 }
 
-    step.status = 'completed'
-    setTimeout(() => executeNextStep(task, stepIndex + 1, workspacePath), 800)
+    toolExecutor
+      .executeTool(toolName, toolArgs, workspacePath)
+      .then((toolRes) => {
+        sendTimelineEvent({
+          id: crypto.randomUUID(),
+          taskId: task.id,
+          timestamp: Date.now(),
+          type: 'tool_call',
+          title: step.title,
+          details: toolRes.success
+            ? (toolRes.output.length > 250 ? toolRes.output.slice(0, 250) + '...' : toolRes.output)
+            : (toolRes.error || 'Inspection completed'),
+          category: 'read_in'
+        })
+
+        step.status = 'completed'
+        setTimeout(() => executeNextStep(task, stepIndex + 1, workspacePath), 600)
+      })
+      .catch(() => {
+        step.status = 'completed'
+        setTimeout(() => executeNextStep(task, stepIndex + 1, workspacePath), 600)
+      })
   } else if (step.category === 'write_in') {
     const targetFile = join(workspacePath, 'output', 'project-summary.pdf')
     const res = policyEngine.evaluateAction({
@@ -533,25 +556,45 @@ function registerIpcHandlers(): void {
       const isChromeIntent =
         (lower.startsWith('open ') || lower.startsWith('launch ')) &&
         (lower.includes('chrome') || lower.includes('browser'))
+      const isDevServerIntent =
+        lower.includes('npm run dev') ||
+        (lower.includes('dev server') && (lower.includes('start') || lower.includes('run') || lower.includes('launch')))
 
-      if (isGmailIntent || isChromeIntent) {
+      if (isGmailIntent || isChromeIntent || isDevServerIntent) {
         db.addMessage(conversationId, 'user', content)
 
-        const targetUrl = isGmailIntent ? 'https://mail.google.com' : 'https://google.com'
-        const command = `start chrome "${targetUrl}"`
-        const title = isGmailIntent ? 'Launch Google Chrome (Gmail)' : 'Launch Google Chrome'
         const chosenWorkspace = _workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
+        const isBrowser = isGmailIntent || isChromeIntent
+        const targetUrl = isGmailIntent ? 'https://mail.google.com' : 'https://google.com'
+        const command = isBrowser ? `start chrome "${targetUrl}"` : 'npm run dev'
+        const title = isBrowser
+          ? (isGmailIntent ? 'Launch Google Chrome (Gmail)' : 'Launch Google Chrome')
+          : 'Start Development Server (npm run dev)'
 
-        const evalRes = policyEngine.evaluateAction({
-          actionType: 'process_spawn',
-          workspacePath: chosenWorkspace,
-          command,
-          title,
-          workingDirectory: chosenWorkspace,
-          explanation: `Opens Google Chrome navigating to ${targetUrl} as instructed.`,
-          safetyImpact: 'Spawns an external Google Chrome browser instance on your Windows desktop.',
-          arguments: { app: 'chrome', url: targetUrl, command }
-        })
+        const evalRes = policyEngine.evaluateAction(
+          isBrowser
+            ? {
+                actionType: 'process_spawn',
+                workspacePath: chosenWorkspace,
+                command,
+                title,
+                workingDirectory: chosenWorkspace,
+                explanation: `Opens Google Chrome navigating to ${targetUrl} as instructed.`,
+                safetyImpact: 'Spawns an external Google Chrome browser instance on your Windows desktop.',
+                arguments: { app: 'chrome', url: targetUrl, command }
+              }
+            : {
+                actionType: 'start_dev_server',
+                workspacePath: chosenWorkspace,
+                command,
+                title,
+                workingDirectory: chosenWorkspace,
+                explanation: 'Starts local project development server with npm run dev.',
+                safetyImpact:
+                  'Spawns a local Node development server child process listening on local port. Tracked by Jarvis.',
+                arguments: { command, script: 'dev', workingDirectory: chosenWorkspace }
+              }
+        )
 
         const taskId = crypto.randomUUID()
         const taskState: TaskState = {
@@ -562,14 +605,14 @@ function registerIpcHandlers(): void {
           activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
           steps: [
             {
-              id: 'step-browser-action',
+              id: 'step-process-action',
               title,
-              description: `Launch Google Chrome to ${targetUrl}`,
+              description: isBrowser ? `Launch Google Chrome to ${targetUrl}` : 'Run `npm run dev` in workspace',
               category: 'process',
               status: 'in_progress'
             }
           ],
-          activeStepId: 'step-browser-action',
+          activeStepId: 'step-process-action',
           currentApproval: evalRes.approvalRequest,
           createdAt: Date.now(),
           updatedAt: Date.now()
@@ -588,8 +631,8 @@ function registerIpcHandlers(): void {
           category: 'process'
         })
 
-        const reply = `I have prepared the action to launch **Google Chrome** to **${isGmailIntent ? 'Gmail' : targetUrl}**.\n\nPer **ADR-004 Assistive Autonomy**, external OS process execution requires explicit user authorization. Please review and approve the action below.`
-        const reasoning = `Detected instruction to launch external browser application. Under ADR-004 policy, process spawning is gated behind explicit human approval before execution.`
+        const reply = `I have prepared the action to **${title}**.\n\nPer **ADR-004 Assistive Autonomy**, external OS process execution requires explicit user authorization. Please review and approve the action below.`
+        const reasoning = `Detected instruction to launch external process. Under ADR-004 policy, process execution is gated behind explicit human approval before execution.`
 
         db.addMessage(conversationId, 'assistant', reply, reasoning)
 
@@ -602,36 +645,45 @@ function registerIpcHandlers(): void {
       db.addMessage(conversationId, 'user', content)
       mascotManager?.setMascotState('thinking')
 
-      const pastMessages = db.getMessages(conversationId).slice(-8).map((m) => ({
-        role: m.role,
-        content: m.content
-      }))
+      const chosenWorkspace = _workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
+      const pastMessages: import('./gateway/model-adapter').ChatCompletionMessage[] = db
+        .getMessages(conversationId)
+        .slice(-8)
+        .map((m) => ({
+          role: m.role as any,
+          content: m.content
+        }))
 
       try {
-        const streamResult = await modelAdapter.chatStream(
-          pastMessages,
-          (chunkData) => {
-            broadcastToWindows('chat:stream', {
-              conversationId,
-              chunk: chunkData.chunk,
-              type: chunkData.type
-            })
+        const agentResult = await agentOrchestrator.runLoop(pastMessages, {
+          workspacePath: chosenWorkspace,
+          model: settings.defaultModel,
+          isLightMode: settings.lightMode,
+          onStatusUpdate: (st) => {
+            if (st === 'working') mascotManager?.setMascotState('working')
+            else if (st === 'thinking' || st === 'synthesizing') mascotManager?.setMascotState('thinking')
+            else if (st === 'completed') mascotManager?.setMascotState('idle')
           },
-          {
-            model: settings.defaultModel,
-            isLightMode: settings.lightMode
+          onTimelineEvent: (event) => {
+            sendTimelineEvent(event)
           }
-        )
+        })
 
-        db.addMessage(conversationId, 'assistant', streamResult.reply, streamResult.reasoning)
+        broadcastToWindows('chat:stream', {
+          conversationId,
+          chunk: agentResult.reply,
+          type: 'content'
+        })
+
+        db.addMessage(conversationId, 'assistant', agentResult.reply, agentResult.reasoning)
         mascotManager?.setMascotState('idle')
 
         return {
-          reply: streamResult.reply,
-          reasoning: streamResult.reasoning
+          reply: agentResult.reply,
+          reasoning: agentResult.reasoning
         }
       } catch (err: any) {
-        console.error('[Jarvis Main] Error in chatStream:', err)
+        console.error('[Jarvis Main] Error in agent runLoop:', err)
         let replyContent = `Gateway communication error: ${err.message || 'Model did not respond'}`
 
         try {
@@ -916,6 +968,10 @@ function registerIpcHandlers(): void {
       baseUrl: settings.gatewayUrl,
       apiKey: settings.apiKey,
       model: settings.defaultModel
+    })
+
+    agentOrchestrator = new AgentOrchestrator(modelAdapter, toolExecutor, {
+      defaultWorkspacePath: settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
     })
 
     const { apiKey, ...safeSettings } = settings

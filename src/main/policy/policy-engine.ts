@@ -250,7 +250,7 @@ export class PolicyEngine {
     return path.resolve(targetPath)
   }
 
-  private isPathInsideWorkspace(childPath: string, parentWorkspace: string): boolean {
+  public isPathInsideWorkspace(childPath: string, parentWorkspace: string): boolean {
     const realChild = this.resolveRealPath(childPath).toLowerCase()
     const realParent = this.resolveRealPath(parentWorkspace).toLowerCase()
     const relative = path.relative(realParent, realChild)
