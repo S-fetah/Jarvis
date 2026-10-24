@@ -44,9 +44,14 @@ const api: JarvisAPI = {
   sendMessage: (
     conversationId: string,
     content: string,
-    workspacePath?: string
+    workspacePath?: string,
+    options?: {
+      talkingStyle?: import('../shared/types').TalkingStyle
+      taskMode?: import('../shared/types').TaskMode
+      thinkingDepth?: import('../shared/types').ThinkingDepth
+    }
   ): Promise<{ reply: string; reasoning?: string; task?: TaskState }> => {
-    return ipcRenderer.invoke('chat:send', { conversationId, content, workspacePath })
+    return ipcRenderer.invoke('chat:send', { conversationId, content, workspacePath, ...options })
   },
 
   // Models & Gateway

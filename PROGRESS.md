@@ -2,8 +2,10 @@
 
 This file records implementation progress against [the working plan](./Jarvis_Project_Implementation_Plan.md). Update it whenever a milestone, ticket, decision, or validation result changes.
 
-**Last updated:** 2026-10-22  
+**Last updated:** 2026-10-24  
 **Overall state:** Phase 0 complete — T-001 (gateway validation), T-002 (agent benchmark), and T-003 (ADRs 001-004) complete. Phase 1 (App Scaffolding & Secure Foundation) is the next active phase.
+
+**In flight (2026-10-24):** architecture deck published — `docs/architecture-slides.pdf` (16 slides, vector, QA PASS) with editable source `docs/architecture-slides.html` and renderer `scripts/render-architecture-slides.cjs`. New project skill `.agents/skills/status-deck/` regenerates the deck from the trackers anytime ("update the slides/deck").
 
 ## Milestones
 

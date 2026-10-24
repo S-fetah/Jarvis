@@ -51,7 +51,10 @@ const settings: JarvisSettings = {
   reduceMotion: false,
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
   theme: 'dark',
-  outputDirectory: 'C:\\work\\softwares\\jarvis\\output'
+  outputDirectory: 'C:\\work\\softwares\\jarvis\\output',
+  talkingStyle: 'balanced',
+  taskMode: 'chat',
+  thinkingDepth: 'standard'
 }
 
 const modelAdapter = new ModelGatewayAdapter({
@@ -216,6 +219,15 @@ app.whenReady().then(async () => {
 
     const savedMascot = db.getSetting('mascot_enabled')
     if (savedMascot !== null) settings.mascotEnabled = savedMascot === 'true'
+
+    const savedStyle = db.getSetting('talkingStyle')
+    if (savedStyle) settings.talkingStyle = savedStyle as any
+
+    const savedMode = db.getSetting('taskMode')
+    if (savedMode) settings.taskMode = savedMode as any
+
+    const savedDepth = db.getSetting('thinkingDepth')
+    if (savedDepth) settings.thinkingDepth = savedDepth as any
 
     modelAdapter.updateConfig({
       baseUrl: settings.gatewayUrl,
@@ -542,11 +554,17 @@ function registerIpcHandlers(): void {
       {
         conversationId,
         content,
-        workspacePath: _workspacePath
+        workspacePath: _workspacePath,
+        talkingStyle,
+        taskMode,
+        thinkingDepth
       }: {
         conversationId: string
         content: string
         workspacePath?: string
+        talkingStyle?: import('../shared/types').TalkingStyle
+        taskMode?: import('../shared/types').TaskMode
+        thinkingDepth?: import('../shared/types').ThinkingDepth
       }
     ) => {
       const lower = content.toLowerCase().trim()
@@ -659,6 +677,9 @@ function registerIpcHandlers(): void {
           workspacePath: chosenWorkspace,
           model: settings.defaultModel,
           isLightMode: settings.lightMode,
+          talkingStyle: talkingStyle || settings.talkingStyle || 'balanced',
+          taskMode: taskMode || settings.taskMode || 'chat',
+          thinkingDepth: thinkingDepth || settings.thinkingDepth || 'standard',
           onStatusUpdate: (st) => {
             if (st === 'working') mascotManager?.setMascotState('working')
             else if (st === 'thinking' || st === 'synthesizing') mascotManager?.setMascotState('thinking')
@@ -962,6 +983,18 @@ function registerIpcHandlers(): void {
     }
     if (newSettings.reduceMotion !== undefined) {
       settings.reduceMotion = newSettings.reduceMotion
+    }
+    if (newSettings.talkingStyle !== undefined) {
+      settings.talkingStyle = newSettings.talkingStyle
+      db.setSetting('talkingStyle', newSettings.talkingStyle)
+    }
+    if (newSettings.taskMode !== undefined) {
+      settings.taskMode = newSettings.taskMode
+      db.setSetting('taskMode', newSettings.taskMode)
+    }
+    if (newSettings.thinkingDepth !== undefined) {
+      settings.thinkingDepth = newSettings.thinkingDepth
+      db.setSetting('thinkingDepth', newSettings.thinkingDepth)
     }
 
     modelAdapter.updateConfig({

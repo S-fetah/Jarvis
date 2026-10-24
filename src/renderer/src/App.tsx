@@ -24,7 +24,10 @@ import {
   TimelineEvent,
   ApprovalRequest,
   JarvisSettings,
-  ModelCatalog
+  ModelCatalog,
+  TalkingStyle,
+  TaskMode,
+  ThinkingDepth
 } from '../../shared/types'
 import { MarkdownRenderer } from './components/MarkdownRenderer'
 import { ThinkingBlock } from './components/ThinkingBlock'
@@ -32,6 +35,7 @@ import { ModelSelector } from './components/ModelSelector'
 import { SettingsModal } from './components/SettingsModal'
 import { RateLimitCard } from './components/RateLimitCard'
 import { FreeModelsHubModal } from './components/FreeModelsHubModal'
+import { PromptControlsBar } from './components/PromptControlsBar'
 
 export default function App(): React.JSX.Element {
   // --- State Management ---
@@ -42,6 +46,11 @@ export default function App(): React.JSX.Element {
   const [isStreaming, setIsStreaming] = useState(false)
   const [currentThought, setCurrentThought] = useState('')
   const [currentReply, setCurrentReply] = useState('')
+
+  // Assistant Mode & Style Configuration
+  const [talkingStyle, setTalkingStyle] = useState<TalkingStyle>('balanced')
+  const [taskMode, setTaskMode] = useState<TaskMode>('chat')
+  const [thinkingDepth, setThinkingDepth] = useState<ThinkingDepth>('standard')
 
   // UI Modals & Drawers
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -83,6 +92,9 @@ export default function App(): React.JSX.Element {
     // 1. Load Settings
     window.jarvisAPI.getSettings().then((s) => {
       setSettings(s)
+      if (s.talkingStyle) setTalkingStyle(s.talkingStyle)
+      if (s.taskMode) setTaskMode(s.taskMode)
+      if (s.thinkingDepth) setThinkingDepth(s.thinkingDepth)
     })
 
     // 2. Load Models
@@ -168,6 +180,21 @@ export default function App(): React.JSX.Element {
     }
   }
 
+  const handleStyleChange = (s: TalkingStyle): void => {
+    setTalkingStyle(s)
+    if (window.jarvisAPI) window.jarvisAPI.updateSettings({ talkingStyle: s })
+  }
+
+  const handleModeChange = (m: TaskMode): void => {
+    setTaskMode(m)
+    if (window.jarvisAPI) window.jarvisAPI.updateSettings({ taskMode: m })
+  }
+
+  const handleDepthChange = (d: ThinkingDepth): void => {
+    setThinkingDepth(d)
+    if (window.jarvisAPI) window.jarvisAPI.updateSettings({ thinkingDepth: d })
+  }
+
   // Send Message / Task Execution
   const handleSendMessage = async (e?: React.FormEvent, customPrompt?: string): Promise<void> => {
     if (e) e.preventDefault()
@@ -196,7 +223,8 @@ export default function App(): React.JSX.Element {
       const res = await window.jarvisAPI.sendMessage(
         activeConvId,
         promptToSend,
-        settings.workspacePaths[0]
+        settings.workspacePaths[0],
+        { talkingStyle, taskMode, thinkingDepth }
       )
 
       const finalAssistantMsg: ChatMessage = {
@@ -625,6 +653,14 @@ export default function App(): React.JSX.Element {
 
             {/* Input Bar */}
             <div className="p-3 border-t border-jarvis-border bg-jarvis-surface">
+              <PromptControlsBar
+                talkingStyle={talkingStyle}
+                taskMode={taskMode}
+                thinkingDepth={thinkingDepth}
+                onStyleChange={handleStyleChange}
+                onModeChange={handleModeChange}
+                onDepthChange={handleDepthChange}
+              />
               <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
                 <input
                   type="text"

@@ -14,11 +14,15 @@ import {
   TaskState,
   ApprovalRequest,
   JarvisSettings,
-  Conversation
+  Conversation,
+  TalkingStyle,
+  TaskMode,
+  ThinkingDepth
 } from '../../../shared/types'
 import { MarkdownRenderer } from '../components/MarkdownRenderer'
 import { ThinkingBlock } from '../components/ThinkingBlock'
 import { RateLimitCard } from '../components/RateLimitCard'
+import { PromptControlsBar } from '../components/PromptControlsBar'
 
 export function QuickChatApp(): React.JSX.Element {
   const [activeConv, setActiveConv] = useState<Conversation | null>(null)
@@ -27,6 +31,9 @@ export function QuickChatApp(): React.JSX.Element {
   const [isStreaming, setIsStreaming] = useState(false)
   const [currentThought, setCurrentThought] = useState('')
   const [currentReply, setCurrentReply] = useState('')
+  const [talkingStyle, setTalkingStyle] = useState<TalkingStyle>('direct')
+  const [taskMode, setTaskMode] = useState<TaskMode>('chat')
+  const [thinkingDepth, setThinkingDepth] = useState<ThinkingDepth>('quick')
   const [settings, setSettings] = useState<JarvisSettings>({
     gatewayUrl: 'http://127.0.0.1:31415/v1',
     defaultModel: 'gemini-3.6-flash',
@@ -50,7 +57,12 @@ export function QuickChatApp(): React.JSX.Element {
   useEffect(() => {
     if (!window.jarvisAPI) return
 
-    window.jarvisAPI.getSettings().then((s) => setSettings(s))
+    window.jarvisAPI.getSettings().then((s) => {
+      setSettings(s)
+      if (s.talkingStyle) setTalkingStyle(s.talkingStyle)
+      if (s.taskMode) setTaskMode(s.taskMode)
+      if (s.thinkingDepth) setThinkingDepth(s.thinkingDepth)
+    })
 
     window.jarvisAPI.getActiveConversation().then((conv) => {
       setActiveConv(conv)
@@ -99,7 +111,8 @@ export function QuickChatApp(): React.JSX.Element {
       const res = await window.jarvisAPI.sendMessage(
         activeConv.id,
         promptToSend,
-        settings.workspacePaths[0]
+        settings.workspacePaths[0],
+        { talkingStyle, taskMode, thinkingDepth }
       )
 
       const finalAssistantMsg: ChatMessage = {
@@ -364,6 +377,24 @@ export function QuickChatApp(): React.JSX.Element {
 
       {/* Bottom Input Field */}
       <div className="p-2.5 bg-jarvis-surface border-t border-jarvis-border">
+        <PromptControlsBar
+          talkingStyle={talkingStyle}
+          taskMode={taskMode}
+          thinkingDepth={thinkingDepth}
+          onStyleChange={(s) => {
+            setTalkingStyle(s)
+            if (window.jarvisAPI) window.jarvisAPI.updateSettings({ talkingStyle: s })
+          }}
+          onModeChange={(m) => {
+            setTaskMode(m)
+            if (window.jarvisAPI) window.jarvisAPI.updateSettings({ taskMode: m })
+          }}
+          onDepthChange={(d) => {
+            setThinkingDepth(d)
+            if (window.jarvisAPI) window.jarvisAPI.updateSettings({ thinkingDepth: d })
+          }}
+          compact={true}
+        />
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
           <input
             type="text"

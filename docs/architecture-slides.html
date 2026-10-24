@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Jarvis — Architecture Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: 1280px 720px; margin: 0; }
+  html, body { margin: 0; padding: 0; width: 1280px; background: #0f172a; }
+  * { box-sizing: border-box; }
+
+  :root {
+    --ink: #0f172a;
+    --paper: #f8fafc;
+    --card: #ffffff;
+    --indigo: #4f46e5;
+    --indigo-deep: #3730a3;
+    --indigo-soft: #eef2ff;
+    --indigo-border: #c7d2fe;
+    --muted: #64748b;
+    --muted-2: #94a3b8;
+    --line: #e2e8f0;
+  }
+
+  body { font-family: 'Inter', 'Segoe UI', sans-serif; color: var(--ink); }
+  .page {
+    width: 1280px; height: 720px; position: relative; overflow: hidden;
+    background: var(--paper);
+    padding: 56px 64px 48px 64px;
+    page-break-after: always;
+    break-after: page;
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page.dark { background: #0f172a; color: #e2e8f0; }
+
+  .kicker {
+    font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--indigo); margin-bottom: 10px;
+  }
+  .dark .kicker { color: #a5b4fc; }
+  h1.slide-title { font-size: 38px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 6px 0; }
+  .slide-sub { font-size: 16px; color: var(--muted); margin: 0 0 26px 0; font-weight: 400; }
+  .dark .slide-sub { color: #94a3b8; }
+
+  .slidefoot {
+    position: absolute; bottom: 24px; left: 64px; right: 64px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--muted-2); letter-spacing: 1px;
+  }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .card h3 { font-size: 15px; font-weight: 700; margin: 0 0 8px 0; }
+  .card p, .card li { font-size: 13.5px; line-height: 1.55; color: #334155; margin: 0; }
+  .card ul { margin: 0; padding-left: 18px; }
+  .card li { margin-bottom: 5px; }
+  .card li:last-child { margin-bottom: 0; }
+
+  .tag {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: var(--indigo-soft); color: var(--indigo-deep); border: 1px solid var(--indigo-border);
+    border-radius: 4px; padding: 2px 8px; margin: 0 6px 6px 0; font-weight: 500;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  table.tbl { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
+  table.tbl th {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #ffffff;
+    background: var(--indigo-deep); padding: 9px 14px; text-align: left; font-weight: 600;
+  }
+  table.tbl td { font-size: 13px; padding: 9px 14px; border-top: 1px solid var(--line); color: #334155; line-height: 1.4; vertical-align: top; }
+  table.tbl td b { color: var(--ink); }
+  .ok-badge { color: #16A34A; font-weight: 700; }
+  .ask-badge { color: #B45309; font-weight: 700; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  .stat {
+    background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--indigo);
+    border-radius: 10px; padding: 18px 20px 16px 20px;
+  }
+  .stat .num { font-size: 40px; font-weight: 800; letter-spacing: -1px; color: var(--indigo-deep); }
+  .stat .num span { font-size: 20px; font-weight: 600; color: var(--indigo); }
+  .stat .lbl { font-size: 11.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 6px; font-weight: 600; }
+
+  .flow-arrow {
+    width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
+    border-top: 11px solid var(--indigo); margin: 7px auto;
+  }
+  .layer {
+    border-radius: 10px; padding: 14px 22px; display: flex; align-items: center; gap: 22px;
+    border: 1px solid var(--indigo-border); background: var(--indigo-soft);
+  }
+  .layer.trusted { background: var(--card); border: 1px solid var(--line); }
+  .layer.os { background: #0f172a; border: 1px solid #1e293b; }
+  .layer .lname { font-size: 14.5px; font-weight: 700; width: 210px; flex-shrink: 0; }
+  .layer .ldesc { font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .layer.os .lname, .layer.os .ldesc { color: #cbd5e1; }
+  .chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: var(--card);
+    border: 1px solid var(--indigo-border); color: var(--indigo-deep); border-radius: 4px;
+    padding: 2px 7px; display: inline-block; margin: 2px 3px 2px 0; white-space: nowrap;
+  }
+  .layer.os .chip { background: #1e293b; color: #a5b4fc; border-color: #334155; }
+
+  .steps { counter-reset: step; }
+  .step { display: flex; gap: 14px; margin-bottom: 11px; align-items: flex-start; }
+  .step .n {
+    counter-increment: step; flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--indigo); color: #fff; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step .n::before { content: counter(step); }
+  .step .t { font-size: 13.5px; line-height: 1.45; color: #334155; padding-top: 3px; }
+  .step .t b { color: var(--ink); }
+
+  .phase { display: flex; gap: 14px; align-items: flex-start; padding: 8px 0 8px 0; border-bottom: 1px solid var(--line); }
+  .phase:last-child { border-bottom: none; }
+  .phase .ph-no {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-2);
+    width: 34px; flex-shrink: 0; padding-top: 3px;
+  }
+  .phase .ph-name { font-size: 14px; font-weight: 700; width: 250px; flex-shrink: 0; }
+  .phase .ph-desc { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  .phase.now { background: var(--indigo-soft); border-radius: 8px; padding: 8px 10px; border-bottom: none; margin: 0 -10px; }
+  .phase.now .ph-name { color: var(--indigo-deep); }
+  .now-flag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #fff; background: var(--indigo);
+    border-radius: 3px; padding: 1px 6px; margin-left: 8px; vertical-align: 2px;
+  }
+
+  .pull {
+    border-left: 3px solid var(--indigo); padding: 4px 0 4px 18px; font-size: 17px;
+    font-weight: 500; color: var(--indigo-deep); line-height: 1.5; font-style: italic;
+  }
+
+  .cover-hero { font-size: 108px; font-weight: 900; letter-spacing: -3px; color: #ffffff; line-height: 1; }
+  .cover-sub { font-size: 22px; font-weight: 300; color: #a5b4fc; margin-top: 14px; }
+  .cover-meta {
+    position: absolute; bottom: 56px; left: 64px; right: 64px; display: flex; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #64748b; letter-spacing: 2px;
+  }
+  .cover-line { width: 72px; height: 4px; background: var(--indigo); margin: 26px 0; }
+
+  @media screen {
+    html { height: auto; display: flex; justify-content: center; background: #0f172a; }
+    body {
+      transform-origin: top center;
+      scale: min(1, calc(100vw / 1280));
+      margin: 0 auto;
+      box-shadow: 0 0 60px rgba(0,0,0,0.4);
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ SLIDE 1 · COVER ══════════ -->
+<div class="page dark">
+  <div style="margin-top: 150px;">
+    <div class="kicker">Architecture Overview · v0.0.1 · 2026</div>
+    <div class="cover-hero">JARVIS</div>
+    <div class="cover-line"></div>
+    <div class="cover-sub">A local-first AI assistant for Windows<br>with strict approvals and a replaceable model gateway.</div>
+  </div>
+  <div class="cover-meta">
+    <span>GITHUB.COM/S-FETAH/MYJARVIS</span>
+    <span>ELECTRON · REACT · TYPESCRIPT</span>
+  </div>
+</div>
+
+<!-- ══════════ SLIDE 2 · THE IDEA ══════════ -->
+<div class="page">
+  <div class="kicker">01 · The Idea</div>
+  <h1 class="slide-title">One assistant that does real work — safely</h1>
+  <p class="slide-sub">Not a chat toy: an agent that plans, acts with permission, and proves the result.</p>
+  <div class="grid-2">
+    <div class="card">
+      <h3>The experience</h3>
+      <ul>
+        <li>Ask in plain language for <b>multi-step, practical work</b>: research, coding, summaries, PDFs, downloads, dev servers.</li>
+        <li>Jarvis <b>shows its plan and live progress</b>, asks before anything sensitive, and <b>verifies outcomes</b> — a file exists, a server listens, a command exits clean.</li>
+        <li>Report comes back with links to everything it produced.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Why local-first</h3>
+      <ul>
+        <li>Files, credentials, and tool execution <b>stay on your machine</b>.</li>
+        <li>The model gateway runs locally; providers are called through it — never hardcoded, never locked in.</li>
+        <li>Autonomy is a <b>spectrum under your control</b>: every side effect is classified, logged, and gated where it matters.</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:18px;" class="pull">
+    "Reason about a task, show progress, use approved tools, verify the outcome, report clearly."
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>02 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 3 · GOALS & GUARDRAILS ══════════ -->
+<div class="page">
+  <div class="kicker">02 · Goals</div>
+  <h1 class="slide-title">First-release scope — and hard non-goals</h1>
+  <p class="slide-sub">Balanced coverage across browsers, code, and documents; never unrestricted control.</p>
+  <div class="grid-2">
+    <div class="card" style="border-top:3px solid var(--indigo);">
+      <h3>Deliverables</h3>
+      <ul>
+        <li>Chat UI with streaming, task progress, approvals, and history</li>
+        <li>Browser search + structured automation (Playwright-class, not mouse simulation)</li>
+        <li>Approved-folder file read/write + summarisation</li>
+        <li>PDF creation <b>with output verification</b></li>
+        <li>Project tooling: tests, dev servers, process inspection + approved stops</li>
+        <li>Image generation via a supported provider</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:3px solid #0f172a;">
+      <h3>Non-goals / guardrails</h3>
+      <ul>
+        <li>No cloud-hosted agent — sensitive actions stay local</li>
+        <li>No unrestricted shell or computer control</li>
+        <li>No extracting or pooling subscription quotas (Codex plans are not API quota)</li>
+        <li>Web content is <b>untrusted input</b>, never authority over the user's request</li>
+        <li>General desktop UI automation deferred — too fragile for v1</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>03 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 4 · APPROACH ══════════ -->
+<div class="page">
+  <div class="kicker">03 · Approach</div>
+  <h1 class="slide-title">Evidence-driven, policy-first, incremental</h1>
+  <p class="slide-sub">Every layer of the design was validated by a spike before it was committed to.</p>
+  <div class="grid-3">
+    <div class="card">
+      <h3>Prove, then expand</h3>
+      <p>One model, one well-bounded tool, one verified loop first. Toolset and model routing grow in small, verifiable steps — never all at once.</p>
+    </div>
+    <div class="card">
+      <h3>Policy before features</h3>
+      <p>The permission engine and approval binding were designed and unit-tested <b>before</b> the agent loop that needs them (ADR-004).</p>
+    </div>
+    <div class="card">
+      <h3>Benchmark, don't assume</h3>
+      <p>T-001 validated the gateway's real latency and failure modes; T-002 benchmarked an existing agent to decide build-vs-embed with evidence.</p>
+    </div>
+  </div>
+  <div style="margin-top:20px;" class="grid-2">
+    <div class="card" style="border-left:3px solid var(--indigo);">
+      <h3>Build custom, embed nothing</h3>
+      <p>T-002 showed Open Interpreter was not embeddable and its default gates too weak — so Jarvis runs a <b>thin purpose-built orchestrator</b> in its trusted process (ADR-002).</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--indigo);">
+      <h3>Replaceable gateway</h3>
+      <p>All model traffic flows through one <span class="mono">IModelGateway</span> adapter. FreeLLMAPI is the first backend; Ollama, LM Studio, or direct APIs can replace it without touching agent logic (ADR-003).</p>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>04 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 5 · STACK ══════════ -->
+<div class="page">
+  <div class="kicker">04 · Stack</div>
+  <h1 class="slide-title">Proven desktop stack, zero exotic dependencies</h1>
+  <p class="slide-sub">Verified on Node 24 · Electron 34 · React 19 · Windows — typecheck clean, build passing.</p>
+  <div class="grid-3" style="margin-bottom:18px;">
+    <div class="card">
+      <h3>Application</h3>
+      <div>
+        <span class="tag">Electron 34</span><span class="tag">React 19</span><span class="tag">Vite 6</span><span class="tag">TypeScript 5.7</span><span class="tag">Tailwind 3</span><span class="tag">electron-vite</span>
+      </div>
+      <p style="margin-top:10px;">Three-window shell: main UI, quick-chat drawer, 3D mascot.</p>
+    </div>
+    <div class="card">
+      <h3>Agent &amp; state</h3>
+      <div>
+        <span class="tag">Custom TS orchestrator</span><span class="tag">Zod schemas</span><span class="tag">sql.js (SQLite)</span><span class="tag">safeStorage/DPAPI</span>
+      </div>
+      <p style="margin-top:10px;">Task state is model-independent — a fallback model can continue a task.</p>
+    </div>
+    <div class="card">
+      <h3>Model gateway</h3>
+      <div>
+        <span class="tag">FreeLLMAPI v0.16.7</span><span class="tag">OpenAI-compatible API</span><span class="tag">127.0.0.1:31415</span>
+      </div>
+      <p style="margin-top:10px;">279 models behind one local endpoint; streaming + tool calls validated.</p>
+    </div>
+  </div>
+  <div class="grid-3">
+    <div class="card">
+      <h3>Visual &amp; UX</h3>
+      <div><span class="tag">Three.js (mascot)</span><span class="tag">lucide-react</span><span class="tag">react-markdown</span></div>
+    </div>
+    <div class="card">
+      <h3>Quality</h3>
+      <div><span class="tag">Vitest (22/22)</span><span class="tag">tsc --noEmit</span><span class="tag">eslint + prettier</span><span class="tag">security-scan script</span></div>
+    </div>
+    <div class="card">
+      <h3>Planned tools</h3>
+      <div><span class="tag">Playwright (browser)</span><span class="tag">PDF pipeline</span><span class="tag">image provider</span></div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>05 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 6 · PROCESS MODEL DIAGRAM ══════════ -->
+<div class="page">
+  <div class="kicker">05 · Architecture</div>
+  <h1 class="slide-title">Process model — privilege stops at one boundary</h1>
+  <p class="slide-sub">The renderer can never touch Node, the disk, or the network directly (ADR-002).</p>
+
+  <div class="layer" style="border-color:#fca5a5; background:#fef2f2;">
+    <div class="lname">Renderer — unprivileged</div>
+    <div class="ldesc" style="color:#7f1d1d;">React UI: chat, plan, timeline, approval modal, mascot.
+      <br><span class="chip">contextIsolation: ON</span><span class="chip">nodeIntegration: OFF</span><span class="chip">sandbox: ON</span><span class="chip">strict CSP</span>
+    </div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="layer" style="background:#ffffff;">
+    <div class="lname">Preload bridge — typed, allowlisted</div>
+    <div class="ldesc">Only declared request/response and event contracts cross. No raw streams, file handles, or spawn.
+      <br><span class="chip">contextBridge.exposeInMainWorld</span><span class="chip">zod-validated messages</span><span class="chip">sender verified</span>
+    </div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="layer trusted">
+    <div class="lname">Main — the only trusted process</div>
+    <div class="ldesc">Agent orchestrator · policy engine (HMAC approvals) · tool executors · gateway client · SQLite history.
+      <br><span class="chip">powershell -NoProfile</span><span class="chip">spawn(shell:false)</span><span class="chip">minimal env</span><span class="chip">owned-process tracking</span>
+    </div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="layer os">
+    <div class="lname">Windows PC — approved scope only</div>
+    <div class="ldesc">Approved workspaces, selected projects, local gateway. Reads outside scope require approval; writes outside scope always do.
+      <br><span class="chip">C:\… approved folders</span><span class="chip">127.0.0.1:31415 gateway</span><span class="chip">DPAPI credential store</span>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>06 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 7 · SECURITY MODEL ══════════ -->
+<div class="page">
+  <div class="kicker">06 · Security Model</div>
+  <h1 class="slide-title">Audited, remediated, regression-tested</h1>
+  <p class="slide-sub">2026-10-23 audit found 11 issues (SEC-001…011) — all P0/P1 findings remediated with 22 automated tests.</p>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Hardened boundaries</h3>
+      <ul>
+        <li><b>Command injection eliminated</b> — parameterized <span class="mono">spawn(shell:false)</span>, strict URL protocol checks (SEC-001)</li>
+        <li><b>HMAC approval verification wired</b> into the runtime resolver, anti-tamper tested (SEC-002)</li>
+        <li><b>Credentials encrypted</b> via Electron safeStorage (DPAPI) in SQLite; renderer only sees a <span class="mono">hasApiKey</span> flag (SEC-003)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Window &amp; filesystem defense</h3>
+      <ul>
+        <li><b>Sandbox + context isolation</b> enforced; navigation guards and window-open handler (SEC-004/005/011)</li>
+        <li><b>Symlink traversal blocked</b> — realpath resolution on every tool path (SEC-006)</li>
+        <li><b>Extension gating</b> — <span class="mono">.bat .cmd .ps1 .exe</span> treated as high-risk (SEC-007)</li>
+        <li><b>Atomic persistence</b> — no torn writes on crash (SEC-010)</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:18px;" class="grid-4">
+    <div class="stat"><div class="num">11</div><div class="lbl">Findings remediated</div></div>
+    <div class="stat"><div class="num">22<span>/22</span></div><div class="lbl">Tests passing</div></div>
+    <div class="stat"><div class="num">4</div><div class="lbl">ADRs governing design</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">Secrets in repo or renderer</div></div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>07 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 8 · PERMISSION MODEL ══════════ -->
+<div class="page">
+  <div class="kicker">07 · Permission Model · ADR-004</div>
+  <h1 class="slide-title">Six categories, cryptographically bound approvals</h1>
+  <p class="slide-sub">Stricter than the benchmarked competitor default: outside reads are gated too, not just writes.</p>
+  <table class="tbl">
+    <tr><th style="width:14%;">Category</th><th style="width:44%;">Scope</th><th style="width:20%;">Default</th><th style="width:22%;">UI</th></tr>
+    <tr><td class="mono"><b>read_in</b></td><td>Files inside an approved workspace</td><td class="ok-badge">Allowed</td><td>Live timeline</td></tr>
+    <tr><td class="mono"><b>read_out</b></td><td>Anything outside workspaces (Desktop, profile)</td><td class="ask-badge">Approval</td><td>Modal + full path</td></tr>
+    <tr><td class="mono"><b>write_in</b></td><td>Create/modify inside workspace</td><td class="ok-badge">New files OK</td><td>Timeline + diff</td></tr>
+    <tr><td class="mono"><b>write_out</b></td><td>Create/modify outside workspaces</td><td class="ask-badge">Approval</td><td>Modal + content preview</td></tr>
+    <tr><td class="mono"><b>process</b></td><td>Child processes, dev servers, scripts</td><td class="ask-badge">Approval</td><td>Modal: exe + args + cwd</td></tr>
+    <tr><td class="mono"><b>network</b></td><td>Search, navigation, downloads</td><td class="ok-badge">Read-only OK</td><td>Timeline + URLs + bytes</td></tr>
+  </table>
+  <div style="margin-top:16px;" class="grid-2">
+    <div class="card" style="border-left:3px solid var(--indigo);">
+      <h3>Approval binding</h3>
+      <p>Every approval = <span class="mono">HMAC-SHA256(action ∥ workspace ∥ args-hash, session-secret)</span>. <b>Single-use, expires in 5 minutes.</b> Change one argument — the token fails.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--indigo);">
+      <h3>Denial semantics</h3>
+      <p><b>Deny</b> permanently invalidates the token. The runtime <b>never silently retries</b> a denied action — it halts the branch and asks for new guidance.</p>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>08 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 9 · GATEWAY BOUNDARY ══════════ -->
+<div class="page">
+  <div class="kicker">08 · Gateway Boundary · ADR-003</div>
+  <h1 class="slide-title">One adapter, deterministic models, honest failures</h1>
+  <p class="slide-sub">Designed directly from measured gateway behavior (T-001), not vendor claims.</p>
+  <div class="grid-2" style="margin-bottom:18px;">
+    <div class="card">
+      <h3>Deterministic routing</h3>
+      <ul>
+        <li>Profiles pin <b>concrete model IDs</b> (fast / reasoning / coding / vision) fetched live from <span class="mono">GET /v1/models</span></li>
+        <li>Gateway <span class="mono">"auto"</span> routing measured <b>non-deterministic</b> — reserved as fallback only</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Failure semantics</h3>
+      <ul>
+        <li>Local gateway down (<span class="mono">ECONNREFUSED</span>) vs upstream error (<span class="mono">502/503/504</span>) are <b>distinct signals</b></li>
+        <li>Transient 5xx → <b>exactly one retry</b> after 3 s, exponential backoff</li>
+        <li>Never auto-retries side effects; inference requests only</li>
+      </ul>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Latency instrumentation</h3>
+      <p>TTFT clock starts at <span class="mono">fetch()</span> dispatch — capturing connect + queue (measured gap: ~3.3 s hidden in connection). Telemetry logs pinned model, routed model, TTFT, total, tokens.</p>
+    </div>
+    <div class="card">
+      <h3>Credential boundary</h3>
+      <p>Keys live only in env vars or DPAPI-encrypted storage — never in SQLite plaintext, never in Git, never in the renderer, never in event streams shown to the model.</p>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>09 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 10 · SPIKE EVIDENCE ══════════ -->
+<div class="page">
+  <div class="kicker">09 · Evidence</div>
+  <h1 class="slide-title">The spikes behind every design choice</h1>
+  <p class="slide-sub">T-001 validated the gateway; T-002 benchmarked Open Interpreter 0.0.56 in a disposable sandbox.</p>
+  <div class="grid-4" style="margin-bottom:18px;">
+    <div class="stat"><div class="num">278</div><div class="lbl">Models listed · 78 ms</div></div>
+    <div class="stat"><div class="num">1.4<span>s</span></div><div class="lbl">Best chat latency</div></div>
+    <div class="stat"><div class="num">64<span>s</span></div><div class="lbl">Worst turn (tool call)</div></div>
+    <div class="stat"><div class="num">502</div><div class="lbl">Transient upstream flake</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>T-001 — gateway validation</h3>
+      <ul>
+        <li>Authenticated model list, chat, streaming, and a <b>non-executed tool call</b> all passed</li>
+        <li>Streaming TTFT must be measured from dispatch, not body-open</li>
+        <li>→ became ADR-003 (pin models, one bounded retry, honest 5xx)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>T-002 — competitor benchmark</h3>
+      <ul>
+        <li>Outside reads and inside writes executed with <b>zero approval</b>; denial of outside writes was honored</li>
+        <li>Shells inherited the host profile (errors every turn); model picker silently bypassed the gateway</li>
+        <li>→ became ADR-002/004: custom orchestrator, stricter gates, clean shells</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>10 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 11 · OPERATING MODES ══════════ -->
+<div class="page">
+  <div class="kicker">10 · Operating Modes · ADR-001</div>
+  <h1 class="slide-title">Three modes — latency without recklessness</h1>
+  <p class="slide-sub">Racing is a hedge against slow routes; it never applies to side effects.</p>
+  <div class="grid-3">
+    <div class="card" style="border-top:3px solid var(--indigo);">
+      <h3>Normal</h3>
+      <p>One pinned model per profile. The default for everything. Predictable routing, clean telemetry, lowest cost.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--indigo);">
+      <h3>Racing</h3>
+      <p>For <b>eligible read-only requests only</b>: fire a bounded race across profiles, take the first valid response, cancel the losers. Never for tools, downloads, mutations, or sensitive prompts.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--indigo);">
+      <h3>Multi-agent</h3>
+      <p>Separate <b>visible model roles</b> (researcher, coder, reviewer) — each policy-bound. Not unrestricted parallel tool control; one shared approval timeline.</p>
+    </div>
+  </div>
+  <div style="margin-top:20px;" class="card">
+    <h3>Why this exists</h3>
+    <p>Measured spread on the same gateway: <b>1.4 s to 64 s</b> for equivalent work. Hedging read-only turns with a cancel-losers race turns worst-case waits into typical-case ones — without ever racing an action that touches the system.</p>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>11 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 12 · REQUEST LIFECYCLE ══════════ -->
+<div class="page">
+  <div class="kicker">11 · How It Works</div>
+  <h1 class="slide-title">Request lifecycle — one turn, end to end</h1>
+  <p class="slide-sub">Every turn walks the same policy-checked path; the user sees each step live.</p>
+  <div class="grid-2">
+    <div class="steps">
+      <div class="step"><div class="n"></div><div class="t"><b>Prompt</b> arrives in the renderer; the typed bridge forwards it to main.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Plan</b> — the orchestrator drafts steps and required tool categories.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Policy classify</b> — each intended action is mapped to read/write/process/network tiers.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Gateway call</b> — pinned model, streaming deltas; TTFT + total recorded.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Approval gate</b> — gated actions raise an HMAC-bound modal; deny halts the branch.</div></div>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n"></div><div class="t"><b>Execute sanitized</b> — <span class="mono">-NoProfile</span>, minimal env, parameterized spawn, scoped paths.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Verify outcome</b> — file exists, server listens, exit code checks. Claims are not enough.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Feed results back</b> — verified outputs return to the model for the next step.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Timeline + history</b> — every event lands in the activity timeline and SQLite audit store.</div></div>
+      <div class="step"><div class="n"></div><div class="t"><b>Report</b> — summary with links to produced artifacts; failures surface honestly.</div></div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>12 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 13 · STATUS TODAY ══════════ -->
+<div class="page">
+  <div class="kicker">12 · Status Today</div>
+  <h1 class="slide-title">v0.0.1 — a remediated, working baseline</h1>
+  <p class="slide-sub">Phase 0 closed; Phase 1 foundation and Phase 2 agent loop are in flight on GitHub.</p>
+  <div class="grid-3" style="margin-bottom:18px;">
+    <div class="card">
+      <h3>Surface A — mascot</h3>
+      <p>Transparent 3D owl (Three.js) with procedural idle/thinking/speaking states; click-through, 60 fps tracking.</p>
+    </div>
+    <div class="card">
+      <h3>Surface B — quick chat</h3>
+      <p>Compact drawer from the mascot or hotkey for fast questions without the full window.</p>
+    </div>
+    <div class="card">
+      <h3>Surface C — main UI</h3>
+      <p>Full shell: persistent chat history, new chat, Free Models Hub, chain-of-thought cards, rate-limit recovery.</p>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card" style="border-left:3px solid #16A34A;">
+      <h3>Working now</h3>
+      <ul>
+        <li>Model gateway client: streaming, bounded retry, thinking-block extraction</li>
+        <li>Policy engine wired and verified at runtime (HMAC)</li>
+        <li>Read-only agent loop + tool engine (Phase 2 commit)</li>
+        <li>22/22 tests · typecheck + production build clean</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:3px solid var(--indigo);">
+      <h3>Next up (Phase 2)</h3>
+      <ul>
+        <li>Playwright browser automation execution loop</li>
+        <li>PDF generation + verification pipeline</li>
+        <li>Active task dispatcher + streamed event log (T-005)</li>
+        <li>Full write-tool integration behind approvals</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>13 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 14 · ROADMAP ══════════ -->
+<div class="page">
+  <div class="kicker">13 · Roadmap</div>
+  <h1 class="slide-title">Seven phases, one verifiable step at a time</h1>
+  <p class="slide-sub">A phase closes only when its plan's exit criteria are met — no exceptions.</p>
+  <div class="card" style="padding: 14px 20px;">
+    <div class="phase">
+      <div class="ph-no">P0</div><div class="ph-name">Discovery &amp; spike</div>
+      <div class="ph-desc">Gateway validated · agent benchmarked · ADR-001…004 recorded — <b>complete 2026-10-22</b></div>
+    </div>
+    <div class="phase now">
+      <div class="ph-no">P1</div><div class="ph-name">Secure foundation<span class="now-flag">NOW</span></div>
+      <div class="ph-desc">Electron shell, secure IPC, policy engine, persistence — scaffold + audit remediation done; T-005 event streams in progress</div>
+    </div>
+    <div class="phase">
+      <div class="ph-no">P2</div><div class="ph-name">Read-only agent loop</div>
+      <div class="ph-desc">Bounded research and workspace tools — loop committed; browser + PDF tools landing</div>
+    </div>
+    <div class="phase">
+      <div class="ph-no">P3</div><div class="ph-name">Documents &amp; files</div>
+      <div class="ph-desc">Research-to-PDF vertical slice with output verification</div>
+    </div>
+    <div class="phase">
+      <div class="ph-no">P4</div><div class="ph-name">Coding workflow</div>
+      <div class="ph-desc">Approved, tracked dev-server and test orchestration</div>
+    </div>
+    <div class="phase">
+      <div class="ph-no">P5</div><div class="ph-name">Robustness</div>
+      <div class="ph-desc">Failure, cancellation, restart, and prompt-injection test passes</div>
+    </div>
+    <div class="phase">
+      <div class="ph-no">P6</div><div class="ph-name">Windows integration</div>
+      <div class="ph-desc">Tray, settings, clean install/upgrade validation, installer</div>
+    </div>
+    <div class="phase">
+      <div class="ph-no">P7</div><div class="ph-name">Expansion</div>
+      <div class="ph-desc">Image generation, richer automation, optional voice — only after MVP acceptance</div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>14 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 15 · TARGET EXPERIENCE ══════════ -->
+<div class="page">
+  <div class="kicker">14 · How It Will Work</div>
+  <h1 class="slide-title">The target experience</h1>
+  <p class="slide-sub">What "done" looks like when the phases land.</p>
+  <div class="grid-2" style="margin-bottom:18px;">
+    <div class="card">
+      <h3>"Research this and make me a PDF"</h3>
+      <p>Jarvis searches the web with structured automation, cross-checks sources, drafts the document, generates the PDF through an approved write, <b>opens it to verify it renders</b>, and hands you the link — with every step visible in the timeline.</p>
+    </div>
+    <div class="card">
+      <h3>"Get this project running"</h3>
+      <p>It inspects the codebase, runs the test suite, and starts the dev server — each process launch approved once and tracked. It reports the listening port and only ever stops <b>processes it started</b>, after asking.</p>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Always-on, low-friction</h3>
+      <p>Tray-resident with the mascot and quick-chat drawer; the main window for real work. Model profiles switch per task; Racing mode keeps read-only answers fast; rate limits recover gracefully with your guidance.</p>
+    </div>
+    <div class="card">
+      <h3>Trustworthy by construction</h3>
+      <p>Every outside-scope action stops at a modal bound to the exact arguments. Denials are final. The full audit trail — plans, commands, outputs, approvals — lives locally in SQLite, exportable and inspectable.</p>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>15 / 16</span></div>
+</div>
+
+<!-- ══════════ SLIDE 16 · CLOSING ══════════ -->
+<div class="page dark">
+  <div style="margin-top:90px;">
+    <div class="kicker">In Summary</div>
+    <div style="font-size:44px; font-weight:800; letter-spacing:-1px; color:#ffffff; line-height:1.2; max-width:1000px;">
+      Local-first. Policy-first.<br>Evidence-driven. Replaceable at every boundary.
+    </div>
+    <div class="cover-line"></div>
+    <div style="font-size:16px; color:#a5b4fc; line-height:1.7; max-width:900px;">
+      A custom Electron orchestrator over a validated local gateway, with cryptographic approvals,
+      sanitized execution, and verified outcomes — built one proven loop at a time.
+    </div>
+  </div>
+  <div class="cover-meta">
+    <span>README · PLAN · DOCS/DECISIONS/ADR-001…004 · DOCS/SPIKE-RESULTS · SECURITY AUDIT v0.0.1</span>
+    <span>GITHUB.COM/S-FETAH/MYJARVIS</span>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import initSqlJs from 'sql.js'
-import { PlanStep, ModelCatalog } from '../../shared/types'
+import { PlanStep, ModelCatalog, TalkingStyle, TaskMode, ThinkingDepth } from '../../shared/types'
 import { ToolDefinition } from '../tools/tool-registry'
+import { PromptEngine, PromptOptions } from './prompt-engine'
 
 export interface ToolCall {
   id: string
@@ -177,7 +178,13 @@ export class ModelGatewayAdapter {
   public async chatStream(
     messages: ChatCompletionMessage[],
     onChunk: (data: StreamChunk) => void,
-    options?: { model?: string; isLightMode?: boolean }
+    options?: {
+      model?: string
+      isLightMode?: boolean
+      talkingStyle?: TalkingStyle
+      taskMode?: TaskMode
+      thinkingDepth?: ThinkingDepth
+    }
   ): Promise<{ reply: string; reasoning: string }> {
     const apiKey = await this.getEffectiveApiKey()
     let chosenModel = options?.isLightMode
@@ -186,13 +193,7 @@ export class ModelGatewayAdapter {
 
     const systemPrompt: ChatCompletionMessage = {
       role: 'system',
-      content:
-        'You are Jarvis, a local-first Windows AI assistant built with Electron, React, and TypeScript.\n\n' +
-        'Core Knowledge about your environment and capabilities:\n' +
-        '1. Storage: All conversation history and user settings are stored locally on the user\'s machine in a SQLite database located at `userData/jarvis.sqlite` within the app folder.\n' +
-        '2. Gateways & Models: You connect to a local FreeLLMAPI gateway (http://127.0.0.1:31415). FreeLLMAPI connects to free provider tiers (Google AI Studio Gemini, Groq, OpenRouter, GitHub Models, etc.). Multiple free keys can be configured in FreeLLMAPI to automatically rotate and avoid 429 rate limits.\n' +
-        '3. Assistive Autonomy (ADR-004): You safely inspect local workspaces and git status without prompt; file modifications, external network requests, and shell command executions (like starting dev servers) require explicit user approval.\n' +
-        '4. Thinking Protocol: Always enclose your internal reasoning, step-by-step thinking, and execution plan within <think>...</think> tags. After </think>, output your clean, direct, helpful response in GitHub-flavored markdown.'
+      content: PromptEngine.buildSystemPrompt(options)
     }
 
     const payloadMessages = [systemPrompt, ...messages]
@@ -353,7 +354,13 @@ export class ModelGatewayAdapter {
   public async chatWithTools(
     messages: ChatCompletionMessage[],
     tools?: ToolDefinition[],
-    options?: { model?: string; isLightMode?: boolean }
+    options?: {
+      model?: string
+      isLightMode?: boolean
+      talkingStyle?: TalkingStyle
+      taskMode?: TaskMode
+      thinkingDepth?: ThinkingDepth
+    }
   ): Promise<ChatWithToolsResult> {
     const apiKey = await this.getEffectiveApiKey()
     const chosenModel = options?.isLightMode
@@ -362,13 +369,7 @@ export class ModelGatewayAdapter {
 
     const systemPrompt: ChatCompletionMessage = {
       role: 'system',
-      content:
-        'You are Jarvis, a local-first Windows AI desktop assistant.\n\n' +
-        'Core Knowledge about your environment and capabilities:\n' +
-        '1. Storage: All conversation history and user settings are stored locally on the user\'s machine in SQLite (`userData/jarvis.sqlite`).\n' +
-        '2. Gateways & Models: You connect to a local FreeLLMAPI gateway (http://127.0.0.1:31415).\n' +
-        '3. Assistive Autonomy (ADR-004): You inspect local workspaces, read files, and search the web safely. Any process executions or destructive writes require approval.\n' +
-        '4. Tool Usage: Use provided tools proactively when questions involve workspace structure, configuration, dependencies, or files. When referencing files, cite exact file paths and line numbers.'
+      content: PromptEngine.buildSystemPrompt(options)
     }
 
     const payloadMessages = [systemPrompt, ...messages]
@@ -468,10 +469,7 @@ export class ModelGatewayAdapter {
             status: 'completed'
           }
         ],
-        directResponse:
-          'I am Jarvis, an open-source, local-first Windows AI desktop assistant. ' +
-          'All your chats are saved locally in SQLite (`userData/jarvis.sqlite`). ' +
-          'I help you inspect codebases, execute approved tasks, and synthesize reports with strict assistive autonomy (ADR-004).'
+        directResponse: PromptEngine.getIdentityResponse()
       }
     }
 

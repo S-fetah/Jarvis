@@ -12,6 +12,7 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 - `docs/spike-results.md` — T-001 and T-002 evidence, including the benchmarked permission model and conclusions.
 - `docs/t002-benchmark.md` — full T-002 protocol and per-test records.
 - `docs/decisions/ADR-001-response-latency-and-hedging.md` — Normal/Racing/Multi-agent modes and latency policy.
+- `docs/architecture-slides.pdf` (+ `.html` source) — 16-slide architecture deck (idea, stack, approach, goals, security, operation, roadmap); regenerate via the `status-deck` skill (`.agents/skills/status-deck/SKILL.md`) with `node scripts/render-architecture-slides.cjs`.
 
 ## Current state
 

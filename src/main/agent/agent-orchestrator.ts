@@ -2,7 +2,7 @@ import crypto from 'crypto'
 import { ModelGatewayAdapter, ChatCompletionMessage, ToolCall } from '../gateway/model-adapter'
 import { ToolExecutor, ToolExecutionResult } from '../tools/tool-executor'
 import { JARVIS_TOOLS } from '../tools/tool-registry'
-import { TimelineEvent } from '../../shared/types'
+import { TimelineEvent, TalkingStyle, TaskMode, ThinkingDepth } from '../../shared/types'
 
 export interface AgentOrchestratorConfig {
   maxTurns?: number
@@ -14,6 +14,9 @@ export interface AgentRunOptions {
   workspacePath?: string
   model?: string
   isLightMode?: boolean
+  talkingStyle?: TalkingStyle
+  taskMode?: TaskMode
+  thinkingDepth?: ThinkingDepth
   taskId?: string
   onStatusUpdate?: (status: 'thinking' | 'working' | 'synthesizing' | 'completed' | 'error', detail?: string) => void
   onTimelineEvent?: (event: TimelineEvent) => void
@@ -81,7 +84,10 @@ export class AgentOrchestrator {
           JARVIS_TOOLS,
           {
             model: options?.model,
-            isLightMode: options?.isLightMode
+            isLightMode: options?.isLightMode,
+            talkingStyle: options?.talkingStyle,
+            taskMode: options?.taskMode,
+            thinkingDepth: options?.thinkingDepth
           }
         )
       } catch (err: any) {
@@ -190,7 +196,10 @@ export class AgentOrchestrator {
           undefined, // no tools allowed in final pass to force direct reply
           {
             model: options?.model,
-            isLightMode: options?.isLightMode
+            isLightMode: options?.isLightMode,
+            talkingStyle: options?.talkingStyle,
+            taskMode: options?.taskMode,
+            thinkingDepth: options?.thinkingDepth
           }
         )
         finalReply = finalPass.message.content || 'Synthesis completed.'

@@ -91,6 +91,10 @@ export interface Conversation {
   messages: ChatMessage[]
 }
 
+export type TalkingStyle = 'direct' | 'balanced' | 'detailed'
+export type TaskMode = 'chat' | 'debug' | 'build' | 'plan'
+export type ThinkingDepth = 'quick' | 'standard' | 'deep'
+
 export interface JarvisSettings {
   gatewayUrl: string
   apiKey?: string
@@ -102,6 +106,9 @@ export interface JarvisSettings {
   workspacePaths: string[]
   theme: 'dark' | 'light' | 'system'
   outputDirectory: string
+  talkingStyle?: TalkingStyle
+  taskMode?: TaskMode
+  thinkingDepth?: ThinkingDepth
 }
 
 export type MascotState =
@@ -139,7 +146,12 @@ export interface JarvisAPI {
   sendMessage: (
     conversationId: string,
     content: string,
-    workspacePath?: string
+    workspacePath?: string,
+    options?: {
+      talkingStyle?: TalkingStyle
+      taskMode?: TaskMode
+      thinkingDepth?: ThinkingDepth
+    }
   ) => Promise<{ reply: string; reasoning?: string; task?: TaskState }>
 
   // Models & Gateway
