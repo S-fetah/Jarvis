@@ -30,6 +30,7 @@ docs/slides.html
 # Logs
 *.log
 npm-debug.log*
+.jarvis.pid
 
 # OS Files
 .DS_Store
