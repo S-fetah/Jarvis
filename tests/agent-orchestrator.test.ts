@@ -134,4 +134,67 @@ describe('AgentOrchestrator (Multi-Turn Tool Execution Loop)', () => {
     expect(result.toolsUsed.length).toBe(2)
     expect(result.reply).toBeDefined()
   })
+
+  it('Action Verification Layer intercepts false refusal on turn 1 and guides model to tool execution', async () => {
+    const mockAdapter = {
+      chatWithTools: vi
+        .fn()
+        // Turn 1: Model falsely claims inability due to historical bias
+        .mockResolvedValueOnce({
+          message: {
+            role: 'assistant',
+            content: "As an AI, I cannot open applications or Google Chrome on your computer.",
+            tool_calls: undefined
+          },
+          finishReason: 'stop'
+        })
+        // Turn 2: After Action Verification Alert, model calls open_browser
+        .mockResolvedValueOnce({
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_browser',
+                type: 'function',
+                function: {
+                  name: 'open_browser',
+                  arguments: JSON.stringify({ url: 'https://google.com' })
+                }
+              }
+            ]
+          },
+          finishReason: 'tool_calls'
+        })
+        // Turn 3: Final synthesis
+        .mockResolvedValueOnce({
+          message: {
+            role: 'assistant',
+            content: "I have opened Google Chrome to https://google.com.",
+            tool_calls: undefined
+          },
+          finishReason: 'stop'
+        })
+    } as unknown as ModelGatewayAdapter
+
+    const timelineEvents: any[] = []
+    const orchestrator = new AgentOrchestrator(mockAdapter, toolExecutor, {
+      maxTurns: 4,
+      defaultWorkspacePath: workspacePath
+    })
+
+    const result = await orchestrator.runLoop(
+      [{ role: 'user', content: 'Can you open Chrome?' }],
+      {
+        onTimelineEvent: (ev) => timelineEvents.push(ev)
+      }
+    )
+
+    expect(result.reply).toBe('I have opened Google Chrome to https://google.com.')
+    // Turn 1 was intercepted and re-evaluated
+    expect(mockAdapter.chatWithTools).toHaveBeenCalledTimes(3)
+    // Verification timeline event was recorded
+    const verificationEvent = timelineEvents.find((e) => e.title === 'Action Verification Layer')
+    expect(verificationEvent).toBeDefined()
+  })
 })

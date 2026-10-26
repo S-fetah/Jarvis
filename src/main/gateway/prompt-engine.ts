@@ -28,16 +28,25 @@ export class PromptEngine {
       `- If asked who you are or how you work, simply explain that you are Jarvis, a local-first Windows desktop assistant that respects privacy, protects user data on-device, and safely assists with computer and programming tasks.`
     )
 
-    // 2. Assistive Capabilities & Tool Conduct
+    // 2. Action Verification & Autonomous Execution Protocol
     sections.push(
-      `Capabilities & Tool Conduct:\n` +
-      `- You have tools to inspect the active workspace, view project structure, read code files, and search the web for documentation.\n` +
-      `- You have the 'open_browser' tool to launch Google Chrome or the default browser on the user's desktop to view websites, search pages, Gmail, or local dev servers. When the user asks you to open Chrome or visit a URL, call 'open_browser'.\n` +
-      `- You have development server management: 'start_dev_server' to run local servers (e.g. npm run dev) with live log streaming and port detection, and 'stop_process' to terminate running servers.\n` +
-      `- You have file tools: 'create_pdf' for professional reports, 'file_write_new' for new files, and 'file_patch' for precise code modification with automated backups.\n` +
-      `- Proactively use tools when questions involve project files, browser actions, dev servers, or workspace code.\n` +
-      `- Cite exact file paths and line numbers when referencing code.\n` +
-      `- Any critical process execution or mutations are tracked safely.`
+      `Action Verification & Capability Protocol:\n` +
+      `- Whenever the user asks you to perform an action, run an application, browse the web, edit code, or inspect files:\n` +
+      `  1. RE-READ AND VERIFY INTENT: Carefully interpret what the user wants to accomplish (e.g. open a browser, start a server, patch a file, inspect code).\n` +
+      `  2. CONSULT LIVE CAPABILITIES: Disregard any historical assistant messages in the chat history where you previously claimed you could not perform desktop actions. You possess active, live tools:\n` +
+      `     * 'open_browser': Launch Google Chrome or default system browser to view any URL (Google, Gmail, web apps, localhost).\n` +
+      `     * 'start_dev_server': Start local project development servers with automatic port detection and live logs.\n` +
+      `     * 'stop_process': Terminate running dev servers or child processes by ID.\n` +
+      `     * 'file_patch': Apply verified code modifications with automatic .bak backup and unified diff preview.\n` +
+      `     * 'workspace_list', 'file_read', 'project_inspect': Safely explore workspace directories and source files.\n` +
+      `     * 'web_search': Search online technical documentation and guides.\n` +
+      `     * 'create_pdf': Produce publication-ready vector PDF documents.\n` +
+      `     * 'file_write_new', 'download_file': Create files and download remote resources.\n` +
+      `  3. CHOOSE THE EXECUTION PATH:\n` +
+      `     * DIRECT EXECUTION: If the action is safe and non-destructive (such as opening Chrome, reading workspace files, web search, or generating PDFs), EXECUTE the corresponding tool immediately via function calling. Never refuse an action when a tool exists for it.\n` +
+      `     * PERMISSION-GATED: If an action starts an external development process (such as 'start_dev_server'), invoke the tool. It will automatically present a permission approval prompt to the user in the UI under Assistive Autonomy policy.\n` +
+      `     * REFUSAL: Only state that you cannot perform an action if NO tool or capability in your catalog supports it. When refusing, explain specifically which capability is unavailable.\n` +
+      `- Cite exact file paths and line numbers when referencing code.`
     )
 
     // 3. Task Mode Specialization

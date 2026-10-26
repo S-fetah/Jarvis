@@ -104,8 +104,35 @@ export class AgentOrchestrator {
       const assistantMessage = response.message
       const toolCalls = assistantMessage.tool_calls
 
-      // 2. If no tool calls were requested, the model produced the final answer
+      // 2. If no tool calls were requested, check for false refusal or synthesize final answer
       if (!toolCalls || toolCalls.length === 0) {
+        // Intelligent Action Verification Guard (Turn 1):
+        // If the model produced a refusal claiming inability for a supported capability,
+        // intervene and prompt the model to re-verify against its active tool suite.
+        if (turn === 1 && this.detectInconsistentRefusal(assistantMessage.content, conversationMessages)) {
+          if (options?.onTimelineEvent) {
+            options.onTimelineEvent({
+              id: crypto.randomUUID(),
+              taskId,
+              timestamp: Date.now(),
+              type: 'tool_call',
+              title: 'Action Verification Layer',
+              details: 'Self-Correction: Model re-evaluating request against active tool catalog.',
+              category: 'process'
+            })
+          }
+          conversationMessages.push({
+            role: 'assistant',
+            content: assistantMessage.content
+          })
+          conversationMessages.push({
+            role: 'user',
+            content:
+              '[Action Verification Protocol]: You stated that you cannot perform this desktop action. However, you possess active tools in your catalog (including `open_browser`, `start_dev_server`, `workspace_list`, `file_patch`, `create_pdf`). Re-read the user request, verify against your tools, and invoke the appropriate tool.'
+          })
+          continue
+        }
+
         finalReply = assistantMessage.content || 'I completed the inspection.'
         options?.onStatusUpdate?.('completed', 'Done.')
         break
@@ -227,5 +254,49 @@ export class AgentOrchestrator {
       toolsUsed,
       turnsCount: turn
     }
+  }
+
+  /**
+   * Action Verification Layer: Detects whether an assistant response claims an inability
+   * to perform desktop actions (e.g. opening Chrome, dev servers) despite possessing active tools.
+   */
+  private detectInconsistentRefusal(
+    assistantReply: string | null | undefined,
+    conversationMessages: ChatCompletionMessage[]
+  ): boolean {
+    if (!assistantReply) return false
+    const text = assistantReply.toLowerCase()
+
+    const hasRefusalSignal =
+      text.includes("i can't open") ||
+      text.includes("i cannot open") ||
+      text.includes("unable to open") ||
+      text.includes("i don't have the ability to open") ||
+      text.includes("i cannot launch") ||
+      text.includes("i can't launch") ||
+      text.includes("unable to launch") ||
+      text.includes("cannot browse") ||
+      text.includes("as an ai, i cannot") ||
+      text.includes("as an ai model, i cannot") ||
+      text.includes("i am not able to open") ||
+      text.includes("i am unable to directly open")
+
+    if (!hasRefusalSignal) return false
+
+    // Identify user's action request from messages
+    const lastUserMsg = [...conversationMessages].reverse().find((m) => m.role === 'user')
+    if (!lastUserMsg || !lastUserMsg.content) return false
+
+    const userText = lastUserMsg.content.toLowerCase()
+    const isActionRequest =
+      userText.includes('open') ||
+      userText.includes('launch') ||
+      userText.includes('start') ||
+      userText.includes('browser') ||
+      userText.includes('chrome') ||
+      userText.includes('dev server') ||
+      userText.includes('run')
+
+    return isActionRequest
   }
 }

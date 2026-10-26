@@ -69,7 +69,41 @@ const modelAdapter = new ModelGatewayAdapter({
   lightModel: 'gemini-flash-lite'
 })
 
-const toolExecutor = new ToolExecutor(policyEngine, processManager)
+const toolExecutor = new ToolExecutor(policyEngine, processManager, (approvalReq) => {
+  const taskId = crypto.randomUUID()
+  const taskState: TaskState = {
+    id: taskId,
+    goal: approvalReq.title || 'Execute Gated Action',
+    status: 'waiting_for_approval',
+    workspacePath: approvalReq.workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis',
+    activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
+    steps: [
+      {
+        id: 'step-gated-action',
+        title: approvalReq.title,
+        description: approvalReq.explanation || approvalReq.command || '',
+        category: approvalReq.category,
+        status: 'in_progress'
+      }
+    ],
+    activeStepId: 'step-gated-action',
+    currentApproval: approvalReq,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+
+  sendTaskUpdate(taskState)
+  mascotManager?.setMascotState('needsApproval')
+  sendTimelineEvent({
+    id: crypto.randomUUID(),
+    taskId,
+    timestamp: Date.now(),
+    type: 'approval_prompt',
+    title: `Action Requires Approval: ${approvalReq.title}`,
+    details: approvalReq.command || approvalReq.explanation || '',
+    category: approvalReq.category
+  })
+})
 let agentOrchestrator = new AgentOrchestrator(modelAdapter, toolExecutor, {
   defaultWorkspacePath: settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis',
   defaultOutputDir: settings.outputDirectory
@@ -582,129 +616,6 @@ function registerIpcHandlers(): void {
         thinkingDepth?: import('../shared/types').ThinkingDepth
       }
     ) => {
-      const lower = content.toLowerCase().trim()
-      const isBrowserAction =
-        lower.includes('open') ||
-        lower.includes('launch') ||
-        lower.includes('start') ||
-        lower.includes('go to') ||
-        lower.includes('visit') ||
-        lower.includes('run')
-
-      // Inspect recent conversation context for pronoun references (e.g. "open it", "launch it")
-      const recentMsgs = db.getMessages(conversationId).slice(-4)
-      const recentContextText = recentMsgs.map((m) => m.content.toLowerCase()).join(' ')
-      const isContextualBrowser =
-        (lower === 'open it' || lower === 'open that' || lower === 'launch it' || lower.startsWith('open it') || lower.startsWith('can you open it')) &&
-        (recentContextText.includes('chrome') || recentContextText.includes('browser') || recentContextText.includes('google') || recentContextText.includes('gmail'))
-
-      const isGmailIntent =
-        (lower.includes('gmail') || lower.includes('mail.google.com')) && isBrowserAction
-      const isChromeIntent =
-        isContextualBrowser ||
-        ((lower.includes('chrome') || lower.includes('browser') || lower.includes('google.com')) && isBrowserAction)
-      const isDevServerIntent =
-        lower.includes('npm run dev') ||
-        (lower.includes('dev server') && (lower.includes('start') || lower.includes('run') || lower.includes('launch')))
-
-      // Direct Chrome / Browser Desktop Launch
-      if (isGmailIntent || isChromeIntent) {
-        db.addMessage(conversationId, 'user', content)
-        const urlMatch = content.match(/https?:\/\/[^\s"']+/)
-        const targetUrl = isGmailIntent
-          ? 'https://mail.google.com'
-          : urlMatch
-            ? urlMatch[0]
-            : 'https://google.com'
-
-        try {
-          const res = await launchBrowser(targetUrl, 'chrome')
-          const reply = `🚀 **${res.message}**.\n\nGoogle Chrome is now open on your desktop.`
-          const reasoning = `Recognized browser request. Launched Google Chrome navigating to ${targetUrl}.`
-          db.addMessage(conversationId, 'assistant', reply, reasoning)
-          mascotManager?.setMascotState('completed')
-          sendTimelineEvent({
-            id: crypto.randomUUID(),
-            taskId: crypto.randomUUID(),
-            timestamp: Date.now(),
-            type: 'tool_call',
-            title: `Opened Google Chrome (${targetUrl})`,
-            details: res.message,
-            category: 'network'
-          })
-          return { reply, reasoning }
-        } catch (err: any) {
-          const reply = `Failed to open Google Chrome: ${err.message}`
-          db.addMessage(conversationId, 'assistant', reply)
-          return { reply }
-        }
-      }
-
-      if (isDevServerIntent) {
-        db.addMessage(conversationId, 'user', content)
-
-        const chosenWorkspace = _workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
-        const command = 'npm run dev'
-        const title = 'Start Development Server (npm run dev)'
-
-        const evalRes = policyEngine.evaluateAction({
-          actionType: 'start_dev_server',
-          workspacePath: chosenWorkspace,
-          command,
-          title,
-          workingDirectory: chosenWorkspace,
-          explanation: 'Starts local project development server with npm run dev.',
-          safetyImpact:
-            'Spawns a local Node development server child process listening on local port. Tracked by Jarvis.',
-          arguments: { command, script: 'dev', workingDirectory: chosenWorkspace }
-        })
-
-        const taskId = crypto.randomUUID()
-        const taskState: TaskState = {
-          id: taskId,
-          goal: content,
-          status: 'waiting_for_approval',
-          workspacePath: chosenWorkspace,
-          activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
-          steps: [
-            {
-              id: 'step-dev-server',
-              title,
-              description: 'Run `npm run dev` in workspace',
-              category: 'process',
-              status: 'in_progress'
-            }
-          ],
-          activeStepId: 'step-dev-server',
-          currentApproval: evalRes.approvalRequest,
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        }
-
-        sendTaskUpdate(taskState)
-        mascotManager?.setMascotState('needsApproval')
-
-        sendTimelineEvent({
-          id: crypto.randomUUID(),
-          taskId,
-          timestamp: Date.now(),
-          type: 'approval_prompt',
-          title: `Action Requires Approval: ${title}`,
-          details: `Command: ${command}`,
-          category: 'process'
-        })
-
-        const reply = `I have prepared the action to **${title}**.\n\nPer **ADR-004 Assistive Autonomy**, external development server execution requires explicit user authorization. Please review and approve the action below.`
-        const reasoning = `Detected instruction to start development server. Under ADR-004 policy, process execution is gated behind explicit human approval before execution.`
-
-        db.addMessage(conversationId, 'assistant', reply, reasoning)
-
-        return {
-          reply,
-          reasoning
-        }
-      }
-
       db.addMessage(conversationId, 'user', content)
       mascotManager?.setMascotState('thinking')
 

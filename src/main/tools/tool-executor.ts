@@ -36,6 +36,8 @@ export interface ToolExecutionResult {
   error?: string
 }
 
+export type ApprovalRequestHandler = (request: import('../../shared/types').ApprovalRequest) => void
+
 const IGNORED_DIRECTORIES = new Set([
   'node_modules',
   '.git',
@@ -55,10 +57,20 @@ const MAX_OUTPUT_BYTES = 32 * 1024 // 32 KB safety truncation limit
 export class ToolExecutor {
   private policyEngine: PolicyEngine
   private processManager?: ProcessManager
+  private onRequestApproval?: ApprovalRequestHandler
 
-  constructor(policyEngine?: PolicyEngine, processManager?: ProcessManager) {
+  constructor(
+    policyEngine?: PolicyEngine,
+    processManager?: ProcessManager,
+    onRequestApproval?: ApprovalRequestHandler
+  ) {
     this.policyEngine = policyEngine || new PolicyEngine()
     this.processManager = processManager
+    this.onRequestApproval = onRequestApproval
+  }
+
+  public setOnRequestApproval(handler: ApprovalRequestHandler): void {
+    this.onRequestApproval = handler
   }
 
   /**
@@ -840,6 +852,32 @@ export class ToolExecutor {
         success: false,
         output: '',
         error: 'Process manager is not configured in this environment.'
+      }
+    }
+
+    const command = args.command || `npm run ${args.script || 'dev'}`
+    const evalRes = this.policyEngine.evaluateAction({
+      actionType: 'start_dev_server',
+      workspacePath,
+      command,
+      title: `Start Development Server (${command})`,
+      workingDirectory: workspacePath,
+      explanation: `Starts local development server running '${command}'.`,
+      safetyImpact: 'Spawns an external Node child process listening on local port.',
+      arguments: {
+        command,
+        script: args.script || 'dev',
+        port: args.preferredPort,
+        workingDirectory: workspacePath
+      }
+    })
+
+    if (evalRes.requiresApproval && evalRes.approvalRequest && this.onRequestApproval) {
+      this.onRequestApproval(evalRes.approvalRequest)
+      return {
+        toolName: 'start_dev_server',
+        success: true,
+        output: `Action '${command}' is gated under Assistive Autonomy policy. An explicit approval modal has been displayed to the user in the UI. Inform the user that you are awaiting their approval.`
       }
     }
 
