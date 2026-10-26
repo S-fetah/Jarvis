@@ -129,9 +129,15 @@ export class PolicyEngine {
       case 'browser_shortcut':
       case 'browse_github':
       case 'list_chrome_profiles':
+      case 'browser_list_tabs':
+      case 'browser_inspect_page':
+      case 'browser_click_element':
+      case 'browser_close_tab':
+      case 'browser_scroll':
+      case 'manage_user_memory':
         category = 'network'
         requiresApproval = false
-        reason = 'Read-only web research, desktop navigation, browser actions, profile discovery, and verified direct email allowed without mutation.'
+        reason = 'Read-only web research, desktop navigation, browser actions, profile discovery, verified direct email, CDP inspection, and user memory allowed without mutation.'
         break
 
       default:

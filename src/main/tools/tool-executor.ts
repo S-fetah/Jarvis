@@ -7,6 +7,15 @@ import { sendShortcut } from '../utils/keyboard'
 import { getChromeProfiles } from '../utils/chrome-profiles'
 import { sendEmailDirect } from '../utils/smtp'
 import {
+  isCdpAvailable,
+  listCdpTargets,
+  inspectPageContent,
+  clickDomElement,
+  closeCdpTarget,
+  scrollPageContent
+} from '../utils/cdp'
+import { loadUserMemory, saveUserMemory, formatUserMemoryPrompt } from '../memory/user-memory'
+import {
   WorkspaceListSchema,
   FileReadSchema,
   ProjectInspectSchema,
@@ -22,6 +31,12 @@ import {
   SendEmailDirectSchema,
   BrowserShortcutSchema,
   BrowseGithubSchema,
+  BrowserListTabsSchema,
+  BrowserInspectPageSchema,
+  BrowserClickElementSchema,
+  BrowserCloseTabSchema,
+  BrowserScrollSchema,
+  ManageUserMemorySchema,
   WorkspaceListArgs,
   FileReadArgs,
   ProjectInspectArgs,
@@ -36,7 +51,13 @@ import {
   SendGmailArgs,
   SendEmailDirectArgs,
   BrowserShortcutArgs,
-  BrowseGithubArgs
+  BrowseGithubArgs,
+  BrowserListTabsArgs,
+  BrowserInspectPageArgs,
+  BrowserClickElementArgs,
+  BrowserCloseTabArgs,
+  BrowserScrollArgs,
+  ManageUserMemoryArgs
 } from './tool-registry'
 import { PdfGenerator } from './pdf-generator'
 
@@ -159,12 +180,36 @@ export class ToolExecutor {
         case 'list_chrome_profiles': {
           return await this.executeListChromeProfiles()
         }
+        case 'browser_list_tabs': {
+          const args = BrowserListTabsSchema.parse(rawArgs || {})
+          return await this.executeBrowserListTabs(args)
+        }
+        case 'browser_inspect_page': {
+          const args = BrowserInspectPageSchema.parse(rawArgs || {})
+          return await this.executeBrowserInspectPage(args)
+        }
+        case 'browser_click_element': {
+          const args = BrowserClickElementSchema.parse(rawArgs || {})
+          return await this.executeBrowserClickElement(args)
+        }
+        case 'browser_close_tab': {
+          const args = BrowserCloseTabSchema.parse(rawArgs || {})
+          return await this.executeBrowserCloseTab(args)
+        }
+        case 'browser_scroll': {
+          const args = BrowserScrollSchema.parse(rawArgs || {})
+          return await this.executeBrowserScroll(args)
+        }
+        case 'manage_user_memory': {
+          const args = ManageUserMemorySchema.parse(rawArgs || {})
+          return await this.executeManageUserMemory(args, workspacePath)
+        }
         default:
           return {
             toolName: name,
             success: false,
             output: '',
-            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch, send_gmail, send_email_direct, browser_shortcut, browse_github, list_chrome_profiles.`
+            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch, send_gmail, send_email_direct, browser_shortcut, browse_github, list_chrome_profiles, browser_list_tabs, browser_inspect_page, browser_click_element, browser_close_tab, browser_scroll, manage_user_memory.`
           }
       }
     } catch (err: any) {
@@ -1215,6 +1260,227 @@ export class ToolExecutor {
         success: false,
         output: '',
         error: `Failed to browse GitHub: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Lists active Chrome tabs via Chrome DevTools Protocol (CDP).
+   */
+  private async executeBrowserListTabs(args: BrowserListTabsArgs): Promise<ToolExecutionResult> {
+    try {
+      const port = args.port || 9222
+      const active = await isCdpAvailable(port)
+      if (!active) {
+        return {
+          toolName: 'browser_list_tabs',
+          success: false,
+          output: '',
+          error: `Chrome remote debugging is not active on port ${port}. Open Chrome via Jarvis (which enables --remote-debugging-port=${port}) or launch Chrome with '--remote-debugging-port=${port}'.`
+        }
+      }
+
+      const targets = await listCdpTargets(port)
+      if (targets.length === 0) {
+        return {
+          toolName: 'browser_list_tabs',
+          success: true,
+          output: 'Chrome CDP is active, but no page tabs are currently open.'
+        }
+      }
+
+      const formatted = targets
+        .map((t, idx) => `${idx + 1}. **${t.title || 'Untitled'}**\n   - URL: ${t.url}\n   - Target ID: \`${t.id}\``)
+        .join('\n\n')
+
+      return {
+        toolName: 'browser_list_tabs',
+        success: true,
+        output: `### Active Chrome Tabs (${targets.length} open):\n\n${formatted}`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'browser_list_tabs',
+        success: false,
+        output: '',
+        error: `Failed to list browser tabs via CDP: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Deeply inspects the real DOM of a webpage via CDP.
+   */
+  private async executeBrowserInspectPage(args: BrowserInspectPageArgs): Promise<ToolExecutionResult> {
+    try {
+      const port = args.port || 9222
+      const res = await inspectPageContent(args.targetIdOrUrl, port)
+
+      let md = `### Page Inspection: ${res.title}\n`
+      md += `- **URL**: ${res.url}\n`
+      md += `- **Target ID**: \`${res.targetId}\`\n\n`
+
+      if (res.headings.length > 0) {
+        md += `#### Key Headings:\n`
+        md += res.headings.slice(0, 10).map((h) => `- ${h}`).join('\n') + '\n\n'
+      }
+
+      if (res.interactiveElements.length > 0) {
+        md += `#### Interactive Elements (${res.interactiveElements.length}):\n`
+        md +=
+          res.interactiveElements
+            .slice(0, 15)
+            .map((el) => {
+              const desc = el.ariaLabel || el.text || el.id || el.type || 'element'
+              return `- \`<${el.tag}>\`: ${desc}${el.id ? ` (#${el.id})` : ''}`
+            })
+            .join('\n') + '\n\n'
+      }
+
+      if (res.textContent) {
+        md += `#### Page Content Summary:\n`
+        md += res.textContent.length > 2000 ? res.textContent.slice(0, 2000) + '...' : res.textContent
+      }
+
+      return {
+        toolName: 'browser_inspect_page',
+        success: true,
+        output: this.truncateOutput(md)
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'browser_inspect_page',
+        success: false,
+        output: '',
+        error: `Failed to inspect page DOM via CDP: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Clicks a DOM element matching a CSS selector via CDP with instant verification.
+   */
+  private async executeBrowserClickElement(args: BrowserClickElementArgs): Promise<ToolExecutionResult> {
+    try {
+      const port = args.port || 9222
+      const res = await clickDomElement(args.selector, args.targetIdOrUrl, port)
+      return {
+        toolName: 'browser_click_element',
+        success: res.success,
+        output: res.success ? `✅ ${res.message}` : '',
+        error: res.success ? undefined : res.message
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'browser_click_element',
+        success: false,
+        output: '',
+        error: `Failed to click element: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Deterministically closes a specific Chrome tab target by ID via CDP.
+   */
+  private async executeBrowserCloseTab(args: BrowserCloseTabArgs): Promise<ToolExecutionResult> {
+    try {
+      const port = args.port || 9222
+      const closed = await closeCdpTarget(args.targetId, port)
+      if (closed) {
+        return {
+          toolName: 'browser_close_tab',
+          success: true,
+          output: `✅ Deterministically closed Chrome tab \`${args.targetId}\` via CDP.`
+        }
+      } else {
+        return {
+          toolName: 'browser_close_tab',
+          success: false,
+          output: '',
+          error: `Could not close tab \`${args.targetId}\`. Target may have already closed or invalid target ID.`
+        }
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'browser_close_tab',
+        success: false,
+        output: '',
+        error: `Failed to close tab: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Scrolls the active or specified webpage via CDP.
+   */
+  private async executeBrowserScroll(args: BrowserScrollArgs): Promise<ToolExecutionResult> {
+    try {
+      const port = args.port || 9222
+      const res = await scrollPageContent(args.distanceY, args.distanceX || 0, args.targetIdOrUrl, port)
+      return {
+        toolName: 'browser_scroll',
+        success: res.success,
+        output: `Page scrolled by (${args.distanceX || 0}px, ${args.distanceY}px). Current scroll position: (${res.scrollX}px, ${res.scrollY}px).`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'browser_scroll',
+        success: false,
+        output: '',
+        error: `Failed to scroll page: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Manages persistent user preferences and directives in USER.md.
+   */
+  private async executeManageUserMemory(
+    args: ManageUserMemoryArgs,
+    workspacePath: string
+  ): Promise<ToolExecutionResult> {
+    try {
+      if (args.action === 'read') {
+        const mem = loadUserMemory(workspacePath)
+        return {
+          toolName: 'manage_user_memory',
+          success: true,
+          output: `### Persistent User Memory (USER.md):\n\n${formatUserMemoryPrompt(mem)}`
+        }
+      }
+
+      // action === 'update'
+      const updates = args.updates || {}
+      const current = loadUserMemory(workspacePath)
+      const newNotes = [...(current.notes || [])]
+      if (updates.noteToAdd && !newNotes.includes(updates.noteToAdd)) {
+        newNotes.push(updates.noteToAdd)
+      }
+
+      const updated = saveUserMemory(
+        {
+          name: updates.name || current.name,
+          preferredChromeProfile: updates.preferredChromeProfile || current.preferredChromeProfile,
+          defaultEmail: updates.defaultEmail || current.defaultEmail,
+          preferredDevCommand: updates.preferredDevCommand || current.preferredDevCommand,
+          defaultDevPort: updates.defaultDevPort || current.defaultDevPort,
+          notes: newNotes
+        },
+        workspacePath
+      )
+
+      return {
+        toolName: 'manage_user_memory',
+        success: true,
+        output: `✅ Persistent user memory updated in USER.md:\n\n${formatUserMemoryPrompt(updated)}`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'manage_user_memory',
+        success: false,
+        output: '',
+        error: `Failed to manage user memory: ${err.message}`
       }
     }
   }

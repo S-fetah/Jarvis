@@ -1,16 +1,18 @@
 import { TalkingStyle, TaskMode, ThinkingDepth } from '../../shared/types'
+import { loadUserMemory, formatUserMemoryPrompt, UserPreferences } from '../memory/user-memory'
 
 export interface PromptOptions {
   talkingStyle?: TalkingStyle
   taskMode?: TaskMode
   thinkingDepth?: ThinkingDepth
   workspacePath?: string
+  userPreferences?: UserPreferences
 }
 
 export class PromptEngine {
   /**
    * Generates a tailored, context-aware system prompt enforcing privacy,
-   * talking style, task mode, and thinking depth.
+   * talking style, task mode, thinking depth, and persistent user memory.
    */
   public static buildSystemPrompt(options?: PromptOptions): string {
     const style: TalkingStyle = options?.talkingStyle || 'balanced'
@@ -33,6 +35,12 @@ export class PromptEngine {
       `Action Verification, Intent Classification & Capability Protocol:\n` +
       `- You are Jarvis — an active, highly capable AI companion operating directly on the user's Windows machine.\n` +
       `- You possess a live suite of native desktop, browser, and workspace tools:\n` +
+      `  * 'browser_list_tabs': List all active tabs in Chrome with their titles, URLs, and target IDs via Chrome DevTools Protocol (CDP).\n` +
+      `  * 'browser_inspect_page': Deeply inspect the webpage DOM via CDP, extracting headings, body text, links, and interactive buttons/inputs.\n` +
+      `  * 'browser_click_element': Click a DOM element by CSS selector via CDP with instant verification.\n` +
+      `  * 'browser_close_tab': Deterministically close a specific Chrome tab target ID via CDP.\n` +
+      `  * 'browser_scroll': Scroll the webpage up or down.\n` +
+      `  * 'manage_user_memory': View or update user preferences and memory notes in USER.md.\n` +
       `  * 'send_email_direct': Direct verified RFC 5321 TLS SMTP email dispatch. Talks directly to the mail server, authenticates, and waits for server delivery receipt (250 2.0.0 OK). Opens ZERO browser tabs and avoids clutter.\n` +
       `  * 'send_gmail': Compose and dispatch emails in Google Chrome Gmail. Supports pre-filled recipient, subject, body, profile selection, 'autoSend: true', and automatic compose tab cleanup ('closeTabAfter: true').\n` +
       `  * 'browser_shortcut': Execute browser keyboard shortcuts: 'reopen_tab' (reopens closed tab with Ctrl+Shift+T), 'send_email' / 'click_send' (dispatches email with Ctrl+Enter), 'close_tab' (Ctrl+W), 'new_tab' (Ctrl+T), 'refresh' (Ctrl+R), 'next_tab', 'focus_address_bar'.\n` +
@@ -56,12 +64,10 @@ export class PromptEngine {
       `- DIRECT EXECUTION COMMANDS ("Please open Chrome", "Reopen my closed tab now", "Send this email to...", "Search GitHub for...", "Start the dev server"):\n` +
       `  * Execute the requested tool via function calling only when the user explicitly commands it.\n` +
       `\n` +
-      `CRITICAL RULE 2: PROFILE & ACCOUNT DISAMBIGUATION (Chrome & General Identity Context):\n` +
-      `- When a command involves an application with multiple user profiles or accounts (such as Google Chrome):\n` +
-      `- DO NOT blindly assume or choose a profile if the user has multiple accounts on their machine.\n` +
-      `- You have 'list_chrome_profiles' to see which profiles and email accounts exist.\n` +
-      `- If the user didn't specify which account to use, ask them: "Which Chrome profile/account would you like me to use?"\n` +
-      `- When the user specifies an account, pass that profile in the 'profile' parameter.\n` +
+      `CRITICAL RULE 2: PROFILE & ACCOUNT DISAMBIGUATION (Chrome & Identity Context):\n` +
+      `- You have a persistent user profile (USER.md) storing the user's preferred Chrome profile (e.g. 'fennec') and default email.\n` +
+      `- When the user commands you to open Chrome or compose/send an email without specifying a profile, USE THEIR PREFERRED PROFILE BY DEFAULT.\n` +
+      `- If you are uncertain or the user asks to switch, you have 'list_chrome_profiles' to discover available accounts.\n` +
       `\n` +
       `CRITICAL RULE 3: EMAIL DELIVERY & BROWSER TAB HYGIENE:\n` +
       `- You have TWO methods to deliver email:\n` +
@@ -71,7 +77,14 @@ export class PromptEngine {
       `- NEVER claim you cannot send emails or cannot click Send. You CAN dispatch emails directly or via browser shortcuts.`
     )
 
-    // 3. Task Mode Specialization
+    // 3. Persistent User Memory & Habits (USER.md)
+    const userMemory = options?.userPreferences || loadUserMemory(options?.workspacePath)
+    sections.push(
+      `Persistent User Profile & Long-Term Memory (USER.md):\n` +
+      formatUserMemoryPrompt(userMemory)
+    )
+
+    // 4. Task Mode Specialization
     switch (mode) {
       case 'debug':
         sections.push(

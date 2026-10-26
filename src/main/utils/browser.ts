@@ -36,7 +36,8 @@ export interface LaunchBrowserResult {
 export async function launchBrowser(
   url: string = 'https://google.com',
   preferredBrowser: 'chrome' | 'default' = 'chrome',
-  profile?: string
+  profile?: string,
+  enableCdp: boolean = true
 ): Promise<LaunchBrowserResult> {
   let validatedUrl: URL
   try {
@@ -50,12 +51,15 @@ export async function launchBrowser(
 
   const targetUrl = validatedUrl.toString()
   const resolvedProfile = resolveProfileDirectory(profile)
+  const cdpArgs = enableCdp ? ['--remote-debugging-port=9222'] : []
 
   if (preferredBrowser === 'chrome') {
     const chromePath = getChromeExecutablePath()
-    const chromeArgs = resolvedProfile
-      ? [`--profile-directory=${resolvedProfile}`, targetUrl]
-      : [targetUrl]
+    const chromeArgs = [
+      ...cdpArgs,
+      ...(resolvedProfile ? [`--profile-directory=${resolvedProfile}`] : []),
+      targetUrl
+    ]
 
     if (chromePath) {
       try {
@@ -84,6 +88,7 @@ export async function launchBrowser(
         'start',
         '',
         'chrome',
+        ...cdpArgs,
         ...(resolvedProfile ? [`--profile-directory=${resolvedProfile}`] : []),
         targetUrl
       ]

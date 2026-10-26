@@ -251,6 +251,74 @@ export const BrowseGithubSchema = z.object({
 
 export type BrowseGithubArgs = z.infer<typeof BrowseGithubSchema>
 
+export const BrowserListTabsSchema = z.object({
+  port: z.number().optional().default(9222).describe('Chrome remote debugging port (default: 9222).')
+})
+
+export type BrowserListTabsArgs = z.infer<typeof BrowserListTabsSchema>
+
+export const BrowserInspectPageSchema = z.object({
+  targetIdOrUrl: z
+    .string()
+    .optional()
+    .describe('Optional target tab ID, URL substring, or tab title match. If omitted, inspects active/first tab.'),
+  port: z.number().optional().default(9222).describe('Chrome remote debugging port (default: 9222).')
+})
+
+export type BrowserInspectPageArgs = z.infer<typeof BrowserInspectPageSchema>
+
+export const BrowserClickElementSchema = z.object({
+  selector: z
+    .string()
+    .describe('CSS selector of the DOM element to click (e.g. "button[type=\'submit\']", "div[aria-label=\'Send\']", "a.profile-link").'),
+  targetIdOrUrl: z
+    .string()
+    .optional()
+    .describe('Target tab ID, URL, or title match.'),
+  port: z.number().optional().default(9222).describe('Chrome remote debugging port (default: 9222).')
+})
+
+export type BrowserClickElementArgs = z.infer<typeof BrowserClickElementSchema>
+
+export const BrowserCloseTabSchema = z.object({
+  targetId: z.string().describe('Target tab ID to close (obtained via browser_list_tabs).'),
+  port: z.number().optional().default(9222).describe('Chrome remote debugging port (default: 9222).')
+})
+
+export type BrowserCloseTabArgs = z.infer<typeof BrowserCloseTabSchema>
+
+export const BrowserScrollSchema = z.object({
+  distanceY: z
+    .number()
+    .describe('Vertical scroll distance in pixels (positive scrolls down, negative scrolls up).'),
+  distanceX: z
+    .number()
+    .optional()
+    .default(0)
+    .describe('Horizontal scroll distance in pixels.'),
+  targetIdOrUrl: z.string().optional().describe('Target tab ID, URL, or title match.'),
+  port: z.number().optional().default(9222).describe('Chrome remote debugging port (default: 9222).')
+})
+
+export type BrowserScrollArgs = z.infer<typeof BrowserScrollSchema>
+
+export const ManageUserMemorySchema = z.object({
+  action: z.enum(['read', 'update']).describe('Whether to read current persistent memory or update it.'),
+  updates: z
+    .object({
+      name: z.string().optional().describe('User name.'),
+      preferredChromeProfile: z.string().optional().describe('Preferred Chrome profile directory (e.g. "fennec", "Default").'),
+      defaultEmail: z.string().optional().describe('Default email account name or address.'),
+      preferredDevCommand: z.string().optional().describe('Preferred dev server start script (e.g. "npm run dev").'),
+      defaultDevPort: z.number().optional().describe('Preferred default dev port (e.g. 5173).'),
+      noteToAdd: z.string().optional().describe('A persistent preference note to append to USER.md.')
+    })
+    .optional()
+    .describe('Key-value updates to persist when action is "update".')
+})
+
+export type ManageUserMemoryArgs = z.infer<typeof ManageUserMemorySchema>
+
 /**
  * Standard OpenAI Function Calling Tool Specification
  */
@@ -691,6 +759,159 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
           }
         },
         required: ['query'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_list_tabs',
+      description:
+        'Lists all open tabs in Google Chrome via Chrome DevTools Protocol (CDP), returning their titles, URLs, and target IDs.',
+      parameters: {
+        type: 'object',
+        properties: {
+          port: {
+            type: 'number',
+            description: 'Chrome remote debugging port (default: 9222).'
+          }
+        },
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_inspect_page',
+      description:
+        'Inspects the real DOM of a webpage via CDP. Extracts headings, readable text content, links, and interactive buttons/inputs for closed-loop verification.',
+      parameters: {
+        type: 'object',
+        properties: {
+          targetIdOrUrl: {
+            type: 'string',
+            description: 'Optional tab ID, URL, or title substring to inspect. If omitted, inspects active tab.'
+          },
+          port: {
+            type: 'number',
+            description: 'Chrome remote debugging port (default: 9222).'
+          }
+        },
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_click_element',
+      description:
+        'Clicks an element on a webpage matching a CSS selector (e.g. "button[type=\'submit\']", "div[aria-label=\'Send\']", "a.profile") via CDP DOM automation with instant verification.',
+      parameters: {
+        type: 'object',
+        properties: {
+          selector: {
+            type: 'string',
+            description: 'CSS selector of the element to click.'
+          },
+          targetIdOrUrl: {
+            type: 'string',
+            description: 'Optional tab ID, URL, or title substring.'
+          },
+          port: {
+            type: 'number',
+            description: 'Chrome remote debugging port (default: 9222).'
+          }
+        },
+        required: ['selector'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_close_tab',
+      description:
+        'Deterministically closes a specific Chrome tab by its target ID via CDP, preventing tab clutter and zombie tabs.',
+      parameters: {
+        type: 'object',
+        properties: {
+          targetId: {
+            type: 'string',
+            description: 'Target tab ID to close.'
+          },
+          port: {
+            type: 'number',
+            description: 'Chrome remote debugging port (default: 9222).'
+          }
+        },
+        required: ['targetId'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_scroll',
+      description:
+        'Scrolls the active or specified webpage vertically or horizontally (e.g. distanceY: 500 to scroll down).',
+      parameters: {
+        type: 'object',
+        properties: {
+          distanceY: {
+            type: 'number',
+            description: 'Vertical scroll distance in pixels (positive down, negative up).'
+          },
+          distanceX: {
+            type: 'number',
+            description: 'Horizontal scroll distance in pixels.'
+          },
+          targetIdOrUrl: {
+            type: 'string',
+            description: 'Optional tab ID, URL, or title substring.'
+          },
+          port: {
+            type: 'number',
+            description: 'Chrome remote debugging port (default: 9222).'
+          }
+        },
+        required: ['distanceY'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'manage_user_memory',
+      description:
+        'Reads or updates persistent user preferences and memory notes in USER.md (e.g. remember preferred Chrome profile, dev command/port, or custom user instructions).',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['read', 'update'],
+            description: 'Whether to read current memory or update it.'
+          },
+          updates: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'User name.' },
+              preferredChromeProfile: { type: 'string', description: 'Preferred Chrome profile directory (e.g. "fennec").' },
+              defaultEmail: { type: 'string', description: 'Default email account.' },
+              preferredDevCommand: { type: 'string', description: 'Preferred dev command.' },
+              defaultDevPort: { type: 'number', description: 'Preferred dev port.' },
+              noteToAdd: { type: 'string', description: 'New persistent note/directive to append.' }
+            },
+            description: 'Updates to persist into USER.md.'
+          }
+        },
+        required: ['action'],
         additionalProperties: false
       }
     }

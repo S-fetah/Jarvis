@@ -16,13 +16,18 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 
 ## Current state
 
-- Git on branch `main`; commits: `46cda5f` (T-001 baseline), `2780ff3` + `7d4c142` (T-002 setup/model pin), plus the T-002 closure commit.
-- **T-001 (validate FreeLLMAPI locally) complete** (2026-10-21): all authenticated checks passed against `http://127.0.0.1:31415/v1`. Limitations recorded: non-deterministic `auto` routing, transient upstream 502s, latency spread 1.4 s–64 s.
-- **T-002 (benchmark an existing agent) complete** (2026-10-22): Open Interpreter 0.0.56 (Rust TUI; the plan's "Desktop" app no longer ships) benchmarked via the gateway (session: `gpt-6-astra`, high reasoning, Native harness, non-admin sandbox). Headline findings: outside-workspace reads and in-workspace writes run with **no approval**; outside-workspace writes are approval-gated and denial honored; ~1–2 min turns at high reasoning; the TUI model picker can silently bypass the configured gateway; agent shells inherit the user's PowerShell profile (noise/errors). Full records: `docs/t002-benchmark.md`; conclusions: `docs/spike-results.md` (T-002 section).
-- **T-002 cleanup complete** (2026-10-22): sandbox and user-level OI config deleted; Open Interpreter uninstalled (directories + PATH entry removed). Reinstall if ever needed: `irm https://www.openinterpreter.com/install.ps1 | iex`.
-- **T-003 complete (2026-10-22):** Architecture decision records ADR-001 through ADR-004 created and accepted in `docs/decisions/`. Phase 0 exit criteria satisfied.
-- **Git remote linked:** `origin` points to `https://github.com/S-fetah/myJarvis.git` on branch `main`. Monorepo architecture maintained.
-- Never request, read, log, commit, or paste the FreeLLMAPI unified key or provider keys.
+- Git on branch `main`; ahead of origin with verified local commits (**NO PUSH rule strictly observed**).
+- **Phase 0 through Phase 4 Complete.**
+- **Phase 5 (Browser Automation & Robustness) In Progress:**
+  - Native Chrome DevTools Protocol (CDP) engine implemented in `src/main/utils/cdp.ts`.
+  - 5 CDP browser tools added: `browser_list_tabs`, `browser_inspect_page`, `browser_click_element`, `browser_close_tab`, `browser_scroll`.
+  - RFC 5321 TLS SMTP engine implemented in `src/main/utils/smtp.ts` (`send_email_direct`) for verified email delivery with server receipts (250 OK) and zero browser tabs.
+  - Automatic compose tab closing (`Ctrl+W`) and tab hygiene in `send_gmail`.
+  - Persistent user memory & preferences system (`src/main/memory/user-memory.ts`, `USER.md`, `manage_user_memory`).
+  - Active tool suite: 20 native tools across filesystem, process, network, browser, and memory.
+  - Automated test suite: 72/72 tests passing across 12 test files (`tests/user-memory.test.ts`, `tests/cdp-browser.test.ts`, `tests/phase4-process.test.ts`, `tests/tool-executor.test.ts`, etc.).
+  - Security scanner: 8/8 checks passing (0 Critical, 0 High findings).
+  - Production build: Passing cleanly via `electron-vite build`.
 
 ## Current design decisions
 
@@ -33,16 +38,13 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 5. Measure time-to-first-token separately from total duration before choosing performance budgets.
 6. (T-001 / ADR-003) Pin a concrete model per Jarvis profile; treat gateway `auto`/fallback chains as resilience only; surface upstream 5xx distinctly and retry once before failing over.
 7. (T-002 / ADR-002 / ADR-004) Jarvis must be **stricter** than the benchmarked default: gate outside-workspace reads by approval, surface every in-workspace mutation in an activity timeline; tool shells run `-NoProfile` with a minimal explicit environment; the UI always shows the actual endpoint + model and never switches providers implicitly.
+8. (Phase 5) Browser automation uses zero-dependency Chrome DevTools Protocol (CDP) connecting to Chrome (`--remote-debugging-port=9222`) for deterministic DOM inspection and tab control rather than blind OS keystrokes.
+9. (Phase 5) Persistent user habits and preferences are stored in human-readable `USER.md` in the workspace and injected into the agent's system prompt so Jarvis remembers user defaults (e.g. Chrome profile `fennec`, dev port `5173`).
 
-## Immediate next step — T-004: scaffold the Electron/React/TypeScript app
+## Immediate next step — Phase 5: Vision & Multimodal Desktop Screen Capture
 
-Proceed to Phase 1:
-1. Initialize `package.json` with Electron, React, Vite, TypeScript, and Vitest.
-2. Configure multi-process structure: `src/main`, `src/preload`, `src/renderer`, `src/shared`.
-3. Set secure window defaults (`contextIsolation: true`, `nodeIntegration: false`, restrictive CSP).
-4. Implement typed IPC channels and mocked event timeline.
-5. Setup SQLite database (`better-sqlite3` or `sqlite3`) and migrations for tasks, approvals, events, and settings.
-6. Build standalone policy engine adhering to ADR-004.
+1. Wire up `desktopCapturer` in Electron Main to allow Jarvis to take screenshots of the user's workspace or active screen upon request.
+2. Support vision-based multimodal analysis in `ModelGatewayAdapter` for models that support image input.
 
 ## Re-running gateway checks (regression)
 
