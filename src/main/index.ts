@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import fs from 'fs'
 import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -9,6 +9,8 @@ import { JarvisDatabase } from './storage/database'
 import { MascotManager } from './windows/mascot-manager'
 import { ToolExecutor } from './tools/tool-executor'
 import { AgentOrchestrator } from './agent/agent-orchestrator'
+import { ProcessManager } from './process/process-manager'
+import { launchBrowser } from './utils/browser'
 import {
   TaskState,
   TimelineEvent,
@@ -20,8 +22,11 @@ import {
 let mainWindow: BrowserWindow | null = null
 let mascotManager: MascotManager | null = null
 let isQuitting = false
-app.on('before-quit', () => {
+const processManager = new ProcessManager()
+
+app.on('before-quit', async () => {
   isQuitting = true
+  await processManager.stopAll()
 })
 const policyEngine = new PolicyEngine()
 
@@ -64,7 +69,7 @@ const modelAdapter = new ModelGatewayAdapter({
   lightModel: 'gemini-flash-lite'
 })
 
-const toolExecutor = new ToolExecutor(policyEngine)
+const toolExecutor = new ToolExecutor(policyEngine, processManager)
 let agentOrchestrator = new AgentOrchestrator(modelAdapter, toolExecutor, {
   defaultWorkspacePath: settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis',
   defaultOutputDir: settings.outputDirectory
@@ -292,6 +297,11 @@ function broadcastToWindows(channel: string, ...args: any[]): void {
   }
 }
 
+// Phase 4: Broadcast background process/dev server updates to all windows
+processManager.onUpdate((proc) => {
+  broadcastToWindows('process:updated', proc)
+})
+
 function sendTaskUpdate(state: TaskState): void {
   activeTask = state
   broadcastToWindows('task:updated', state)
@@ -449,21 +459,6 @@ function executeNextStep(task: TaskState, stepIndex: number, workspacePath: stri
   }
 }
 
-function getChromeExecutablePath(): string | null {
-  const possiblePaths = [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    process.env.LOCALAPPDATA
-      ? join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe')
-      : null
-  ].filter(Boolean) as string[]
-
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) return p
-  }
-  return null
-}
-
 async function executeApprovedAction(approval?: import('../shared/types').ApprovalRequest): Promise<void> {
   if (!approval) return
 
@@ -478,58 +473,28 @@ async function executeApprovedAction(approval?: import('../shared/types').Approv
     (approval.actionType === 'process_spawn' && (cmd.startsWith('start chrome') || cmd.startsWith('chrome')))
   ) {
     const rawUrl = args.url || (cmd.includes('mail.google.com') ? 'https://mail.google.com' : 'https://google.com')
-    let validatedUrl: URL
     try {
-      validatedUrl = new URL(rawUrl)
-      if (validatedUrl.protocol !== 'http:' && validatedUrl.protocol !== 'https:') {
-        throw new Error(`Forbidden protocol: ${validatedUrl.protocol}`)
-      }
+      await launchBrowser(rawUrl, args.app === 'default' ? 'default' : 'chrome')
     } catch (err) {
-      console.error('[Jarvis Main] Security violation: Invalid or disallowed browser URL:', rawUrl, err)
-      return
-    }
-
-    const targetUrl = validatedUrl.toString()
-    if (args.app === 'chrome' || cmd.includes('chrome')) {
-      const chromePath = getChromeExecutablePath()
-      if (chromePath) {
-        try {
-          const child = spawn(chromePath, [targetUrl], {
-            windowsHide: false,
-            shell: false,
-            detached: true,
-            stdio: 'ignore'
-          })
-          child.unref()
-          return
-        } catch (err) {
-          console.warn('[Jarvis Main] Direct Chrome launch failed, falling back to start command:', err)
-        }
-      }
-
-      try {
-        // SEC-001: Spawn parameterized without shell string concatenation
-        const child = spawn('cmd.exe', ['/c', 'start', '', 'chrome', targetUrl], {
-          windowsHide: true,
-          shell: false,
-          detached: true,
-          stdio: 'ignore'
-        })
-        child.unref()
-      } catch (err) {
-        console.warn('[Jarvis Main] Failed to spawn Chrome process, falling back to shell.openExternal:', err)
-        await shell.openExternal(targetUrl)
-      }
-    } else {
-      await shell.openExternal(targetUrl)
+      console.error('[Jarvis Main] Failed to launch browser in executeApprovedAction:', err)
     }
     return
   }
-  }
 
   // 2. Dev server start
-  if (cmd.includes('npm run dev')) {
-    console.log('[Jarvis Main] Dev server execution simulated/started:', cmd)
+  if (cmd.includes('npm run dev') || approval.actionType === 'start_dev_server') {
+    const workingDir = approval.workingDirectory || approval.workspacePath || 'C:\\work\\softwares\\jarvis'
+    try {
+      const proc = await processManager.startDevServer({
+        command: cmd,
+        script: args.script || 'dev',
+        workingDirectory: workingDir,
+        preferredPort: args.port
+      })
+      console.log(`[Jarvis Main] Dev server started with PID ${proc.pid} on port ${proc.port || 'probing'}`)
+    } catch (err) {
+      console.error('[Jarvis Main] Failed to start dev server via processManager:', err)
+    }
     return
   }
 
@@ -626,54 +591,73 @@ function registerIpcHandlers(): void {
         lower.includes('visit') ||
         lower.includes('run')
 
+      // Inspect recent conversation context for pronoun references (e.g. "open it", "launch it")
+      const recentMsgs = db.getMessages(conversationId).slice(-4)
+      const recentContextText = recentMsgs.map((m) => m.content.toLowerCase()).join(' ')
+      const isContextualBrowser =
+        (lower === 'open it' || lower === 'open that' || lower === 'launch it' || lower.startsWith('open it') || lower.startsWith('can you open it')) &&
+        (recentContextText.includes('chrome') || recentContextText.includes('browser') || recentContextText.includes('google') || recentContextText.includes('gmail'))
+
       const isGmailIntent =
         (lower.includes('gmail') || lower.includes('mail.google.com')) && isBrowserAction
       const isChromeIntent =
-        (lower.includes('chrome') || lower.includes('browser') || lower.includes('google.com')) && isBrowserAction
+        isContextualBrowser ||
+        ((lower.includes('chrome') || lower.includes('browser') || lower.includes('google.com')) && isBrowserAction)
       const isDevServerIntent =
         lower.includes('npm run dev') ||
         (lower.includes('dev server') && (lower.includes('start') || lower.includes('run') || lower.includes('launch')))
 
-      if (isGmailIntent || isChromeIntent || isDevServerIntent) {
+      // Direct Chrome / Browser Desktop Launch
+      if (isGmailIntent || isChromeIntent) {
         db.addMessage(conversationId, 'user', content)
-
-        const chosenWorkspace = _workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
-        const isBrowser = isGmailIntent || isChromeIntent
         const urlMatch = content.match(/https?:\/\/[^\s"']+/)
         const targetUrl = isGmailIntent
           ? 'https://mail.google.com'
           : urlMatch
             ? urlMatch[0]
             : 'https://google.com'
-        const command = isBrowser ? `start chrome "${targetUrl}"` : 'npm run dev'
-        const title = isBrowser
-          ? (isGmailIntent ? 'Launch Google Chrome (Gmail)' : `Launch Google Chrome (${targetUrl})`)
-          : 'Start Development Server (npm run dev)'
 
-        const evalRes = policyEngine.evaluateAction(
-          isBrowser
-            ? {
-                actionType: 'process_spawn',
-                workspacePath: chosenWorkspace,
-                command,
-                title,
-                workingDirectory: chosenWorkspace,
-                explanation: `Opens Google Chrome navigating to ${targetUrl} as instructed.`,
-                safetyImpact: 'Spawns an external Google Chrome browser instance on your Windows desktop.',
-                arguments: { app: 'chrome', url: targetUrl, command }
-              }
-            : {
-                actionType: 'start_dev_server',
-                workspacePath: chosenWorkspace,
-                command,
-                title,
-                workingDirectory: chosenWorkspace,
-                explanation: 'Starts local project development server with npm run dev.',
-                safetyImpact:
-                  'Spawns a local Node development server child process listening on local port. Tracked by Jarvis.',
-                arguments: { command, script: 'dev', workingDirectory: chosenWorkspace }
-              }
-        )
+        try {
+          const res = await launchBrowser(targetUrl, 'chrome')
+          const reply = `🚀 **${res.message}**.\n\nGoogle Chrome is now open on your desktop.`
+          const reasoning = `Recognized browser request. Launched Google Chrome navigating to ${targetUrl}.`
+          db.addMessage(conversationId, 'assistant', reply, reasoning)
+          mascotManager?.setMascotState('completed')
+          sendTimelineEvent({
+            id: crypto.randomUUID(),
+            taskId: crypto.randomUUID(),
+            timestamp: Date.now(),
+            type: 'tool_call',
+            title: `Opened Google Chrome (${targetUrl})`,
+            details: res.message,
+            category: 'network'
+          })
+          return { reply, reasoning }
+        } catch (err: any) {
+          const reply = `Failed to open Google Chrome: ${err.message}`
+          db.addMessage(conversationId, 'assistant', reply)
+          return { reply }
+        }
+      }
+
+      if (isDevServerIntent) {
+        db.addMessage(conversationId, 'user', content)
+
+        const chosenWorkspace = _workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
+        const command = 'npm run dev'
+        const title = 'Start Development Server (npm run dev)'
+
+        const evalRes = policyEngine.evaluateAction({
+          actionType: 'start_dev_server',
+          workspacePath: chosenWorkspace,
+          command,
+          title,
+          workingDirectory: chosenWorkspace,
+          explanation: 'Starts local project development server with npm run dev.',
+          safetyImpact:
+            'Spawns a local Node development server child process listening on local port. Tracked by Jarvis.',
+          arguments: { command, script: 'dev', workingDirectory: chosenWorkspace }
+        })
 
         const taskId = crypto.randomUUID()
         const taskState: TaskState = {
@@ -684,14 +668,14 @@ function registerIpcHandlers(): void {
           activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
           steps: [
             {
-              id: 'step-process-action',
+              id: 'step-dev-server',
               title,
-              description: isBrowser ? `Launch Google Chrome to ${targetUrl}` : 'Run `npm run dev` in workspace',
+              description: 'Run `npm run dev` in workspace',
               category: 'process',
               status: 'in_progress'
             }
           ],
-          activeStepId: 'step-process-action',
+          activeStepId: 'step-dev-server',
           currentApproval: evalRes.approvalRequest,
           createdAt: Date.now(),
           updatedAt: Date.now()
@@ -710,8 +694,8 @@ function registerIpcHandlers(): void {
           category: 'process'
         })
 
-        const reply = `I have prepared the action to **${title}**.\n\nPer **ADR-004 Assistive Autonomy**, external OS process execution requires explicit user authorization. Please review and approve the action below.`
-        const reasoning = `Detected instruction to launch external process. Under ADR-004 policy, process execution is gated behind explicit human approval before execution.`
+        const reply = `I have prepared the action to **${title}**.\n\nPer **ADR-004 Assistive Autonomy**, external development server execution requires explicit user authorization. Please review and approve the action below.`
+        const reasoning = `Detected instruction to start development server. Under ADR-004 policy, process execution is gated behind explicit human approval before execution.`
 
         db.addMessage(conversationId, 'assistant', reply, reasoning)
 
@@ -1137,6 +1121,17 @@ function registerIpcHandlers(): void {
       console.error('[Jarvis Main] Failed to open path:', err)
     }
     return false
+  })
+
+  // --- Process & Dev Server Management (Phase 4) ---
+  ipcMain.handle('process:list-active', async (event) => {
+    if (!isAuthorizedSender(event.sender)) return []
+    return processManager.getActiveProcesses()
+  })
+
+  ipcMain.handle('process:stop', async (event, processId: string) => {
+    if (!isAuthorizedSender(event.sender)) return false
+    return processManager.stopProcess(processId)
   })
 
   // --- Mascot & Quick-Chat (Surfaces A & B) ---

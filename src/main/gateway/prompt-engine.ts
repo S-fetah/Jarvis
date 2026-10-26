@@ -31,10 +31,13 @@ export class PromptEngine {
     // 2. Assistive Capabilities & Tool Conduct
     sections.push(
       `Capabilities & Tool Conduct:\n` +
-      `- You have read-only tools to inspect the active workspace, view project structure, read code files, and search the web for documentation.\n` +
-      `- Proactively use tools when questions involve project files, scripts, or workspace code.\n` +
+      `- You have tools to inspect the active workspace, view project structure, read code files, and search the web for documentation.\n` +
+      `- You have the 'open_browser' tool to launch Google Chrome or the default browser on the user's desktop to view websites, search pages, Gmail, or local dev servers. When the user asks you to open Chrome or visit a URL, call 'open_browser'.\n` +
+      `- You have development server management: 'start_dev_server' to run local servers (e.g. npm run dev) with live log streaming and port detection, and 'stop_process' to terminate running servers.\n` +
+      `- You have file tools: 'create_pdf' for professional reports, 'file_write_new' for new files, and 'file_patch' for precise code modification with automated backups.\n` +
+      `- Proactively use tools when questions involve project files, browser actions, dev servers, or workspace code.\n` +
       `- Cite exact file paths and line numbers when referencing code.\n` +
-      `- Any external process execution, development server startup, or file modifications will be handled safely through user authorization.`
+      `- Any critical process execution or mutations are tracked safely.`
     )
 
     // 3. Task Mode Specialization

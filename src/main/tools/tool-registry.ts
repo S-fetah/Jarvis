@@ -103,6 +103,66 @@ export const DownloadFileSchema = z.object({
 
 export type DownloadFileArgs = z.infer<typeof DownloadFileSchema>
 
+export const OpenBrowserSchema = z.object({
+  url: z
+    .string()
+    .optional()
+    .default('https://google.com')
+    .describe('URL or web address to open in the browser (e.g. "https://google.com", "https://mail.google.com", "http://localhost:3000").'),
+  browser: z
+    .enum(['chrome', 'default'])
+    .optional()
+    .default('chrome')
+    .describe('Target browser. Defaults to "chrome" with fallback to system default.')
+})
+
+export type OpenBrowserArgs = z.infer<typeof OpenBrowserSchema>
+
+export const StartDevServerSchema = z.object({
+  script: z
+    .string()
+    .optional()
+    .default('dev')
+    .describe('The npm run script to execute (e.g. "dev", "start", "serve"). Defaults to "dev".'),
+  command: z
+    .string()
+    .optional()
+    .describe('Optional custom command to start the dev server (e.g. "npm run dev" or "npx vite").'),
+  preferredPort: z
+    .number()
+    .optional()
+    .describe('Expected or preferred port the server listens on (e.g. 3000, 5173, 8080).')
+})
+
+export type StartDevServerArgs = z.infer<typeof StartDevServerSchema>
+
+export const StopProcessSchema = z.object({
+  processId: z
+    .string()
+    .describe('ID of the running managed process or dev server to terminate.')
+})
+
+export type StopProcessArgs = z.infer<typeof StopProcessSchema>
+
+export const FilePatchSchema = z.object({
+  path: z
+    .string()
+    .describe('Relative path to the existing file inside the workspace to patch.'),
+  findTarget: z
+    .string()
+    .describe('Exact substring or code block to find and replace in the file.'),
+  replaceContent: z
+    .string()
+    .describe('Replacement content to insert in place of findTarget.'),
+  backup: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe('Whether to create an automatic .bak backup file before patching.')
+})
+
+export type FilePatchArgs = z.infer<typeof FilePatchSchema>
+
 /**
  * Standard OpenAI Function Calling Tool Specification
  */
@@ -289,6 +349,105 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
           }
         },
         required: ['url'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'open_browser',
+      description:
+        'Opens Google Chrome (or default system browser) on the user desktop to view a website, URL, or local development server. When the user asks to open Chrome or browse a web page, call this tool.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'URL to navigate to (e.g. "https://google.com", "https://mail.google.com", "http://localhost:3000").'
+          },
+          browser: {
+            type: 'string',
+            enum: ['chrome', 'default'],
+            description: 'Browser application to use (default: "chrome").'
+          }
+        },
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'start_dev_server',
+      description:
+        'Starts a local development server (e.g. npm run dev, npx vite) in the active workspace. Automatically tracks process PID, streams logs, and detects listening port.',
+      parameters: {
+        type: 'object',
+        properties: {
+          script: {
+            type: 'string',
+            description: 'npm run script name (default: "dev").'
+          },
+          command: {
+            type: 'string',
+            description: 'Optional custom command string (e.g. "npm run dev" or "npx vite").'
+          },
+          preferredPort: {
+            type: 'number',
+            description: 'Expected port number (e.g. 3000, 5173).'
+          }
+        },
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'stop_process',
+      description:
+        'Stops a running dev server or child process by its ID.',
+      parameters: {
+        type: 'object',
+        properties: {
+          processId: {
+            type: 'string',
+            description: 'ID of the process to stop.'
+          }
+        },
+        required: ['processId'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'file_patch',
+      description:
+        'Applies a controlled patch to an existing file in the workspace by replacing findTarget with replaceContent. Creates an automatic .bak backup.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Relative path to the existing file in the workspace.'
+          },
+          findTarget: {
+            type: 'string',
+            description: 'Exact block of text or code to find and replace in the file.'
+          },
+          replaceContent: {
+            type: 'string',
+            description: 'New replacement text or code.'
+          },
+          backup: {
+            type: 'boolean',
+            description: 'Create an automatic .bak backup file before patching (default: true).'
+          }
+        },
+        required: ['path', 'findTarget', 'replaceContent'],
         additionalProperties: false
       }
     }

@@ -186,11 +186,11 @@ export function QuickChatApp(): React.JSX.Element {
           </div>
         </div>
 
-        <div className="flex items-center space-x-1" style={{ WebkitAppRegion: 'no-drag' }}>
+        <div className="flex items-center space-x-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
           {/* Light Mode quick toggle */}
           <button
             onClick={handleToggleLightMode}
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as any}
             className={`p-1 rounded text-xs transition cursor-pointer ${
               settings.lightMode
                 ? 'text-amber-400 bg-amber-950/60 border border-amber-700'
@@ -204,7 +204,7 @@ export function QuickChatApp(): React.JSX.Element {
           {/* Expand to Main Application */}
           <button
             onClick={handleOpenMain}
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as any}
             className="p-1 rounded text-jarvis-muted hover:text-jarvis-ivory hover:bg-jarvis-hover transition cursor-pointer"
             title="Open Full Jarvis Application"
           >
@@ -214,7 +214,7 @@ export function QuickChatApp(): React.JSX.Element {
           {/* Close Quick Chat */}
           <button
             onClick={handleClose}
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as any}
             className="p-1 rounded text-jarvis-muted hover:text-jarvis-ivory hover:bg-jarvis-hover transition cursor-pointer"
             title="Close Quick Chat (Owl remains floating)"
           >

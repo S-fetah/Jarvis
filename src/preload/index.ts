@@ -115,6 +115,26 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('system:open-path', targetPath)
   },
 
+  // Process & Development Server Management (Phase 4)
+  getActiveProcesses: (): Promise<import('../shared/types').ManagedProcess[]> => {
+    return ipcRenderer.invoke('process:list-active')
+  },
+
+  stopProcess: (processId: string): Promise<boolean> => {
+    return ipcRenderer.invoke('process:stop', processId)
+  },
+
+  onProcessUpdated: (
+    callback: (process: import('../shared/types').ManagedProcess) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      proc: import('../shared/types').ManagedProcess
+    ): void => callback(proc)
+    ipcRenderer.on('process:updated', handler)
+    return () => ipcRenderer.removeListener('process:updated', handler)
+  },
+
   // Mascot Companion & Quick-Chat (Surfaces A & B)
   getMascotState: (): Promise<MascotState> => {
     return ipcRenderer.invoke('mascot:get-state')

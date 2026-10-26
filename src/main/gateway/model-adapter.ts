@@ -3,7 +3,7 @@ import path from 'path'
 import initSqlJs from 'sql.js'
 import { PlanStep, ModelCatalog, TalkingStyle, TaskMode, ThinkingDepth } from '../../shared/types'
 import { ToolDefinition } from '../tools/tool-registry'
-import { PromptEngine, PromptOptions } from './prompt-engine'
+import { PromptEngine } from './prompt-engine'
 
 export interface ToolCall {
   id: string

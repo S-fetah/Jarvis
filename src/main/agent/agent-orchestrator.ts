@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import path from 'path'
-import { ModelGatewayAdapter, ChatCompletionMessage, ToolCall } from '../gateway/model-adapter'
+import { ModelGatewayAdapter, ChatCompletionMessage } from '../gateway/model-adapter'
 import { ToolExecutor, ToolExecutionResult } from '../tools/tool-executor'
 import { JARVIS_TOOLS } from '../tools/tool-registry'
 import { TimelineEvent, TalkingStyle, TaskMode, ThinkingDepth } from '../../shared/types'

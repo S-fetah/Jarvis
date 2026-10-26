@@ -15,7 +15,12 @@ import {
   Sparkles,
   KeyRound,
   Cpu,
-  Eye
+  Eye,
+  Terminal,
+  Square,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import {
   Conversation,
@@ -27,7 +32,8 @@ import {
   ModelCatalog,
   TalkingStyle,
   TaskMode,
-  ThinkingDepth
+  ThinkingDepth,
+  ManagedProcess
 } from '../../shared/types'
 import { MarkdownRenderer } from './components/MarkdownRenderer'
 import { ThinkingBlock } from './components/ThinkingBlock'
@@ -73,6 +79,8 @@ export default function App(): React.JSX.Element {
   })
   const [taskState, setTaskState] = useState<TaskState | null>(null)
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([])
+  const [activeProcesses, setActiveProcesses] = useState<ManagedProcess[]>([])
+  const [expandedLogsProcessId, setExpandedLogsProcessId] = useState<string | null>(null)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -134,12 +142,43 @@ export default function App(): React.JSX.Element {
       }
     })
 
+    // 5. Managed Processes (Phase 4)
+    if (window.jarvisAPI.getActiveProcesses) {
+      window.jarvisAPI.getActiveProcesses().then((procs) => {
+        setActiveProcesses(procs.filter((p) => p.status === 'running' || p.status === 'starting'))
+      })
+    }
+
+    const unsubProcess = window.jarvisAPI.onProcessUpdated
+      ? window.jarvisAPI.onProcessUpdated((proc) => {
+          setActiveProcesses((prev) => {
+            const index = prev.findIndex((p) => p.id === proc.id)
+            if (proc.status === 'stopped' || proc.status === 'failed') {
+              return prev.filter((p) => p.id !== proc.id)
+            }
+            if (index >= 0) {
+              const updated = [...prev]
+              updated[index] = proc
+              return updated
+            }
+            return [...prev, proc]
+          })
+        })
+      : () => {}
+
     return () => {
       unsubTask()
       unsubTimeline()
       unsubStream()
+      unsubProcess()
     }
   }, [])
+
+  // Terminate Managed Process (Dev Server)
+  const handleStopProcess = async (processId: string): Promise<void> => {
+    if (!window.jarvisAPI?.stopProcess) return
+    await window.jarvisAPI.stopProcess(processId)
+  }
 
   // Switch Conversation
   const handleSelectConversation = (conv: Conversation): void => {
@@ -470,6 +509,86 @@ export default function App(): React.JSX.Element {
         <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* Chat Messages Section */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Active Dev Server Status Bar (Phase 4) */}
+            {activeProcesses.length > 0 && (
+              <div className="bg-jarvis-elevated border-b border-jarvis-border px-4 py-2 space-y-2 flex-shrink-0 animate-in fade-in duration-200">
+                {activeProcesses.map((proc) => {
+                  const isLogsOpen = expandedLogsProcessId === proc.id
+                  return (
+                    <div key={proc.id} className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center space-x-2.5">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                          </span>
+                          <span className="font-semibold text-jarvis-ivory font-mono">
+                            {proc.command}
+                          </span>
+                          {proc.port ? (
+                            <button
+                              onClick={() => window.jarvisAPI?.openExternalUrl(`http://localhost:${proc.port}`)}
+                              className="flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 hover:text-emerald-200 transition font-mono text-[11px]"
+                              title="Open in Browser"
+                            >
+                              <span>http://localhost:{proc.port}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-700/50 text-amber-300 text-[10px]">
+                              Detecting Port...
+                            </span>
+                          )}
+                          <span className="text-[10px] text-jarvis-muted font-mono">
+                            PID {proc.pid}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setExpandedLogsProcessId(isLogsOpen ? null : proc.id)}
+                            className="flex items-center space-x-1 px-2 py-1 rounded border border-jarvis-border text-jarvis-muted hover:text-jarvis-sage hover:bg-jarvis-hover transition text-[11px]"
+                          >
+                            <Terminal className="w-3 h-3" />
+                            <span>Logs</span>
+                            {isLogsOpen ? (
+                              <ChevronUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => handleStopProcess(proc.id)}
+                            className="flex items-center space-x-1 px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900/80 border border-red-700/60 text-red-300 transition text-[11px] font-semibold"
+                            title="Stop development server"
+                          >
+                            <Square className="w-2.5 h-2.5 fill-current" />
+                            <span>Stop</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Log Console Output Dropdown */}
+                      {isLogsOpen && (
+                        <div className="bg-[#05080f] rounded-lg p-2.5 border border-jarvis-border font-mono text-[11px] text-jarvis-sage max-h-48 overflow-y-auto space-y-0.5 select-text">
+                          {proc.recentLogs.length === 0 ? (
+                            <div className="text-jarvis-muted italic">Waiting for console output...</div>
+                          ) : (
+                            proc.recentLogs.map((line, idx) => (
+                              <div key={idx} className="whitespace-pre-wrap leading-relaxed">
+                                {line}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
             {/* Scrollable Conversation Stream */}
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
               {messages.length === 0 && !isStreaming ? (

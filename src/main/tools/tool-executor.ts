@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import { PolicyEngine } from '../policy/policy-engine'
+import { ProcessManager } from '../process/process-manager'
+import { launchBrowser } from '../utils/browser'
 import {
   WorkspaceListSchema,
   FileReadSchema,
@@ -9,13 +11,21 @@ import {
   CreatePdfSchema,
   FileWriteNewSchema,
   DownloadFileSchema,
+  OpenBrowserSchema,
+  StartDevServerSchema,
+  StopProcessSchema,
+  FilePatchSchema,
   WorkspaceListArgs,
   FileReadArgs,
   ProjectInspectArgs,
   WebSearchArgs,
   CreatePdfArgs,
   FileWriteNewArgs,
-  DownloadFileArgs
+  DownloadFileArgs,
+  OpenBrowserArgs,
+  StartDevServerArgs,
+  StopProcessArgs,
+  FilePatchArgs
 } from './tool-registry'
 import { PdfGenerator } from './pdf-generator'
 
@@ -44,9 +54,11 @@ const MAX_OUTPUT_BYTES = 32 * 1024 // 32 KB safety truncation limit
 
 export class ToolExecutor {
   private policyEngine: PolicyEngine
+  private processManager?: ProcessManager
 
-  constructor(policyEngine?: PolicyEngine) {
+  constructor(policyEngine?: PolicyEngine, processManager?: ProcessManager) {
     this.policyEngine = policyEngine || new PolicyEngine()
+    this.processManager = processManager
   }
 
   /**
@@ -89,12 +101,28 @@ export class ToolExecutor {
           const args = DownloadFileSchema.parse(rawArgs || {})
           return await this.executeDownloadFile(args, resolvedOutputDir)
         }
+        case 'open_browser': {
+          const args = OpenBrowserSchema.parse(rawArgs || {})
+          return await this.executeOpenBrowser(args)
+        }
+        case 'start_dev_server': {
+          const args = StartDevServerSchema.parse(rawArgs || {})
+          return await this.executeStartDevServer(args, workspacePath)
+        }
+        case 'stop_process': {
+          const args = StopProcessSchema.parse(rawArgs || {})
+          return await this.executeStopProcess(args)
+        }
+        case 'file_patch': {
+          const args = FilePatchSchema.parse(rawArgs || {})
+          return await this.executeFilePatch(args, workspacePath)
+        }
         default:
           return {
             toolName: name,
             success: false,
             output: '',
-            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file.`
+            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch.`
           }
       }
     } catch (err: any) {
@@ -171,7 +199,6 @@ export class ToolExecutor {
           if (IGNORED_DIRECTORIES.has(entry.name) || entry.name.startsWith('.')) continue
 
           const fullEntryPath = path.join(currentDir, entry.name)
-          const relPath = path.relative(workspacePath, fullEntryPath).replace(/\\/g, '/')
 
           if (entry.isDirectory()) {
             totalCount++
@@ -776,6 +803,160 @@ export class ToolExecutor {
         output: '',
         error: `Download error: ${err.message || String(err)}`
       }
+    }
+  }
+
+  /**
+   * Launches Google Chrome or default browser to navigate to a target URL.
+   */
+  private async executeOpenBrowser(args: OpenBrowserArgs): Promise<ToolExecutionResult> {
+    try {
+      const res = await launchBrowser(args.url, args.browser)
+      return {
+        toolName: 'open_browser',
+        success: res.success,
+        output: res.message
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'open_browser',
+        success: false,
+        output: '',
+        error: `Failed to open browser: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Starts a managed development server with PID tracking, port detection, and log streaming.
+   */
+  private async executeStartDevServer(
+    args: StartDevServerArgs,
+    workspacePath: string
+  ): Promise<ToolExecutionResult> {
+    if (!this.processManager) {
+      return {
+        toolName: 'start_dev_server',
+        success: false,
+        output: '',
+        error: 'Process manager is not configured in this environment.'
+      }
+    }
+
+    try {
+      const proc = await this.processManager.startDevServer({
+        script: args.script,
+        command: args.command,
+        workingDirectory: workspacePath,
+        preferredPort: args.preferredPort
+      })
+
+      return {
+        toolName: 'start_dev_server',
+        success: true,
+        output: `Dev server successfully started.\nProcess ID: ${proc.pid}\nCommand: ${proc.command}\nWorking Dir: ${proc.workingDirectory}\nStatus: ${proc.status}\nLogs:\n${proc.recentLogs.slice(-5).join('\n') || '(waiting for output...)'}`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'start_dev_server',
+        success: false,
+        output: '',
+        error: `Failed to start dev server: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Stops a running development server or child process.
+   */
+  private async executeStopProcess(args: StopProcessArgs): Promise<ToolExecutionResult> {
+    if (!this.processManager) {
+      return {
+        toolName: 'stop_process',
+        success: false,
+        output: '',
+        error: 'Process manager is not configured in this environment.'
+      }
+    }
+
+    const stopped = await this.processManager.stopProcess(args.processId)
+    if (!stopped) {
+      return {
+        toolName: 'stop_process',
+        success: false,
+        output: '',
+        error: `Process with ID '${args.processId}' was not found or already stopped.`
+      }
+    }
+
+    return {
+      toolName: 'stop_process',
+      success: true,
+      output: `Process ${args.processId} stopped successfully.`
+    }
+  }
+
+  /**
+   * Applies controlled patches to an existing file with backup creation and diff preview.
+   */
+  private async executeFilePatch(
+    args: FilePatchArgs,
+    workspacePath: string
+  ): Promise<ToolExecutionResult> {
+    const fullPath = path.resolve(workspacePath, args.path)
+    const normalizedWs = path.normalize(workspacePath)
+
+    if (!fullPath.startsWith(normalizedWs + path.sep) && fullPath !== normalizedWs) {
+      return {
+        toolName: 'file_patch',
+        success: false,
+        output: '',
+        error: `Path traversal denied: '${args.path}' resolves outside the allowed workspace root.`
+      }
+    }
+
+    if (!fs.existsSync(fullPath)) {
+      return {
+        toolName: 'file_patch',
+        success: false,
+        output: '',
+        error: `File not found: '${args.path}'. 'file_patch' can only modify existing files. Use 'file_write_new' to create new files.`
+      }
+    }
+
+    const currentContent = fs.readFileSync(fullPath, 'utf-8')
+    if (!currentContent.includes(args.findTarget)) {
+      return {
+        toolName: 'file_patch',
+        success: false,
+        output: '',
+        error: `Target snippet not found in '${args.path}'. Verify the exact line content before attempting to patch.`
+      }
+    }
+
+    if (args.backup !== false) {
+      const backupPath = `${fullPath}.bak`
+      try {
+        fs.writeFileSync(backupPath, currentContent, 'utf-8')
+      } catch (err: any) {
+        console.warn(`[ToolExecutor] Failed to write backup file ${backupPath}:`, err)
+      }
+    }
+
+    const patchedContent = currentContent.replace(args.findTarget, args.replaceContent)
+    fs.writeFileSync(fullPath, patchedContent, 'utf-8')
+
+    const diffPreview = [
+      `--- ${args.path}`,
+      `+++ ${args.path}`,
+      ...args.findTarget.split('\n').map((l) => `- ${l}`),
+      ...args.replaceContent.split('\n').map((l) => `+ ${l}`)
+    ].join('\n')
+
+    return {
+      toolName: 'file_patch',
+      success: true,
+      output: `File '${args.path}' patched successfully.${args.backup !== false ? ` Backup saved to ${args.path}.bak.` : ''}\n\nDiff preview:\n${diffPreview}`
     }
   }
 

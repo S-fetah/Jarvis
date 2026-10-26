@@ -5,7 +5,7 @@ import { MascotAnimationController } from './MascotAnimationController'
 import { OwlMotion } from './OwlMotion'
 import { GlbOwlRig } from './GlbOwlRig'
 import { MascotState } from '../../../shared/types'
-import { Sparkles, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 
 export function MascotApp(): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)

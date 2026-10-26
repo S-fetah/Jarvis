@@ -91,6 +91,20 @@ export interface Conversation {
   messages: ChatMessage[]
 }
 
+export interface ManagedProcess {
+  id: string
+  pid: number
+  command: string
+  script?: string
+  port?: number
+  isPortReady: boolean
+  status: 'starting' | 'running' | 'stopped' | 'failed'
+  startedAt: number
+  stoppedAt?: number
+  workingDirectory: string
+  recentLogs: string[]
+}
+
 export type TalkingStyle = 'direct' | 'balanced' | 'detailed'
 export type TaskMode = 'chat' | 'debug' | 'build' | 'plan'
 export type ThinkingDepth = 'quick' | 'standard' | 'deep'
@@ -176,6 +190,11 @@ export interface JarvisAPI {
   openExternalUrl: (url: string) => Promise<void>
   openFreeLLMDashboard: () => Promise<void>
   openPath: (targetPath: string) => Promise<boolean>
+
+  // Process & Dev Server Management (Phase 4)
+  getActiveProcesses: () => Promise<ManagedProcess[]>
+  stopProcess: (processId: string) => Promise<boolean>
+  onProcessUpdated: (callback: (process: ManagedProcess) => void) => () => void
   // Mascot Companion & Quick-Chat (Surfaces A & B)
   getMascotState: () => Promise<MascotState>
   setMascotState: (state: MascotState) => Promise<void>
