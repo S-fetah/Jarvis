@@ -111,6 +111,10 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('system:open-freellm-dashboard')
   },
 
+  openPath: (targetPath: string): Promise<boolean> => {
+    return ipcRenderer.invoke('system:open-path', targetPath)
+  },
+
   // Mascot Companion & Quick-Chat (Surfaces A & B)
   getMascotState: (): Promise<MascotState> => {
     return ipcRenderer.invoke('mascot:get-state')

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MascotAnimationController } from './MascotAnimationController'
+import { OwlMotion } from './OwlMotion'
+import { GlbOwlRig } from './GlbOwlRig'
 import { MascotState } from '../../../shared/types'
 import { Sparkles, RefreshCw } from 'lucide-react'
 
@@ -18,6 +20,7 @@ export function MascotApp(): React.JSX.Element {
   })
 
   const controllerRef = useRef<MascotAnimationController>(new MascotAnimationController())
+  const motionRef = useRef<OwlMotion>(new OwlMotion())
   const isMouseDownRef = useRef<boolean>(false)
   const isResizingRef = useRef<boolean>(false)
   const startPosRef = useRef<{ screenX: number; screenY: number }>({ screenX: 0, screenY: 0 })
@@ -82,6 +85,12 @@ export function MascotApp(): React.JSX.Element {
     // Parent group for non-destructive procedural transforms
     const parentGroup = new THREE.Group()
     scene.add(parentGroup)
+    // Inner group for the owl body pose (hop, squash, shake) under the controller transform
+    const poseGroup = new THREE.Group()
+    parentGroup.add(poseGroup)
+
+    let rig: GlbOwlRig | null = null
+    let feetY = 0
 
     let isDisposed = false
     let loadedModel: THREE.Group | null = null
@@ -114,6 +123,16 @@ export function MascotApp(): React.JSX.Element {
       })
     }
 
+    // Bones, puff morph and eyelids on the static GLB; a failure leaves the owl static instead of broken
+    const rigModel = (model: THREE.Group): void => {
+      feetY = new THREE.Box3().setFromObject(model).min.y
+      try {
+        rig = new GlbOwlRig(model)
+      } catch (err) {
+        console.error('[MascotApp] Owl rig failed, showing static model:', err)
+      }
+    }
+
     loader.load(
       glbUrl,
       (gltf) => {
@@ -121,7 +140,8 @@ export function MascotApp(): React.JSX.Element {
         loadedModel = gltf.scene
         configureModel(loadedModel)
 
-        parentGroup.add(loadedModel)
+        rigModel(loadedModel) // before parenting, so feetY is in model space
+        poseGroup.add(loadedModel)
         setIsLoading(false)
         controllerRef.current.setState('idle')
       },
@@ -134,7 +154,8 @@ export function MascotApp(): React.JSX.Element {
             if (isDisposed) return
             loadedModel = gltf.scene
             configureModel(loadedModel)
-            parentGroup.add(loadedModel)
+            rigModel(loadedModel) // before parenting, so feetY is in model space
+            poseGroup.add(loadedModel)
             setIsLoading(false)
             controllerRef.current.setState('idle')
           },
@@ -160,6 +181,16 @@ export function MascotApp(): React.JSX.Element {
       lastTime = now
 
       controllerRef.current.update(delta, parentGroup)
+
+      const pose = motionRef.current.update(delta)
+      rig?.apply(pose)
+      // Squash/stretch around the feet so the owl stays planted
+      const sy = pose.squashY + pose.breathe
+      const sxz = 1 / Math.sqrt(pose.squashY)
+      poseGroup.scale.set(sxz, sy, sxz)
+      poseGroup.position.y = pose.hopY + feetY * (1 - sy)
+      poseGroup.rotation.z = pose.shake
+
       renderer.render(scene, camera)
     }
 
@@ -185,6 +216,7 @@ export function MascotApp(): React.JSX.Element {
       unsubState = window.jarvisAPI.onMascotStateChanged((state) => {
         setCurrentState(state)
         controllerRef.current.setState(state)
+        motionRef.current.setState(state)
       })
 
       if (window.jarvisAPI.onMascotCursorTracking) {
@@ -199,6 +231,7 @@ export function MascotApp(): React.JSX.Element {
       window.jarvisAPI.getSettings().then((s) => {
         if (s.reduceMotion) {
           controllerRef.current.setReduceMotion(true)
+          motionRef.current.setReduceMotion(true)
         }
       })
     }
@@ -213,6 +246,7 @@ export function MascotApp(): React.JSX.Element {
 
       // Dispose GPU resources
       renderer.dispose()
+      rig?.dispose()
       if (loadedModel) {
         loadedModel.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
@@ -316,6 +350,7 @@ export function MascotApp(): React.JSX.Element {
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
+      onPointerEnter={() => motionRef.current.hover()}
       className="group relative w-full h-full select-none cursor-grab active:cursor-grabbing overflow-hidden"
       style={{ background: 'transparent' }}
       title="Jarvis Owl Companion — Click for Quick Chat, Drag to Move"

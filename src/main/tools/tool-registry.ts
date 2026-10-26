@@ -58,6 +58,51 @@ export const WebSearchSchema = z.object({
 
 export type WebSearchArgs = z.infer<typeof WebSearchSchema>
 
+export const CreatePdfSchema = z.object({
+  title: z.string().describe('Document title of the PDF report.'),
+  content: z.string().describe('Report body content formatted in clean Markdown or text sections.'),
+  filename: z
+    .string()
+    .optional()
+    .describe('Optional destination PDF filename (e.g. "auth-summary.pdf"). Defaults to sanitized title.'),
+  sources: z
+    .array(z.string())
+    .optional()
+    .default([])
+    .describe('List of reference URLs or cited documentation links.'),
+  author: z
+    .string()
+    .optional()
+    .default('Jarvis Personal AI Assistant')
+    .describe('Document author or attribution header.')
+})
+
+export type CreatePdfArgs = z.infer<typeof CreatePdfSchema>
+
+export const FileWriteNewSchema = z.object({
+  path: z
+    .string()
+    .describe('Relative path inside workspace or output directory (e.g. "output/notes.md" or "src/config.json").'),
+  content: z.string().describe('Full text content to write into the file.'),
+  overwrite: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe('Whether to overwrite if file already exists.')
+})
+
+export type FileWriteNewArgs = z.infer<typeof FileWriteNewSchema>
+
+export const DownloadFileSchema = z.object({
+  url: z.string().url().describe('HTTP or HTTPS URL of the file to download.'),
+  filename: z
+    .string()
+    .optional()
+    .describe('Destination filename inside output directory. If omitted, inferred from URL.')
+})
+
+export type DownloadFileArgs = z.infer<typeof DownloadFileSchema>
+
 /**
  * Standard OpenAI Function Calling Tool Specification
  */
@@ -158,6 +203,92 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
           }
         },
         required: ['query'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_pdf',
+      description:
+        'Generates a formatted, publication-ready PDF document in the output directory. Ideal for summaries, research reports, and documentation with sources.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+            description: 'Document title of the PDF report.'
+          },
+          content: {
+            type: 'string',
+            description: 'Markdown or structured text content of the report.'
+          },
+          filename: {
+            type: 'string',
+            description: 'Optional destination filename (e.g. "report.pdf").'
+          },
+          sources: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optional list of cited URLs or references.'
+          },
+          author: {
+            type: 'string',
+            description: 'Author or attribution header.'
+          }
+        },
+        required: ['title', 'content'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'file_write_new',
+      description:
+        'Writes text content to a new file within the approved workspace or output directory. Refuses accidental overwrites unless overwrite is true.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Relative destination path inside workspace or output (e.g. "output/notes.md").'
+          },
+          content: {
+            type: 'string',
+            description: 'Full text content to write.'
+          },
+          overwrite: {
+            type: 'boolean',
+            description: 'Set to true only if overwriting an existing file is explicitly intended.'
+          }
+        },
+        required: ['path', 'content'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'download_file',
+      description:
+        'Downloads a file from a secure HTTP/HTTPS URL directly into the output directory with size limits and validation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'HTTP or HTTPS download URL.'
+          },
+          filename: {
+            type: 'string',
+            description: 'Optional destination filename. If omitted, inferred from URL.'
+          }
+        },
+        required: ['url'],
         additionalProperties: false
       }
     }

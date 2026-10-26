@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import path from 'path'
 import { ModelGatewayAdapter, ChatCompletionMessage, ToolCall } from '../gateway/model-adapter'
 import { ToolExecutor, ToolExecutionResult } from '../tools/tool-executor'
 import { JARVIS_TOOLS } from '../tools/tool-registry'
@@ -7,11 +8,13 @@ import { TimelineEvent, TalkingStyle, TaskMode, ThinkingDepth } from '../../shar
 export interface AgentOrchestratorConfig {
   maxTurns?: number
   defaultWorkspacePath: string
+  defaultOutputDir?: string
 }
 
 export interface AgentRunOptions {
   conversationId?: string
   workspacePath?: string
+  outputDirectory?: string
   model?: string
   isLightMode?: boolean
   talkingStyle?: TalkingStyle
@@ -62,6 +65,8 @@ export class AgentOrchestrator {
     options?: AgentRunOptions
   ): Promise<AgentRunResult> {
     const workspacePath = options?.workspacePath || this.config.defaultWorkspacePath
+    const outputDirectory =
+      options?.outputDirectory || this.config.defaultOutputDir || path.join(workspacePath, 'output')
     const maxTurns = this.config.maxTurns || 5
     const toolsUsed: AgentRunResult['toolsUsed'] = []
     const conversationMessages: ChatCompletionMessage[] = [...messages]
@@ -128,6 +133,13 @@ export class AgentOrchestrator {
 
         // Notify timeline event for start of tool call
         if (options?.onTimelineEvent) {
+          const category =
+            toolName === 'web_search' || toolName === 'download_file'
+              ? 'network'
+              : toolName === 'create_pdf' || toolName === 'file_write_new'
+                ? 'write_in'
+                : 'read_in'
+
           options.onTimelineEvent({
             id: crypto.randomUUID(),
             taskId,
@@ -135,14 +147,15 @@ export class AgentOrchestrator {
             type: 'tool_call',
             title: `Tool: ${toolName}`,
             details: `Args: ${JSON.stringify(parsedArgs)}`,
-            category: toolName === 'web_search' ? 'network' : 'read_in'
+            category
           })
         }
 
         const execResult: ToolExecutionResult = await this.toolExecutor.executeTool(
           toolName,
           parsedArgs,
-          workspacePath
+          workspacePath,
+          outputDirectory
         )
 
         toolsUsed.push({

@@ -724,6 +724,23 @@ export default function App(): React.JSX.Element {
                           {ev.details}
                         </p>
                       )}
+                      {ev.type === 'artifact_created' && (
+                        <div className="mt-2 pt-1.5 border-t border-jarvis-border/40 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const match = ev.details?.match(/`([^`]+)`/)
+                              const target = match ? match[1] : settings.outputDirectory
+                              window.jarvisAPI?.openPath(target)
+                            }}
+                            className="px-2 py-0.5 rounded text-[10px] bg-jarvis-surface hover:bg-jarvis-border text-jarvis-accent border border-jarvis-border flex items-center space-x-1 transition shadow-sm"
+                            title="Reveal in Windows File Explorer"
+                          >
+                            <FolderOpen className="w-3 h-3" />
+                            <span>Reveal in Explorer</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

@@ -6,11 +6,18 @@ import {
   FileReadSchema,
   ProjectInspectSchema,
   WebSearchSchema,
+  CreatePdfSchema,
+  FileWriteNewSchema,
+  DownloadFileSchema,
   WorkspaceListArgs,
   FileReadArgs,
   ProjectInspectArgs,
-  WebSearchArgs
+  WebSearchArgs,
+  CreatePdfArgs,
+  FileWriteNewArgs,
+  DownloadFileArgs
 } from './tool-registry'
+import { PdfGenerator } from './pdf-generator'
 
 export interface ToolExecutionResult {
   toolName: string
@@ -43,13 +50,15 @@ export class ToolExecutor {
   }
 
   /**
-   * Executes a registered read-only tool with strict schema validation and workspace sandboxing.
+   * Executes a registered tool with strict schema validation and workspace sandboxing.
    */
   public async executeTool(
     name: string,
     rawArgs: unknown,
-    workspacePath: string
+    workspacePath: string,
+    outputDirectory?: string
   ): Promise<ToolExecutionResult> {
+    const resolvedOutputDir = outputDirectory || path.join(workspacePath, 'output')
     try {
       switch (name) {
         case 'workspace_list': {
@@ -68,12 +77,24 @@ export class ToolExecutor {
           const args = WebSearchSchema.parse(rawArgs || {})
           return await this.executeWebSearch(args)
         }
+        case 'create_pdf': {
+          const args = CreatePdfSchema.parse(rawArgs || {})
+          return await this.executeCreatePdf(args, resolvedOutputDir)
+        }
+        case 'file_write_new': {
+          const args = FileWriteNewSchema.parse(rawArgs || {})
+          return await this.executeFileWriteNew(args, workspacePath, resolvedOutputDir)
+        }
+        case 'download_file': {
+          const args = DownloadFileSchema.parse(rawArgs || {})
+          return await this.executeDownloadFile(args, resolvedOutputDir)
+        }
         default:
           return {
             toolName: name,
             success: false,
             output: '',
-            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search.`
+            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file.`
           }
       }
     } catch (err: any) {
@@ -484,6 +505,276 @@ export class ToolExecutor {
         success: false,
         output: '',
         error: `Web search timed out or was unreachable: ${err.message || String(err)}`
+      }
+    }
+  }
+
+  /**
+   * Generates a styled vector PDF report in the output directory.
+   */
+  private async executeCreatePdf(
+    args: CreatePdfArgs,
+    outputDirectory: string
+  ): Promise<ToolExecutionResult> {
+    const sanitizedTitle = args.title
+      .replace(/[^a-zA-Z0-9_\-\s]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .toLowerCase()
+    const targetFilename = args.filename
+      ? args.filename.endsWith('.pdf')
+        ? args.filename
+        : `${args.filename}.pdf`
+      : `${sanitizedTitle || 'document'}.pdf`
+
+    const cleanFilename = path.basename(targetFilename) // prevents path traversal
+    const destPath = path.join(outputDirectory, cleanFilename)
+
+    const res = await PdfGenerator.generatePdf({
+      title: args.title,
+      content: args.content,
+      outputPath: destPath,
+      sources: args.sources,
+      author: args.author
+    })
+
+    const verify = PdfGenerator.verifyPdf(res.path)
+    if (!verify.isValid) {
+      return {
+        toolName: 'create_pdf',
+        success: false,
+        output: '',
+        error: `Failed to verify created PDF: ${verify.error}`
+      }
+    }
+
+    const sizeStr = this.formatFileSize(res.size)
+    const report =
+      `✅ **PDF Generated Successfully**\n` +
+      `- **Title**: ${args.title}\n` +
+      `- **Path**: \`${res.path}\`\n` +
+      `- **Size**: ${sizeStr}\n` +
+      (args.sources && args.sources.length > 0 ? `- **Sources Cited**: ${args.sources.length}\n` : '')
+
+    return {
+      toolName: 'create_pdf',
+      success: true,
+      output: report
+    }
+  }
+
+  /**
+   * Writes text content to a new file within approved workspace or output boundaries.
+   */
+  private async executeFileWriteNew(
+    args: FileWriteNewArgs,
+    workspacePath: string,
+    outputDirectory: string
+  ): Promise<ToolExecutionResult> {
+    const rawPath = args.path.trim()
+    const targetPath = path.isAbsolute(rawPath)
+      ? path.resolve(rawPath)
+      : path.resolve(workspacePath, rawPath)
+
+    // Verify target path resides inside workspace or output directory (SEC-006)
+    const insideWorkspace =
+      this.policyEngine.isPathInsideWorkspace(targetPath, workspacePath) ||
+      targetPath.toLowerCase() === path.resolve(workspacePath).toLowerCase()
+    const insideOutput =
+      this.policyEngine.isPathInsideWorkspace(targetPath, outputDirectory) ||
+      targetPath.toLowerCase() === path.resolve(outputDirectory).toLowerCase()
+
+    if (!insideWorkspace && !insideOutput) {
+      return {
+        toolName: 'file_write_new',
+        success: false,
+        output: '',
+        error: `Access denied: Target path '${args.path}' resolves outside allowed workspace and output boundaries.`
+      }
+    }
+
+    // Refuse accidental overwrites unless explicit
+    if (fs.existsSync(targetPath) && !args.overwrite) {
+      return {
+        toolName: 'file_write_new',
+        success: false,
+        output: '',
+        error: `File '${args.path}' already exists. Pass overwrite: true to explicitly overwrite this file.`
+      }
+    }
+
+    // Policy check for dangerous extensions (SEC-007)
+    const evalRes = this.policyEngine.evaluateAction({
+      actionType: 'file_write_new',
+      workspacePath,
+      targetPath,
+      arguments: { path: args.path, overwrite: args.overwrite }
+    })
+
+    if (evalRes.requiresApproval) {
+      return {
+        toolName: 'file_write_new',
+        success: false,
+        output: '',
+        error: `Security restriction: ${evalRes.reason}`
+      }
+    }
+
+    const parentDir = path.dirname(targetPath)
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true })
+    }
+
+    fs.writeFileSync(targetPath, args.content, 'utf8')
+    const stat = fs.statSync(targetPath)
+    const linesCount = args.content.split(/\r?\n/).length
+
+    const report =
+      `✅ **File Written Successfully**\n` +
+      `- **Path**: \`${targetPath}\`\n` +
+      `- **Size**: ${this.formatFileSize(stat.size)} (${linesCount} lines)\n`
+
+    return {
+      toolName: 'file_write_new',
+      success: true,
+      output: report
+    }
+  }
+
+  /**
+   * Safe file download with protocol restriction and size cap.
+   */
+  private async executeDownloadFile(
+    args: DownloadFileArgs,
+    outputDirectory: string
+  ): Promise<ToolExecutionResult> {
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(args.url)
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        return {
+          toolName: 'download_file',
+          success: false,
+          output: '',
+          error: `Forbidden protocol '${parsedUrl.protocol}'. Only http: and https: are allowed.`
+        }
+      }
+    } catch {
+      return {
+        toolName: 'download_file',
+        success: false,
+        output: '',
+        error: `Invalid URL: '${args.url}'`
+      }
+    }
+
+    if (!fs.existsSync(outputDirectory)) {
+      fs.mkdirSync(outputDirectory, { recursive: true })
+    }
+
+    let filename = args.filename ? path.basename(args.filename) : ''
+    if (!filename) {
+      const urlPath = parsedUrl.pathname
+      const derived = path.basename(urlPath)
+      filename = derived && derived.length > 0 && !derived.endsWith('/') ? derived : 'download.bin'
+    }
+
+    // Sanitize filename to prevent directory traversal
+    filename = filename.replace(/[<>:"/\\|?*]/g, '_')
+    const targetPath = path.join(outputDirectory, filename)
+    const tmpPath = path.join(outputDirectory, `${filename}.${Date.now()}.tmp`)
+
+    const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024 // 50MB limit
+
+    try {
+      const res = await fetch(args.url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) JarvisAssistant/0.1.0'
+        },
+        signal: AbortSignal.timeout(30000)
+      })
+
+      if (!res.ok) {
+        return {
+          toolName: 'download_file',
+          success: false,
+          output: '',
+          error: `Download failed: Server returned HTTP ${res.status}.`
+        }
+      }
+
+      const contentLength = res.headers.get('content-length')
+      if (contentLength && parseInt(contentLength, 10) > MAX_DOWNLOAD_BYTES) {
+        return {
+          toolName: 'download_file',
+          success: false,
+          output: '',
+          error: `Download refused: File size (${this.formatFileSize(parseInt(contentLength, 10))}) exceeds 50MB limit.`
+        }
+      }
+
+      if (!res.body) {
+        return {
+          toolName: 'download_file',
+          success: false,
+          output: '',
+          error: 'Download failed: Empty response body.'
+        }
+      }
+
+      const reader = res.body.getReader()
+      const writeStream = fs.createWriteStream(tmpPath)
+      let receivedBytes = 0
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value) {
+          receivedBytes += value.length
+          if (receivedBytes > MAX_DOWNLOAD_BYTES) {
+            writeStream.close()
+            if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
+            return {
+              toolName: 'download_file',
+              success: false,
+              output: '',
+              error: 'Download aborted: Downloaded stream exceeded 50MB limit.'
+            }
+          }
+          writeStream.write(Buffer.from(value))
+        }
+      }
+
+      await new Promise((resolve) => writeStream.end(resolve))
+
+      if (fs.existsSync(targetPath)) {
+        fs.unlinkSync(targetPath)
+      }
+      fs.renameSync(tmpPath, targetPath)
+
+      const stat = fs.statSync(targetPath)
+      const report =
+        `✅ **File Downloaded Successfully**\n` +
+        `- **Source**: ${args.url}\n` +
+        `- **Saved To**: \`${targetPath}\`\n` +
+        `- **Size**: ${this.formatFileSize(stat.size)}\n`
+
+      return {
+        toolName: 'download_file',
+        success: true,
+        output: report
+      }
+    } catch (err: any) {
+      if (fs.existsSync(tmpPath)) {
+        try {
+          fs.unlinkSync(tmpPath)
+        } catch {}
+      }
+      return {
+        toolName: 'download_file',
+        success: false,
+        output: '',
+        error: `Download error: ${err.message || String(err)}`
       }
     }
   }

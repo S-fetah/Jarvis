@@ -2,20 +2,18 @@
 
 This file records implementation progress against [the working plan](./Jarvis_Project_Implementation_Plan.md). Update it whenever a milestone, ticket, decision, or validation result changes.
 
-**Last updated:** 2026-10-24  
-**Overall state:** Phase 0 complete — T-001 (gateway validation), T-002 (agent benchmark), and T-003 (ADRs 001-004) complete. Phase 1 (App Scaffolding & Secure Foundation) is the next active phase.
-
-**In flight (2026-10-24):** architecture deck published — `docs/architecture-slides.pdf` (16 slides, vector, QA PASS) with editable source `docs/architecture-slides.html` and renderer `scripts/render-architecture-slides.cjs`. New project skill `.agents/skills/status-deck/` regenerates the deck from the trackers anytime ("update the slides/deck").
+**Last updated:** 2026-10-26  
+**Overall state:** Phase 0, Phase 1, Phase 2, and Phase 3 Complete. 51/51 automated unit and security tests passing. Phase 4 (Coding & Development Workflow) is the next active phase.
 
 ## Milestones
 
 | Phase | Status | Evidence / next checkpoint |
 | --- | --- | --- |
 | 0 — Discovery and technical spike | Complete | T-001 complete 2026-10-21 (gateway validated). T-002 complete 2026-10-22 (benchmark recorded; cleanup finished). T-003 complete 2026-10-22 (ADR-001 through ADR-004 recorded in `docs/decisions/`). Phase 0 exit criteria satisfied. |
-| 1 — Secure application foundation | In progress | Electron shell, secure IPC, policy engine, persistence (T-004). |
-| 2 — Read-only agent loop | Not started | Bounded research and workspace tools. |
-| 3 — Documents and file creation | Not started | Research-to-PDF vertical slice. |
-| 4 — Coding and development workflow | Not started | Approved, tracked development-server workflow. |
+| 1 — Secure application foundation | Complete | Electron shell, secure IPC, policy engine (ADR-004), DPAPI encrypted persistence, SEC-001 through SEC-011 remediation verified (8/8 security scan checks passing). |
+| 2 — Read-only agent loop | Complete | Bounded research tools (`workspace_list`, `file_read`, `project_inspect`, `web_search`), function calling, `PromptEngine` with zero technical leakage, Dual-Selector (Style + Mode) and 3-Tier Thinking Depth. |
+| 3 — Documents and file creation | Complete | `create_pdf` vector PDF engine, `file_write_new` with traversal and accidental overwrite defense, `download_file` with 50MB stream limits, safe Explorer reveal (`system:open-path`). |
+| 4 — Coding and development workflow | Next up | Approved, tracked development-server workflow (`start_dev_server`, child process tracking, port monitoring). |
 | 5 — Robustness and fallback | Not started | Failure, cancellation, restart, and prompt-injection tests. |
 | 6 — Windows integration and packaging | Not started | Tray, settings, clean install/upgrade validation. |
 | 7 — Optional expansion | Deferred | Only after MVP acceptance tests pass. |

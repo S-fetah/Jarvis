@@ -175,7 +175,7 @@ export interface JarvisAPI {
   // System & External Links
   openExternalUrl: (url: string) => Promise<void>
   openFreeLLMDashboard: () => Promise<void>
-
+  openPath: (targetPath: string) => Promise<boolean>
   // Mascot Companion & Quick-Chat (Surfaces A & B)
   getMascotState: () => Promise<MascotState>
   setMascotState: (state: MascotState) => Promise<void>

@@ -78,6 +78,34 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
 
             return <CodeBlock language={match ? match[1] : ''} value={textContent} />
           },
+          a({ href, children }) {
+            return (
+              <a
+                href={href}
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (!href) return
+                  const isFile =
+                    href.startsWith('file://') ||
+                    href.endsWith('.pdf') ||
+                    href.includes('/output/') ||
+                    href.includes('\\output\\')
+                  const isWeb = href.startsWith('http://') || href.startsWith('https://')
+
+                  if (isFile && window.jarvisAPI?.openPath) {
+                    const cleanPath = href.replace(/^file:\/\/\/?/, '')
+                    window.jarvisAPI.openPath(cleanPath)
+                  } else if (isWeb && window.jarvisAPI?.openExternalUrl) {
+                    window.jarvisAPI.openExternalUrl(href)
+                  }
+                }}
+                className="text-[#3ba172] hover:text-[#52c48e] underline underline-offset-2 transition font-medium cursor-pointer"
+                title={href?.endsWith('.pdf') ? 'Click to open PDF' : 'Click to open'}
+              >
+                {children}
+              </a>
+            )
+          },
           p({ children }) {
             return <p className="mb-2 last:mb-0 leading-relaxed text-[#d1d7d0]">{children}</p>
           },
