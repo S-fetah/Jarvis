@@ -112,13 +112,13 @@ export function FreeModelsHubModal({
         {/* Header */}
         <div className="p-4 border-b border-jarvis-border flex items-center justify-between bg-jarvis-surface">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-xl bg-gradient-to-tr from-jarvis-accent to-jarvis-accentGlow text-jarvis-base shadow-md">
+            <div className="p-2 rounded-xl bg-gradient-to-tr from-jarvis-accent to-jarvis-accentGlow text-white shadow-md">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-jarvis-ivory flex items-center space-x-2">
                 <span>Free Models & Providers Hub</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-[10px] font-mono font-normal">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-[10px] font-mono font-normal">
                   Zero-Cost AI
                 </span>
               </h2>
@@ -138,14 +138,14 @@ export function FreeModelsHubModal({
         {/* FreeLLMAPI Rotation Banner */}
         <div className="px-4 py-3 bg-jarvis-base border-b border-jarvis-border flex items-center justify-between text-xs">
           <div className="flex items-center space-x-2 text-jarvis-sage">
-            <Layers className="w-4 h-4 text-jarvis-accentGlow flex-shrink-0" />
+            <Layers className="w-4 h-4 text-jarvis-accent flex-shrink-0" />
             <span>
               <strong className="text-jarvis-ivory">Key Rotation Tip:</strong> Add 2 or 3 Google Gemini keys into FreeLLMAPI. It automatically rotates requests across them to eliminate rate limits!
             </span>
           </div>
           <button
             onClick={handleOpenFreeLLM}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-jarvis-base font-bold text-xs shadow transition flex-shrink-0 ml-3"
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-white font-bold text-xs shadow transition flex-shrink-0 ml-3"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Open FreeLLMAPI UI</span>
@@ -163,7 +163,7 @@ export function FreeModelsHubModal({
                 <div>
                   <h3 className="font-semibold text-xs text-jarvis-ivory flex items-center space-x-2">
                     <span>{provider.name}</span>
-                    <span className="text-[10px] text-jarvis-accentGlow font-mono bg-jarvis-surface border border-jarvis-border px-1.5 py-0.2 rounded">
+                    <span className="text-[10px] text-jarvis-accent font-mono bg-jarvis-surface border border-jarvis-border px-1.5 py-0.5 rounded">
                       {provider.speed}
                     </span>
                   </h3>
@@ -172,7 +172,7 @@ export function FreeModelsHubModal({
 
                 <button
                   onClick={() => handleOpenLink(provider.getKeyUrl)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-jarvis-surface hover:bg-jarvis-hover text-jarvis-accentGlow hover:text-jarvis-ivory border border-jarvis-border text-xs font-medium transition"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-jarvis-surface hover:bg-jarvis-hover text-jarvis-accent hover:text-jarvis-accentHover border border-jarvis-border text-xs font-medium transition"
                 >
                   <span>Get Free Key</span>
                   <ExternalLink className="w-3 h-3" />

@@ -181,7 +181,7 @@ export const PromptControlsBar: React.FC<PromptControlsBarProps> = ({
           className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-jarvis-base/70 hover:bg-jarvis-border/50 border border-jarvis-border text-jarvis-ivory transition shadow-sm"
           title="Select Reasoning Depth"
         >
-          <CurrentDepthIcon className="w-3.5 h-3.5 text-cyan-400" />
+          <CurrentDepthIcon className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
           <span className="font-medium">{depthConfig[thinkingDepth]?.label}</span>
           <ChevronDown className="w-3 h-3 text-jarvis-muted" />
         </button>
@@ -204,7 +204,7 @@ export const PromptControlsBar: React.FC<PromptControlsBarProps> = ({
                   }}
                   className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-start space-x-2 transition ${
                     isSelected
-                      ? 'bg-cyan-500/15 text-cyan-400 font-semibold'
+                      ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 font-semibold'
                       : 'hover:bg-jarvis-border/40 text-jarvis-ivory'
                   }`}
                 >

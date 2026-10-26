@@ -377,7 +377,7 @@ export default function App(): React.JSX.Element {
       >
         <div className="p-3 border-b border-jarvis-border flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-jarvis-accent to-jarvis-accentGlow flex items-center justify-center font-bold text-jarvis-base shadow-md">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-jarvis-accent to-jarvis-accentGlow flex items-center justify-center font-bold text-white shadow-md">
               J
             </div>
             <span className="font-semibold text-xs tracking-wide text-jarvis-ivory">Conversations</span>
@@ -395,7 +395,7 @@ export default function App(): React.JSX.Element {
         <div className="p-3">
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-jarvis-base text-xs font-bold shadow-md transition"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-white text-xs font-bold shadow-sm transition"
           >
             <Plus className="w-4 h-4" />
             <span>New Chat</span>
@@ -461,8 +461,8 @@ export default function App(): React.JSX.Element {
               <h1 className="text-xs font-semibold tracking-wide text-jarvis-ivory flex items-center space-x-1.5">
                 <span>Jarvis for Windows</span>
                 {settings.lightMode && (
-                  <span className="px-1.5 py-0.2 bg-amber-950/80 border border-amber-700 text-amber-300 text-[10px] rounded font-mono">
-                    ⚡ Light Mode (~1.5s)
+                  <span className="px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 text-[10px] rounded font-mono">
+                    ⚡ Fast Model (~1.5s)
                   </span>
                 )}
               </h1>
@@ -574,14 +574,14 @@ export default function App(): React.JSX.Element {
                           {proc.port ? (
                             <button
                               onClick={() => window.jarvisAPI?.openExternalUrl(`http://localhost:${proc.port}`)}
-                              className="flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 hover:text-emerald-200 transition font-mono text-[11px]"
+                              className="flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700/60 text-emerald-800 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-200 transition font-mono text-[11px]"
                               title="Open in Browser"
                             >
                               <span>http://localhost:{proc.port}</span>
                               <ExternalLink className="w-3 h-3" />
                             </button>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-700/50 text-amber-300 text-[10px]">
+                            <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/50 text-amber-800 dark:text-amber-300 text-[10px]">
                               Detecting Port...
                             </span>
                           )}
@@ -606,7 +606,7 @@ export default function App(): React.JSX.Element {
 
                           <button
                             onClick={() => handleStopProcess(proc.id)}
-                            className="flex items-center space-x-1 px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900/80 border border-red-700/60 text-red-300 transition text-[11px] font-semibold"
+                            className="flex items-center space-x-1 px-2.5 py-1 rounded bg-red-100 dark:bg-red-950/60 hover:bg-red-200 dark:hover:bg-red-900/80 border border-red-300 dark:border-red-700/60 text-red-700 dark:text-red-300 transition text-[11px] font-semibold"
                             title="Stop development server"
                           >
                             <Square className="w-2.5 h-2.5 fill-current" />
@@ -617,7 +617,7 @@ export default function App(): React.JSX.Element {
 
                       {/* Log Console Output Dropdown */}
                       {isLogsOpen && (
-                        <div className="bg-[#05080f] rounded-lg p-2.5 border border-jarvis-border font-mono text-[11px] text-jarvis-sage max-h-48 overflow-y-auto space-y-0.5 select-text">
+                        <div className="bg-slate-900 dark:bg-[#05080f] rounded-lg p-2.5 border border-jarvis-border font-mono text-[11px] text-slate-100 dark:text-jarvis-sage max-h-48 overflow-y-auto space-y-0.5 select-text">
                           {proc.recentLogs.length === 0 ? (
                             <div className="text-jarvis-muted italic">Waiting for console output...</div>
                           ) : (
@@ -641,8 +641,8 @@ export default function App(): React.JSX.Element {
                 /* Welcome Hero & Quick Suggestions */
                 <div className="h-full flex flex-col items-center justify-center max-w-xl mx-auto text-center px-4 space-y-6">
                   <div className="relative">
-                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-jarvis-accent to-jarvis-accentGlow flex items-center justify-center shadow-xl shadow-jarvis-accent/20 text-jarvis-base font-bold">
-                      <Sparkles className="w-8 h-8 text-jarvis-base" />
+                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-jarvis-accent to-jarvis-accentGlow flex items-center justify-center shadow-xl shadow-jarvis-accent/20 text-white font-bold">
+                      <Sparkles className="w-8 h-8 text-white" />
                     </div>
                   </div>
                   <div>
@@ -735,9 +735,9 @@ export default function App(): React.JSX.Element {
 
                         {/* 2. SEPARATE RESPONSE CARD */}
                         {isUser ? (
-                          <div className="bg-jarvis-accent text-jarvis-base font-medium rounded-2xl rounded-tr-none px-4 py-3 shadow-md">
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                            <div className="mt-1 text-[10px] text-jarvis-base/70 flex justify-end">
+                          <div className="bg-jarvis-accent text-white font-medium rounded-2xl rounded-tr-none px-4 py-3 shadow-sm">
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed text-white">{msg.content}</p>
+                            <div className="mt-1 text-[10px] text-white/80 flex justify-end">
                               {new Date(msg.timestamp).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit'
@@ -864,7 +864,7 @@ export default function App(): React.JSX.Element {
                 <button
                   type="submit"
                   disabled={!inputPrompt.trim() || isStreaming}
-                  className="px-4 py-2.5 bg-jarvis-accent hover:bg-jarvis-accentHover disabled:opacity-40 text-jarvis-base font-bold rounded-lg text-sm flex items-center space-x-1.5 transition shadow-md"
+                  className="px-4 py-2.5 bg-jarvis-accent hover:bg-jarvis-accentHover disabled:opacity-40 text-white font-bold rounded-lg text-sm flex items-center space-x-1.5 transition shadow-sm"
                 >
                   <Send className="w-4 h-4" />
                   <span>Send</span>
@@ -938,14 +938,14 @@ export default function App(): React.JSX.Element {
       {taskState?.currentApproval && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-jarvis-surface border border-amber-500/60 rounded-xl max-w-lg w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start space-x-3 text-amber-400">
+            <div className="flex items-start space-x-3 text-amber-600 dark:text-amber-400">
               <ShieldAlert className="w-6 h-6 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-base text-jarvis-ivory">
                     {taskState.currentApproval.title || 'Action Requires Approval'}
                   </h3>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-950/80 border border-amber-700 text-amber-300">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300">
                     {taskState.currentApproval.category}
                   </span>
                 </div>
@@ -962,9 +962,9 @@ export default function App(): React.JSX.Element {
                   <span className="text-[11px] font-semibold text-jarvis-muted block mb-1 uppercase tracking-wider">
                     Exact Command to Execute:
                   </span>
-                  <div className="bg-[#05080f] p-2.5 rounded border border-jarvis-border font-mono text-jarvis-accentGlow text-xs flex items-center justify-between">
+                  <div className="bg-slate-900 dark:bg-[#05080f] p-2.5 rounded border border-jarvis-border font-mono text-emerald-400 text-xs flex items-center justify-between">
                     <code>{taskState.currentApproval.command}</code>
-                    <span className="text-[10px] text-jarvis-muted font-sans">powershell / system</span>
+                    <span className="text-[10px] text-slate-400 font-sans">powershell / system</span>
                   </div>
                 </div>
               )}
@@ -999,13 +999,13 @@ export default function App(): React.JSX.Element {
             <div className="flex justify-end space-x-3 pt-1">
               <button
                 onClick={() => handleResolveApproval(taskState.currentApproval!, 'denied')}
-                className="px-4 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-700/60 rounded-lg text-xs font-semibold transition"
+                className="px-4 py-2 bg-red-100 dark:bg-red-950/40 hover:bg-red-200 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700/60 rounded-lg text-xs font-semibold transition"
               >
                 Deny Action
               </button>
               <button
                 onClick={() => handleResolveApproval(taskState.currentApproval!, 'granted')}
-                className="px-4 py-2 bg-jarvis-accent hover:bg-jarvis-accentHover text-jarvis-base rounded-lg text-xs font-bold shadow-lg shadow-jarvis-accent/20 transition"
+                className="px-4 py-2 bg-jarvis-accent hover:bg-jarvis-accentHover text-white rounded-lg text-xs font-bold shadow-md transition"
               >
                 Approve & Execute
               </button>

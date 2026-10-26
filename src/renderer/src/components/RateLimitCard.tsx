@@ -33,33 +33,33 @@ export function RateLimitCard({
   }
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-gradient-to-br from-jarvis-elevated to-jarvis-base p-4 text-xs shadow-xl space-y-3.5">
+    <div className="rounded-xl border border-amber-500/40 bg-amber-50/70 dark:bg-gradient-to-br dark:from-jarvis-elevated dark:to-jarvis-base p-4 text-xs shadow-md space-y-3.5">
       <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-2.5 text-amber-400">
-          <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 flex-shrink-0">
+        <div className="flex items-center space-x-2.5 text-amber-700 dark:text-amber-400">
+          <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex-shrink-0">
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-semibold text-sm text-amber-200">
+            <h4 className="font-semibold text-sm text-amber-950 dark:text-amber-200">
               Provider Rate Limit Hit ({model})
             </h4>
-            <p className="text-[11px] text-amber-400/80">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400/80">
               Free-tier model quota exhausted for current key
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-700/60 text-amber-300 font-mono text-[11px]">
+        <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700/60 text-amber-800 dark:text-amber-300 font-mono text-[11px]">
           <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
           <span>Reset in ~{secondsLeft}s</span>
         </div>
       </div>
 
-      <div className="text-[11px] text-jarvis-sage leading-relaxed bg-jarvis-base/80 p-3 rounded-lg border border-jarvis-border">
+      <div className="text-[11px] text-jarvis-sage leading-relaxed bg-jarvis-surface dark:bg-jarvis-base/80 p-3 rounded-lg border border-jarvis-border">
         <p>
           Your active Google AI Studio key has hit its temporary request limit. In FreeLLMAPI, you can add{' '}
-          <strong className="text-amber-300">multiple free keys</strong> or add{' '}
-          <strong className="text-amber-300">Groq / OpenRouter</strong>. FreeLLMAPI will automatically rotate across them so you never get rate limited!
+          <strong className="text-amber-800 dark:text-amber-300 font-semibold">multiple free keys</strong> or add{' '}
+          <strong className="text-amber-800 dark:text-amber-300 font-semibold">Groq / OpenRouter</strong>. FreeLLMAPI will automatically rotate across them so you never get rate limited!
         </p>
       </div>
 

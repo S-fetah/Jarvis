@@ -116,14 +116,14 @@ export function SettingsModal({
               />
             </div>
             {settings.hasApiKey ? (
-              <div className="flex items-center space-x-1.5 mt-1.5 text-[11px] text-emerald-400 bg-jarvis-elevated border border-emerald-900/50 p-2 rounded">
-                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0 text-emerald-400" />
+              <div className="flex items-center space-x-1.5 mt-1.5 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-2 rounded">
+                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span>
                   Encrypted API key securely saved in local hardware-backed storage.
                 </span>
               </div>
             ) : (
-              <div className="flex items-center space-x-1.5 mt-1.5 text-[11px] text-jarvis-accentGlow bg-jarvis-elevated border border-jarvis-border p-2 rounded">
+              <div className="flex items-center space-x-1.5 mt-1.5 text-[11px] text-jarvis-accent bg-jarvis-elevated border border-jarvis-border p-2 rounded">
                 <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>
                   Jarvis auto-detects your FreeLLMAPI desktop key from local database if left blank.
@@ -181,11 +181,11 @@ export function SettingsModal({
             <button
               type="submit"
               disabled={isSaving}
-              className="px-4 py-1.5 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-jarvis-base font-bold flex items-center space-x-1.5 transition text-xs shadow-md"
+              className="px-4 py-1.5 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-white font-bold flex items-center space-x-1.5 transition text-xs shadow-md"
             >
               {savedSuccess ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-jarvis-base" />
+                  <Check className="w-3.5 h-3.5 text-white" />
                   <span>Saved!</span>
                 </>
               ) : (

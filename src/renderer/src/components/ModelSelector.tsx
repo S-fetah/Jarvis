@@ -41,20 +41,20 @@ export function ModelSelector({
 
   return (
     <div className="flex items-center space-x-2" ref={dropdownRef}>
-      {/* 1-Click Fast Light Mode Button */}
+      {/* 1-Click Fast Model Button */}
       <button
         onClick={() => onToggleLightMode(!isLightMode)}
         className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs rounded-md border transition ${
           isLightMode
-            ? 'bg-amber-950/60 border-amber-600 text-amber-200 font-semibold shadow-sm shadow-amber-950/50'
+            ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-200 font-semibold shadow-sm'
             : 'bg-jarvis-elevated border-jarvis-border text-jarvis-muted hover:text-jarvis-ivory hover:border-jarvis-borderStrong'
         }`}
-        title={isLightMode ? 'Light Mode is Active (~1.5s response)' : 'Switch to Fast Light Mode'}
+        title={isLightMode ? 'Fast Model is Active (~1.5s response)' : 'Switch to Fast Model'}
       >
-        <Zap className={`w-3.5 h-3.5 ${isLightMode ? 'text-amber-400 fill-amber-400' : 'text-jarvis-muted'}`} />
-        <span>Light Mode</span>
+        <Zap className={`w-3.5 h-3.5 ${isLightMode ? 'text-amber-500 fill-amber-500 dark:text-amber-400 dark:fill-amber-400' : 'text-jarvis-muted'}`} />
+        <span>Fast Model</span>
         {isLightMode && (
-          <span className="text-[10px] bg-amber-800 text-amber-100 px-1 rounded font-mono">ON</span>
+          <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-1 rounded font-mono">ON</span>
         )}
       </button>
 
@@ -92,9 +92,9 @@ export function ModelSelector({
               {/* Recommended Light Models */}
               {!searchQuery && (
                 <div className="p-1">
-                  <div className="text-[10px] font-semibold text-amber-400/90 uppercase tracking-wider px-2 py-1 flex items-center space-x-1">
-                    <Zap className="w-3 h-3 text-amber-400" />
-                    <span>Fast Light Models (Low Latency)</span>
+                  <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider px-2 py-1 flex items-center space-x-1">
+                    <Zap className="w-3 h-3 text-amber-500 dark:text-amber-400" />
+                    <span>Fast Models (Low Latency)</span>
                   </div>
                   {catalog.light.slice(0, 6).map((model) => (
                     <button
@@ -137,7 +137,7 @@ export function ModelSelector({
                         <div className="flex items-center space-x-1.5 truncate">
                           <span className="font-mono text-jarvis-sage text-[11px] truncate">{model}</span>
                           {light && (
-                            <span className="text-[9px] bg-amber-950/70 border border-amber-800 text-amber-300 px-1 rounded">
+                            <span className="text-[9px] bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 px-1 rounded font-mono">
                               fast
                             </span>
                           )}

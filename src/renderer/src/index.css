@@ -13,7 +13,7 @@
   --jarvis-accent-hover: #047857;
   --jarvis-accent-glow: #10b981;
   --jarvis-ivory: #0f172a;
-  --jarvis-sage: #334155;
+  --jarvis-sage: #1e293b;
   --jarvis-muted: #64748b;
   color-scheme: light;
 }
@@ -28,9 +28,9 @@ html.dark {
   --jarvis-accent: #3ba172;
   --jarvis-accent-hover: #46b883;
   --jarvis-accent-glow: #52c48e;
-  --jarvis-ivory: #f5f1ee;
-  --jarvis-sage: #d1d7d0;
-  --jarvis-muted: #8a9992;
+  --jarvis-ivory: #f8fafc;
+  --jarvis-sage: #e2e8f0;
+  --jarvis-muted: #94a3b8;
   color-scheme: dark;
 }
 
