@@ -179,10 +179,35 @@ export const SendGmailSchema = z.object({
     .boolean()
     .optional()
     .default(false)
-    .describe('Set to true to automatically press Send (Ctrl+Enter) in Gmail to dispatch the email immediately.')
+    .describe('Set to true to automatically press Send (Ctrl+Enter) in Gmail to dispatch the email immediately.'),
+  closeTabAfter: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe('Set to true to automatically close the compose tab (Ctrl+W) after dispatching, preventing tab clutter.')
 })
 
 export type SendGmailArgs = z.infer<typeof SendGmailSchema>
+
+export const SendEmailDirectSchema = z.object({
+  to: z.string().describe('Recipient email address (e.g. "user@example.com").'),
+  subject: z.string().describe('Subject line of the email.'),
+  body: z.string().describe('Email message body text.'),
+  from: z
+    .string()
+    .optional()
+    .describe('Sender email address. If omitted, uses SMTP user or environment defaults.'),
+  smtpUser: z
+    .string()
+    .optional()
+    .describe('Optional SMTP or Gmail username / address. Overrides env SMTP_USER or GMAIL_USER.'),
+  smtpPass: z
+    .string()
+    .optional()
+    .describe('Optional SMTP or Gmail App Password. Overrides env SMTP_PASS or GMAIL_APP_PASS.')
+})
+
+export type SendEmailDirectArgs = z.infer<typeof SendEmailDirectSchema>
 
 export const BrowserShortcutSchema = z.object({
   action: z
@@ -537,7 +562,7 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
     function: {
       name: 'send_gmail',
       description:
-        'Opens Google Chrome with a pre-filled Gmail compose window and can automatically click Send to dispatch the email. When the user asks to send an email, call this tool.',
+        'Opens Google Chrome with a pre-filled Gmail compose window and can automatically click Send to dispatch the email. When the user asks to compose or send via browser, call this tool.',
       parameters: {
         type: 'object',
         properties: {
@@ -560,6 +585,49 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
           autoSend: {
             type: 'boolean',
             description: 'Set to true to automatically press Send (Ctrl+Enter) in Gmail to dispatch the email immediately.'
+          },
+          closeTabAfter: {
+            type: 'boolean',
+            description: 'Automatically close the compose tab (Ctrl+W) after dispatching to prevent tab accumulation (default: true).'
+          }
+        },
+        required: ['to', 'subject', 'body'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'send_email_direct',
+      description:
+        'Direct, verified SMTP email delivery. Dispatches email directly to mail server via RFC 5321 TLS and awaits server delivery confirmation (250 OK) without opening browser tabs or cluttering desktop.',
+      parameters: {
+        type: 'object',
+        properties: {
+          to: {
+            type: 'string',
+            description: 'Recipient email address (e.g. "team@example.com").'
+          },
+          subject: {
+            type: 'string',
+            description: 'Subject line of the email.'
+          },
+          body: {
+            type: 'string',
+            description: 'Body content of the email.'
+          },
+          from: {
+            type: 'string',
+            description: 'Optional sender address (defaults to configured SMTP account).'
+          },
+          smtpUser: {
+            type: 'string',
+            description: 'Optional SMTP user/address. Overrides env SMTP_USER / GMAIL_USER.'
+          },
+          smtpPass: {
+            type: 'string',
+            description: 'Optional SMTP or Gmail App Password. Overrides env SMTP_PASS / GMAIL_APP_PASS.'
           }
         },
         required: ['to', 'subject', 'body'],

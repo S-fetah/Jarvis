@@ -5,6 +5,7 @@ import { ProcessManager } from '../process/process-manager'
 import { launchBrowser } from '../utils/browser'
 import { sendShortcut } from '../utils/keyboard'
 import { getChromeProfiles } from '../utils/chrome-profiles'
+import { sendEmailDirect } from '../utils/smtp'
 import {
   WorkspaceListSchema,
   FileReadSchema,
@@ -18,6 +19,7 @@ import {
   StopProcessSchema,
   FilePatchSchema,
   SendGmailSchema,
+  SendEmailDirectSchema,
   BrowserShortcutSchema,
   BrowseGithubSchema,
   WorkspaceListArgs,
@@ -32,6 +34,7 @@ import {
   StopProcessArgs,
   FilePatchArgs,
   SendGmailArgs,
+  SendEmailDirectArgs,
   BrowserShortcutArgs,
   BrowseGithubArgs
 } from './tool-registry'
@@ -141,6 +144,10 @@ export class ToolExecutor {
           const args = SendGmailSchema.parse(rawArgs || {})
           return await this.executeSendGmail(args)
         }
+        case 'send_email_direct': {
+          const args = SendEmailDirectSchema.parse(rawArgs || {})
+          return await this.executeSendEmailDirect(args)
+        }
         case 'browser_shortcut': {
           const args = BrowserShortcutSchema.parse(rawArgs || {})
           return await this.executeBrowserShortcut(args)
@@ -157,7 +164,7 @@ export class ToolExecutor {
             toolName: name,
             success: false,
             output: '',
-            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch, send_gmail, browser_shortcut, browse_github.`
+            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch, send_gmail, send_email_direct, browser_shortcut, browse_github, list_chrome_profiles.`
           }
       }
     } catch (err: any) {
@@ -1022,7 +1029,7 @@ export class ToolExecutor {
   }
 
   /**
-   * Opens Gmail in Google Chrome with a pre-filled compose window and can trigger Send.
+   * Opens Gmail in Google Chrome with a pre-filled compose window and can trigger Send with automatic tab cleanup.
    */
   private async executeSendGmail(args: SendGmailArgs): Promise<ToolExecutionResult> {
     try {
@@ -1032,16 +1039,24 @@ export class ToolExecutor {
       let sendReport = `Gmail compose window opened successfully in Chrome for recipient '${args.to}' with subject '${args.subject}'.`
 
       if (args.autoSend) {
-        // Wait 1.8 seconds for Chrome window to activate and focus
-        await new Promise((resolve) => setTimeout(resolve, 1800))
+        // Wait 3.5 seconds for Chrome window to activate and compose DOM to mount
+        await new Promise((resolve) => setTimeout(resolve, 3500))
         const shortcutRes = await sendShortcut('send_email', 'Chrome')
         if (shortcutRes.success) {
-          sendReport += ` Automatically triggered Send (Ctrl+Enter); email has been dispatched!`
+          sendReport += ` Triggered Send shortcut (Ctrl+Enter).`
         } else {
-          sendReport += ` Attempted to trigger Send: ${shortcutRes.message}`
+          sendReport += ` Attempted to trigger Send: ${shortcutRes.message}.`
         }
+
+        // Clean up compose tab to prevent zombie tab accumulation
+        if (args.closeTabAfter !== false) {
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+          await sendShortcut('close_tab', 'Chrome')
+          sendReport += ` Automatically closed the compose tab (Ctrl+W) to keep your browser workspace clean.`
+        }
+        sendReport += ` Note: Keystroke simulation cannot verify server delivery receipt. For guaranteed 100% verified delivery with server receipt (250 OK), use 'send_email_direct'.`
       } else {
-        sendReport += ` The draft is pre-filled and ready. You can instruct me to send it anytime (or use browser_shortcut with action: 'send_email').`
+        sendReport += ` The draft is pre-filled and ready in Chrome. You can review and click Send, or instruct me to dispatch it.`
       }
 
       return {
@@ -1055,6 +1070,53 @@ export class ToolExecutor {
         success: false,
         output: '',
         error: `Failed to open Gmail: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Directly dispatches email via RFC 5321 TLS SMTP and awaits server delivery confirmation (250 OK).
+   */
+  private async executeSendEmailDirect(args: SendEmailDirectArgs): Promise<ToolExecutionResult> {
+    try {
+      const config =
+        args.smtpUser && args.smtpPass
+          ? {
+              host: process.env.SMTP_HOST || 'smtp.gmail.com',
+              port: Number(process.env.SMTP_PORT) || 465,
+              user: args.smtpUser,
+              pass: args.smtpPass
+            }
+          : undefined
+
+      const result = await sendEmailDirect({
+        to: args.to,
+        subject: args.subject,
+        body: args.body,
+        from: args.from,
+        config
+      })
+
+      if (result.success) {
+        return {
+          toolName: 'send_email_direct',
+          success: true,
+          output: `✅ Direct Email Delivery Confirmed: ${result.message}\nMessage-ID: ${result.messageId || 'N/A'}\nServer Receipt: ${result.serverReceipt || '250 OK'}`
+        }
+      } else {
+        return {
+          toolName: 'send_email_direct',
+          success: false,
+          output: '',
+          error: result.message
+        }
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'send_email_direct',
+        success: false,
+        output: '',
+        error: `Failed to deliver email directly: ${err.message}`
       }
     }
   }

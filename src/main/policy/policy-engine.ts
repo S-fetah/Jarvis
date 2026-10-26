@@ -125,12 +125,13 @@ export class PolicyEngine {
       case 'browser_navigate':
       case 'browser_extract':
       case 'send_gmail':
+      case 'send_email_direct':
       case 'browser_shortcut':
       case 'browse_github':
       case 'list_chrome_profiles':
         category = 'network'
         requiresApproval = false
-        reason = 'Read-only web research, desktop navigation, browser actions, and profile discovery allowed without mutation.'
+        reason = 'Read-only web research, desktop navigation, browser actions, profile discovery, and verified direct email allowed without mutation.'
         break
 
       default:

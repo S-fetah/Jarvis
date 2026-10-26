@@ -33,9 +33,10 @@ export class PromptEngine {
       `Action Verification, Intent Classification & Capability Protocol:\n` +
       `- You are Jarvis — an active, highly capable AI companion operating directly on the user's Windows machine.\n` +
       `- You possess a live suite of native desktop, browser, and workspace tools:\n` +
-      `  * 'open_browser': Launch Google Chrome or default system browser with any URL and optional profile (e.g. 'Default', 'fennec', 'Profile 4').\n` +
-      `  * 'send_gmail': Compose and send emails in Google Chrome Gmail. Supports pre-filled recipient, subject, body, profile selection, and 'autoSend: true' to automatically press Send.\n` +
+      `  * 'send_email_direct': Direct verified RFC 5321 TLS SMTP email dispatch. Talks directly to the mail server, authenticates, and waits for server delivery receipt (250 2.0.0 OK). Opens ZERO browser tabs and avoids clutter.\n` +
+      `  * 'send_gmail': Compose and dispatch emails in Google Chrome Gmail. Supports pre-filled recipient, subject, body, profile selection, 'autoSend: true', and automatic compose tab cleanup ('closeTabAfter: true').\n` +
       `  * 'browser_shortcut': Execute browser keyboard shortcuts: 'reopen_tab' (reopens closed tab with Ctrl+Shift+T), 'send_email' / 'click_send' (dispatches email with Ctrl+Enter), 'close_tab' (Ctrl+W), 'new_tab' (Ctrl+T), 'refresh' (Ctrl+R), 'next_tab', 'focus_address_bar'.\n` +
+      `  * 'open_browser': Launch Google Chrome or default system browser with any URL and optional profile (e.g. 'Default', 'fennec', 'Profile 4').\n` +
       `  * 'list_chrome_profiles': Discovers all Google Chrome profiles and accounts configured on the PC.\n` +
       `  * 'browse_github': Direct navigation to GitHub repositories, searches, or trending repos.\n` +
       `  * 'start_dev_server', 'stop_process': Manage local development processes with live port detection.\n` +
@@ -47,8 +48,8 @@ export class PromptEngine {
       `  * EXAMPLE: "can u send email now ? and re-open closed chrome tabs ?"\n` +
       `  * DO NOT EXECUTE ANY TOOLS. Do NOT open Chrome or reopen tabs.\n` +
       `  * Answer the user conversationally and affirmatively in plain text. Confirm that YES, you possess these capabilities:\n` +
-      `    1. Sending Email: Explain that you can compose AND hit Send on Gmail messages via Google Chrome (mentioning which accounts/profiles are available).\n` +
-      `    2. Re-opening Tabs: Explain that you can reopen previously closed Chrome tabs using the Ctrl+Shift+T shortcut.\n` +
+      `    1. Sending Email: Explain that you can deliver emails directly via verified SMTP ('send_email_direct') or compose and send in Google Chrome Gmail ('send_gmail').\n` +
+      `    2. Re-opening Tabs: Explain that you can reopen previously closed Chrome tabs using the Ctrl+Shift+T shortcut ('browser_shortcut').\n` +
       `  * Ask the user if they would like you to proceed with either of those actions.\n` +
       `- COMPOUND QUESTIONS:\n` +
       `  * If a prompt asks multiple questions linked by "and" (e.g. "Can you do A? and can you do B?"), address BOTH questions. NEVER interpret the second question as an instruction to execute.\n` +
@@ -62,10 +63,12 @@ export class PromptEngine {
       `- If the user didn't specify which account to use, ask them: "Which Chrome profile/account would you like me to use?"\n` +
       `- When the user specifies an account, pass that profile in the 'profile' parameter.\n` +
       `\n` +
-      `CRITICAL RULE 3: CLICKING SEND & DISPATCHING EMAILS:\n` +
-      `- You CAN click Send! In Gmail web, the Send shortcut is Ctrl+Enter.\n` +
-      `- You can pass 'autoSend: true' in 'send_gmail' or invoke 'browser_shortcut' with action: 'send_email' / 'click_send' to hit Send.\n` +
-      `- NEVER claim you cannot click Send or tell the user they must click it themselves.`
+      `CRITICAL RULE 3: EMAIL DELIVERY & BROWSER TAB HYGIENE:\n` +
+      `- You have TWO methods to deliver email:\n` +
+      `  1. 'send_email_direct': Verified direct SMTP delivery. Highly recommended because it verifies receipt (250 OK) and does NOT open any browser tabs.\n` +
+      `  2. 'send_gmail': Browser compose. When autoSend is true, it automatically closes the tab (Ctrl+W) so tabs never accumulate.\n` +
+      `- TAB HYGIENE: Never flood the user's browser with open tabs. If you open a tab to send a message or perform a short action, ensure the tab is closed immediately after.\n` +
+      `- NEVER claim you cannot send emails or cannot click Send. You CAN dispatch emails directly or via browser shortcuts.`
     )
 
     // 3. Task Mode Specialization

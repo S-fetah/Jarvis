@@ -199,4 +199,40 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     expect(searchRes.success).toBe(true)
     expect(searchRes.output).toContain('https://github.com/search?q=ai%20agent%20framework')
   })
+
+  it('send_email_direct requires recipient and handles unconfigured credentials safely', async () => {
+    const result = await toolExecutor.executeTool(
+      'send_email_direct',
+      {
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        body: 'Test Body'
+      },
+      testWorkspace
+    )
+
+    expect(result.toolName).toBe('send_email_direct')
+    // Without SMTP credentials set in test env, it cleanly reports credential requirement
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Direct email dispatch requires SMTP credentials')
+  })
+
+  it('send_gmail parses parameters including closeTabAfter and autoSend', async () => {
+    // When executing with autoSend false, it builds the URL without triggering keystrokes
+    const result = await toolExecutor.executeTool(
+      'send_gmail',
+      {
+        to: 'test@example.com',
+        subject: 'Hello',
+        body: 'Testing compose',
+        autoSend: false,
+        closeTabAfter: true
+      },
+      testWorkspace
+    )
+
+    expect(result.toolName).toBe('send_gmail')
+    expect(result.success).toBe(true)
+    expect(result.output).toContain("Gmail compose window opened successfully in Chrome for recipient 'test@example.com'")
+  })
 })
