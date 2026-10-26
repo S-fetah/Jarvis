@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import fs from 'fs'
 import { join } from 'path'
 import { shell } from 'electron'
+import { resolveProfileDirectory } from './chrome-profiles'
 
 /**
  * Searches common Windows install locations for the Google Chrome executable.
@@ -34,7 +35,8 @@ export interface LaunchBrowserResult {
  */
 export async function launchBrowser(
   url: string = 'https://google.com',
-  preferredBrowser: 'chrome' | 'default' = 'chrome'
+  preferredBrowser: 'chrome' | 'default' = 'chrome',
+  profile?: string
 ): Promise<LaunchBrowserResult> {
   let validatedUrl: URL
   try {
@@ -47,12 +49,17 @@ export async function launchBrowser(
   }
 
   const targetUrl = validatedUrl.toString()
+  const resolvedProfile = resolveProfileDirectory(profile)
 
   if (preferredBrowser === 'chrome') {
     const chromePath = getChromeExecutablePath()
+    const chromeArgs = resolvedProfile
+      ? [`--profile-directory=${resolvedProfile}`, targetUrl]
+      : [targetUrl]
+
     if (chromePath) {
       try {
-        const child = spawn(chromePath, [targetUrl], {
+        const child = spawn(chromePath, chromeArgs, {
           windowsHide: false,
           shell: false,
           detached: true,
@@ -61,7 +68,7 @@ export async function launchBrowser(
         child.unref()
         return {
           success: true,
-          message: `Successfully launched Google Chrome navigating to ${targetUrl}`,
+          message: `Successfully launched Google Chrome${resolvedProfile ? ` (Profile: ${resolvedProfile})` : ''} navigating to ${targetUrl}`,
           url: targetUrl,
           usedBrowser: 'chrome'
         }
@@ -72,7 +79,15 @@ export async function launchBrowser(
 
     // Fallback: spawn via cmd.exe start
     try {
-      const child = spawn('cmd.exe', ['/c', 'start', '', 'chrome', targetUrl], {
+      const cmdArgs = [
+        '/c',
+        'start',
+        '',
+        'chrome',
+        ...(resolvedProfile ? [`--profile-directory=${resolvedProfile}`] : []),
+        targetUrl
+      ]
+      const child = spawn('cmd.exe', cmdArgs, {
         windowsHide: true,
         shell: false,
         detached: true,
@@ -81,7 +96,7 @@ export async function launchBrowser(
       child.unref()
       return {
         success: true,
-        message: `Launched Chrome navigating to ${targetUrl}`,
+        message: `Launched Chrome${resolvedProfile ? ` (Profile: ${resolvedProfile})` : ''} navigating to ${targetUrl}`,
         url: targetUrl,
         usedBrowser: 'chrome'
       }

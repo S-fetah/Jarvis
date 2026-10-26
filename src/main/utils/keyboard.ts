@@ -8,6 +8,10 @@ export type ShortcutAction =
   | 'next_tab'
   | 'prev_tab'
   | 'focus_address_bar'
+  | 'send_email'
+  | 'click_send'
+  | 'submit'
+  | 'enter'
   | 'custom'
 
 const SHORTCUT_KEY_MAP: Record<string, string> = {
@@ -17,7 +21,11 @@ const SHORTCUT_KEY_MAP: Record<string, string> = {
   refresh: '^r', // Ctrl+R
   next_tab: '^{TAB}', // Ctrl+Tab
   prev_tab: '^+{TAB}', // Ctrl+Shift+Tab
-  focus_address_bar: '^l' // Ctrl+L
+  focus_address_bar: '^l', // Ctrl+L
+  send_email: '^{ENTER}', // Ctrl+Enter (Send email in Gmail and webmail)
+  click_send: '^{ENTER}', // Ctrl+Enter
+  submit: '^{ENTER}', // Ctrl+Enter
+  enter: '{ENTER}' // Enter
 }
 
 export interface SendShortcutResult {
@@ -87,7 +95,11 @@ if ($activated) {
           refresh: 'Refreshed browser page (Ctrl+R)',
           next_tab: 'Switched to next tab (Ctrl+Tab)',
           prev_tab: 'Switched to previous tab (Ctrl+Shift+Tab)',
-          focus_address_bar: 'Focused browser address bar (Ctrl+L)'
+          focus_address_bar: 'Focused browser address bar (Ctrl+L)',
+          send_email: 'Sent Send command (Ctrl+Enter) to dispatch email',
+          click_send: 'Sent Send command (Ctrl+Enter) to dispatch email',
+          submit: 'Sent Submit command (Ctrl+Enter)',
+          enter: 'Pressed Enter'
         }
 
         const friendlyDesc = descriptions[action] || `Sent shortcut '${keys}'`

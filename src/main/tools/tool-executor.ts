@@ -4,6 +4,7 @@ import { PolicyEngine } from '../policy/policy-engine'
 import { ProcessManager } from '../process/process-manager'
 import { launchBrowser } from '../utils/browser'
 import { sendShortcut } from '../utils/keyboard'
+import { getChromeProfiles } from '../utils/chrome-profiles'
 import {
   WorkspaceListSchema,
   FileReadSchema,
@@ -147,6 +148,9 @@ export class ToolExecutor {
         case 'browse_github': {
           const args = BrowseGithubSchema.parse(rawArgs || {})
           return await this.executeBrowseGithub(args)
+        }
+        case 'list_chrome_profiles': {
+          return await this.executeListChromeProfiles()
         }
         default:
           return {
@@ -842,7 +846,7 @@ export class ToolExecutor {
    */
   private async executeOpenBrowser(args: OpenBrowserArgs): Promise<ToolExecutionResult> {
     try {
-      const res = await launchBrowser(args.url, args.browser)
+      const res = await launchBrowser(args.url, args.browser, args.profile)
       return {
         toolName: 'open_browser',
         success: res.success,
@@ -1018,16 +1022,32 @@ export class ToolExecutor {
   }
 
   /**
-   * Opens Gmail in Google Chrome with a pre-filled compose window.
+   * Opens Gmail in Google Chrome with a pre-filled compose window and can trigger Send.
    */
   private async executeSendGmail(args: SendGmailArgs): Promise<ToolExecutionResult> {
     try {
       const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(args.to)}&su=${encodeURIComponent(args.subject)}&body=${encodeURIComponent(args.body)}`
-      const res = await launchBrowser(gmailUrl, 'chrome')
+      const res = await launchBrowser(gmailUrl, 'chrome', args.profile)
+
+      let sendReport = `Gmail compose window opened successfully in Chrome for recipient '${args.to}' with subject '${args.subject}'.`
+
+      if (args.autoSend) {
+        // Wait 1.8 seconds for Chrome window to activate and focus
+        await new Promise((resolve) => setTimeout(resolve, 1800))
+        const shortcutRes = await sendShortcut('send_email', 'Chrome')
+        if (shortcutRes.success) {
+          sendReport += ` Automatically triggered Send (Ctrl+Enter); email has been dispatched!`
+        } else {
+          sendReport += ` Attempted to trigger Send: ${shortcutRes.message}`
+        }
+      } else {
+        sendReport += ` The draft is pre-filled and ready. You can instruct me to send it anytime (or use browser_shortcut with action: 'send_email').`
+      }
+
       return {
         toolName: 'send_gmail',
         success: res.success,
-        output: `Gmail compose window opened successfully in Chrome for recipient '${args.to}' with subject '${args.subject}'.`
+        output: sendReport
       }
     } catch (err: any) {
       return {
@@ -1035,6 +1055,42 @@ export class ToolExecutor {
         success: false,
         output: '',
         error: `Failed to open Gmail: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Discovers and lists all configured Google Chrome profiles on the Windows host.
+   */
+  private async executeListChromeProfiles(): Promise<ToolExecutionResult> {
+    try {
+      const profiles = getChromeProfiles()
+      if (profiles.length === 0) {
+        return {
+          toolName: 'list_chrome_profiles',
+          success: true,
+          output: 'No Chrome profiles discovered in local user data (using single default profile).'
+        }
+      }
+
+      const formatted = profiles
+        .map(
+          (p) =>
+            `- **${p.name}** (Directory: \`${p.directory}\`)${p.userName ? ` — Account: \`${p.userName}\`` : ''}`
+        )
+        .join('\n')
+
+      return {
+        toolName: 'list_chrome_profiles',
+        success: true,
+        output: `Discovered ${profiles.length} Chrome profile(s):\n${formatted}\n\nNote: If the user has not specified which profile or account to use, ask them before proceeding.`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'list_chrome_profiles',
+        success: false,
+        output: '',
+        error: `Failed to list Chrome profiles: ${err.message}`
       }
     }
   }

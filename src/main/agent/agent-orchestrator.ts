@@ -110,6 +110,15 @@ export class AgentOrchestrator {
         // If the model produced a refusal claiming inability for a supported capability,
         // intervene and prompt the model to re-verify against its active tool suite.
         if (turn === 1 && this.detectInconsistentRefusal(assistantMessage.content, conversationMessages)) {
+          const lastUserMsg = [...conversationMessages].reverse().find((m) => m.role === 'user')
+          const userContent = lastUserMsg?.content || ''
+          const isQuestion =
+            userContent.trim().endsWith('?') ||
+            userContent.toLowerCase().startsWith('can you') ||
+            userContent.toLowerCase().startsWith('can u') ||
+            userContent.toLowerCase().startsWith('are you able') ||
+            userContent.toLowerCase().startsWith('could you')
+
           if (options?.onTimelineEvent) {
             options.onTimelineEvent({
               id: crypto.randomUUID(),
@@ -117,7 +126,9 @@ export class AgentOrchestrator {
               timestamp: Date.now(),
               type: 'tool_call',
               title: 'Action Verification Layer',
-              details: 'Self-Correction: Model re-evaluating request against active tool catalog.',
+              details: isQuestion
+                ? 'Intent Verification: Re-evaluating capability inquiry against tool catalog.'
+                : 'Self-Correction: Model re-evaluating request against active tool catalog.',
               category: 'process'
             })
           }
@@ -127,8 +138,9 @@ export class AgentOrchestrator {
           })
           conversationMessages.push({
             role: 'user',
-            content:
-              '[Action Verification Protocol]: You stated that you cannot perform this desktop action. However, you possess active tools in your catalog (including `open_browser`, `start_dev_server`, `workspace_list`, `file_patch`, `create_pdf`). Re-read the user request, verify against your tools, and invoke the appropriate tool.'
+            content: isQuestion
+              ? '[Action Verification Protocol]: You stated that you cannot perform this desktop action or send emails/reopen tabs. However, you possess active live tools in your catalog (including `send_gmail` which can compose AND click Send, `browser_shortcut` which can reopen tabs and send emails, `list_chrome_profiles`, `open_browser`). Since the user asked a QUESTION about your capabilities, answer affirmatively in plain text that YES you can perform these actions, explain the steps, and offer to proceed upon their instruction. Do NOT execute tools prematurely for a question.'
+              : '[Action Verification Protocol]: You stated that you cannot perform this desktop action. However, you possess active tools in your catalog (including `open_browser`, `send_gmail`, `browser_shortcut`, `list_chrome_profiles`, `start_dev_server`, `workspace_list`, `file_patch`, `create_pdf`). Re-read the user request, verify against your tools, check for needed parameters (like Chrome profile), and invoke the appropriate tool.'
           })
           continue
         }
@@ -266,6 +278,17 @@ export class AgentOrchestrator {
   ): boolean {
     if (!assistantReply) return false
     const text = assistantReply.toLowerCase()
+
+    // If the assistant answered affirmatively ("yes, i can", "i can definitely", "i am able to", "i can send", "i have the capability to"), it's NOT a refusal!
+    if (
+      text.includes('yes, i can') ||
+      text.includes('yes, i am able') ||
+      text.includes('i can definitely') ||
+      text.includes('i have the capability') ||
+      text.includes('i can certainly')
+    ) {
+      return false
+    }
 
     const hasRefusalSignal =
       text.includes("i can't open") ||

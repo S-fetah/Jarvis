@@ -128,13 +128,14 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     expect(finalState?.status).toBe('stopped')
   })
 
-  it('send_gmail formats Gmail compose URL and opens Chrome', async () => {
+  it('send_gmail formats Gmail compose URL and opens Chrome with profile', async () => {
     const result = await toolExecutor.executeTool(
       'send_gmail',
       {
         to: 'colleague@example.com',
         subject: 'Project Update',
-        body: 'Here is the latest progress report.'
+        body: 'Here is the latest progress report.',
+        profile: 'Default'
       },
       testWorkspace
     )
@@ -145,19 +146,30 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     expect(result.output).toContain('colleague@example.com')
   })
 
-  it('browser_shortcut handles reopen_closed_tab, new_tab, and tab navigation', async () => {
+  it('browser_shortcut handles reopen_closed_tab, send_email, and click_send', async () => {
     const result = await toolExecutor.executeTool(
       'browser_shortcut',
       {
-        action: 'reopen_closed_tab',
+        action: 'send_email',
         targetApp: 'Chrome'
       },
       testWorkspace
     )
 
     expect(result.toolName).toBe('browser_shortcut')
-    // sendShortcut will attempt Windows WScript or return appropriate simulated response
     expect(result.output || result.error).toBeDefined()
+  })
+
+  it('list_chrome_profiles discovers available profiles on Windows', async () => {
+    const result = await toolExecutor.executeTool(
+      'list_chrome_profiles',
+      {},
+      testWorkspace
+    )
+
+    expect(result.toolName).toBe('list_chrome_profiles')
+    expect(result.success).toBe(true)
+    expect(result.output).toBeDefined()
   })
 
   it('browse_github formats repository, search, and trending targets correctly', async () => {

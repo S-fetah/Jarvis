@@ -113,7 +113,11 @@ export const OpenBrowserSchema = z.object({
     .enum(['chrome', 'default'])
     .optional()
     .default('chrome')
-    .describe('Target browser. Defaults to "chrome" with fallback to system default.')
+    .describe('Target browser. Defaults to "chrome" with fallback to system default.'),
+  profile: z
+    .string()
+    .optional()
+    .describe('Optional Chrome profile directory or account name (e.g. "Default", "Profile 4", "fennec", "abdelfetah").')
 })
 
 export type OpenBrowserArgs = z.infer<typeof OpenBrowserSchema>
@@ -166,7 +170,16 @@ export type FilePatchArgs = z.infer<typeof FilePatchSchema>
 export const SendGmailSchema = z.object({
   to: z.string().describe('Recipient email address (e.g. "team@example.com").'),
   subject: z.string().describe('Subject line of the email.'),
-  body: z.string().describe('Email message body text.')
+  body: z.string().describe('Email message body text.'),
+  profile: z
+    .string()
+    .optional()
+    .describe('Optional Chrome profile directory or account name (e.g. "Default", "Profile 4", "fennec", "abdelfetah").'),
+  autoSend: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe('Set to true to automatically press Send (Ctrl+Enter) in Gmail to dispatch the email immediately.')
 })
 
 export type SendGmailArgs = z.infer<typeof SendGmailSchema>
@@ -180,9 +193,13 @@ export const BrowserShortcutSchema = z.object({
       'refresh',
       'next_tab',
       'prev_tab',
-      'focus_address_bar'
+      'focus_address_bar',
+      'send_email',
+      'click_send',
+      'submit',
+      'enter'
     ])
-    .describe('Browser shortcut action to execute (e.g. "reopen_tab" for Ctrl+Shift+T, "close_tab" for Ctrl+W).'),
+    .describe('Browser shortcut action to execute (e.g. "reopen_tab" for Ctrl+Shift+T, "send_email" or "click_send" for Ctrl+Enter to send email in Gmail, "close_tab" for Ctrl+W).'),
   targetApp: z
     .string()
     .optional()
@@ -191,6 +208,10 @@ export const BrowserShortcutSchema = z.object({
 })
 
 export type BrowserShortcutArgs = z.infer<typeof BrowserShortcutSchema>
+
+export const ListChromeProfilesSchema = z.object({})
+
+export type ListChromeProfilesArgs = z.infer<typeof ListChromeProfilesSchema>
 
 export const BrowseGithubSchema = z.object({
   query: z
@@ -412,8 +433,25 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
             type: 'string',
             enum: ['chrome', 'default'],
             description: 'Browser application to use (default: "chrome").'
+          },
+          profile: {
+            type: 'string',
+            description: 'Optional Chrome profile directory or account name (e.g. "Default", "Profile 4", "fennec", "abdelfetah").'
           }
         },
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_chrome_profiles',
+      description:
+        'Discovers and lists all Google Chrome user profiles and email accounts configured on the Windows machine. Use this to check available profiles and ask the user which one they wish to use before launching Chrome or sending emails.',
+      parameters: {
+        type: 'object',
+        properties: {},
         additionalProperties: false
       }
     }
@@ -499,7 +537,7 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
     function: {
       name: 'send_gmail',
       description:
-        'Opens Google Chrome with a pre-filled Gmail compose window ready to send an email. When the user asks to send an email or draft a message in Gmail, call this tool.',
+        'Opens Google Chrome with a pre-filled Gmail compose window and can automatically click Send to dispatch the email. When the user asks to send an email, call this tool.',
       parameters: {
         type: 'object',
         properties: {
@@ -514,6 +552,14 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
           body: {
             type: 'string',
             description: 'Body content of the email.'
+          },
+          profile: {
+            type: 'string',
+            description: 'Optional Chrome profile directory or account name (e.g. "Default", "Profile 4", "fennec", "abdelfetah").'
+          },
+          autoSend: {
+            type: 'boolean',
+            description: 'Set to true to automatically press Send (Ctrl+Enter) in Gmail to dispatch the email immediately.'
           }
         },
         required: ['to', 'subject', 'body'],
@@ -526,7 +572,7 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
     function: {
       name: 'browser_shortcut',
       description:
-        'Simulates desktop browser keyboard shortcuts. Use "reopen_tab" to reopen the last closed tab (Ctrl+Shift+T), "close_tab" for Ctrl+W, "new_tab" for Ctrl+T, "refresh" for Ctrl+R, "next_tab" for Ctrl+Tab, or "focus_address_bar" for Ctrl+L.',
+        'Simulates desktop browser keyboard shortcuts. Use "reopen_tab" to reopen the last closed tab (Ctrl+Shift+T), "send_email" or "click_send" to click Send in Gmail (Ctrl+Enter), "close_tab" for Ctrl+W, "new_tab" for Ctrl+T, "refresh" for Ctrl+R, "next_tab" for Ctrl+Tab, or "focus_address_bar" for Ctrl+L.',
       parameters: {
         type: 'object',
         properties: {
@@ -539,9 +585,13 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
               'refresh',
               'next_tab',
               'prev_tab',
-              'focus_address_bar'
+              'focus_address_bar',
+              'send_email',
+              'click_send',
+              'submit',
+              'enter'
             ],
-            description: 'The shortcut action to execute (e.g. "reopen_tab" for Ctrl+Shift+T).'
+            description: 'The shortcut action to execute (e.g. "reopen_tab" for Ctrl+Shift+T, "send_email" for Ctrl+Enter in Gmail).'
           },
           targetApp: {
             type: 'string',
