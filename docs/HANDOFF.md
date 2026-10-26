@@ -22,10 +22,10 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
   - Native Chrome DevTools Protocol (CDP) engine implemented in `src/main/utils/cdp.ts`.
   - 5 CDP browser tools added: `browser_list_tabs`, `browser_inspect_page`, `browser_click_element`, `browser_close_tab`, `browser_scroll`.
   - RFC 5321 TLS SMTP engine implemented in `src/main/utils/smtp.ts` (`send_email_direct`) for verified email delivery with server receipts (250 OK) and zero browser tabs.
-  - Automatic compose tab closing (`Ctrl+W`) and tab hygiene in `send_gmail`.
+  - Closed-loop Gmail DOM ready detection, minimized/offscreen background launch, and automatic tab closing (`Ctrl+W`) in `send_gmail`.
   - Persistent user memory & preferences system (`src/main/memory/user-memory.ts`, `USER.md`, `manage_user_memory`).
   - Active tool suite: 20 native tools across filesystem, process, network, browser, and memory.
-  - Automated test suite: 72/72 tests passing across 12 test files (`tests/user-memory.test.ts`, `tests/cdp-browser.test.ts`, `tests/phase4-process.test.ts`, `tests/tool-executor.test.ts`, etc.).
+  - Automated test suite: 73/73 tests passing across 12 test files (`tests/user-memory.test.ts`, `tests/cdp-browser.test.ts`, `tests/phase4-process.test.ts`, `tests/tool-executor.test.ts`, etc.).
   - Security scanner: 8/8 checks passing (0 Critical, 0 High findings).
   - Production build: Passing cleanly via `electron-vite build`.
 

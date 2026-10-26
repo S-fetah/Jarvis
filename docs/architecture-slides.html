@@ -301,7 +301,7 @@
     </div>
     <div class="card">
       <h3>Quality</h3>
-      <div><span class="tag">Vitest (22/22)</span><span class="tag">tsc --noEmit</span><span class="tag">eslint + prettier</span><span class="tag">security-scan script</span></div>
+      <div><span class="tag">Vitest (73/73)</span><span class="tag">tsc --noEmit</span><span class="tag">eslint + prettier</span><span class="tag">security-scan script</span></div>
     </div>
     <div class="card">
       <h3>Planned tools</h3>
@@ -376,7 +376,7 @@
   </div>
   <div style="margin-top:18px;" class="grid-4">
     <div class="stat"><div class="num">11</div><div class="lbl">Findings remediated</div></div>
-    <div class="stat"><div class="num">22<span>/22</span></div><div class="lbl">Tests passing</div></div>
+    <div class="stat"><div class="num">73<span>/73</span></div><div class="lbl">Tests passing</div></div>
     <div class="stat"><div class="num">4</div><div class="lbl">ADRs governing design</div></div>
     <div class="stat"><div class="num">0</div><div class="lbl">Secrets in repo or renderer</div></div>
   </div>
@@ -550,19 +550,19 @@
     <div class="card" style="border-left:3px solid #16A34A;">
       <h3>Working now</h3>
       <ul>
-        <li>Model gateway client: streaming, bounded retry, thinking-block extraction</li>
-        <li>Policy engine wired and verified at runtime (HMAC)</li>
-        <li>Read-only agent loop + tool engine (Phase 2 commit)</li>
-        <li>22/22 tests · typecheck + production build clean</li>
+        <li>20 native tools: CDP browser automation, dev server, PDF engine, code patcher</li>
+        <li>Zero-dependency CDP driver + closed-loop Gmail DOM ready detection</li>
+        <li>Direct RFC 5321 TLS SMTP delivery & persistent user memory (`USER.md`)</li>
+        <li>73/73 tests · typecheck + production build clean</li>
       </ul>
     </div>
     <div class="card" style="border-left:3px solid var(--indigo);">
-      <h3>Next up (Phase 2)</h3>
+      <h3>Next up (Phase 5)</h3>
       <ul>
-        <li>Playwright browser automation execution loop</li>
-        <li>PDF generation + verification pipeline</li>
-        <li>Active task dispatcher + streamed event log (T-005)</li>
-        <li>Full write-tool integration behind approvals</li>
+        <li>Multimodal screen capture (`desktopCapturer`)</li>
+        <li>Vision-based screen inspection</li>
+        <li>Tray integration & settings persistence</li>
+        <li>MCP (Model Context Protocol) client expander</li>
       </ul>
     </div>
   </div>
@@ -579,25 +579,25 @@
       <div class="ph-no">P0</div><div class="ph-name">Discovery &amp; spike</div>
       <div class="ph-desc">Gateway validated · agent benchmarked · ADR-001…004 recorded — <b>complete 2026-10-22</b></div>
     </div>
-    <div class="phase now">
-      <div class="ph-no">P1</div><div class="ph-name">Secure foundation<span class="now-flag">NOW</span></div>
-      <div class="ph-desc">Electron shell, secure IPC, policy engine, persistence — scaffold + audit remediation done; T-005 event streams in progress</div>
+    <div class="phase">
+      <div class="ph-no">P1</div><div class="ph-name">Secure foundation</div>
+      <div class="ph-desc">Electron shell, secure IPC, policy engine, persistence — <b>complete 2026-10-22</b></div>
     </div>
     <div class="phase">
       <div class="ph-no">P2</div><div class="ph-name">Read-only agent loop</div>
-      <div class="ph-desc">Bounded research and workspace tools — loop committed; browser + PDF tools landing</div>
+      <div class="ph-desc">Bounded research and workspace tools — <b>complete 2026-10-23</b></div>
     </div>
     <div class="phase">
       <div class="ph-no">P3</div><div class="ph-name">Documents &amp; files</div>
-      <div class="ph-desc">Research-to-PDF vertical slice with output verification</div>
+      <div class="ph-desc">Vector PDF engine (`create_pdf`), safe writes &amp; downloads — <b>complete 2026-10-26</b></div>
     </div>
     <div class="phase">
       <div class="ph-no">P4</div><div class="ph-name">Coding workflow</div>
-      <div class="ph-desc">Approved, tracked dev-server and test orchestration</div>
+      <div class="ph-desc">Dev server management, process tracking, code patcher, Chrome profile discovery — <b>complete 2026-10-26</b></div>
     </div>
-    <div class="phase">
-      <div class="ph-no">P5</div><div class="ph-name">Robustness</div>
-      <div class="ph-desc">Failure, cancellation, restart, and prompt-injection test passes</div>
+    <div class="phase now">
+      <div class="ph-no">P5</div><div class="ph-name">Browser &amp; Robustness<span class="now-flag">NOW</span></div>
+      <div class="ph-desc">CDP DOM automation, closed-loop email delivery, persistent user memory (USER.md) — <b>in flight</b></div>
     </div>
     <div class="phase">
       <div class="ph-no">P6</div><div class="ph-name">Windows integration</div>

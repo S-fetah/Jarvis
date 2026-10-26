@@ -16,13 +16,16 @@
 | **Credential Storage** | ✅ Encrypted & Redacted | API keys redacted from renderer IPC (`hasApiKey` flag) and encrypted via Electron `safeStorage` (DPAPI) in SQLite (`SEC-003`). |
 | **OS Sandboxing & Windows** | ✅ Enforced | `sandbox: true`, `contextIsolation: true`, navigation guards (`will-navigate`, `setWindowOpenHandler`), and IPC sender validation (`SEC-004`, `SEC-005`, `SEC-011`). |
 | **Filesystem Boundaries** | ✅ Enforced | Realpath symlink resolution (`SEC-006`) and extension gating for dangerous scripts (`.bat`, `.cmd`, `.ps1`, `.exe`) (`SEC-007`). |
-| **Browser Automation (Playwright)** | ⏳ Planned | Architecture designed; execution loop to be implemented in Phase 2. |
-| **PDF Generation & Verification** | ⏳ Planned | Tool specification defined; execution pipeline to be implemented in Phase 2. |
+| **Browser Automation & CDP** | ✅ Implemented | Zero-dependency Chrome DevTools Protocol (CDP) engine with real DOM inspection, element clicking, tab closure, page scrolling, and closed-loop Gmail ready detection. |
+| **PDF Generation & Verification** | ✅ Implemented | High-fidelity vector PDF generation (`create_pdf`) with formatting, budget controls, and safe system path revelation. |
+| **Code & Dev Workflow** | ✅ Implemented | Managed dev server spawning (`start_dev_server`), port detection, process termination (`taskkill`), and unified-diff code patcher (`file_patch`) with `.bak` backups. |
+| **Email & Delivery Engines** | ✅ Implemented | Direct RFC 5321 TLS SMTP delivery (`send_email_direct`) with server receipts (250 OK) and minimized background Chrome Gmail dispatch (`send_gmail`). |
+| **User Memory & Preferences** | ✅ Implemented | Persistent long-term memory store (`USER.md`, `manage_user_memory`) auto-injected into system prompt for habit retention across sessions. |
 
 ## Verified Testing & Environment Status
 
-- **Automated Tests:** **22/22 unit & security regression tests passing** (`vitest run`).
-- **TypeScript & Build:** Typecheck clean (`tsc --noEmit`), `electron-vite build` passing.
+- **Automated Tests:** **73/73 unit & security regression tests passing** across 12 test suites (`vitest run`).
+- **TypeScript & Build:** Typecheck clean (`npm run typecheck`), `electron-vite build` passing.
 - **Runtime Environment:** Verified on Node.js `v24.13.0`, Electron `34.2.0`, React `19.0.0`, Vite `6.1.0` on Windows 11.
 - **Full Security Audit:** See [docs/security/SECURITY_AUDIT_v0.0.1.md](./docs/security/SECURITY_AUDIT_v0.0.1.md).
 
