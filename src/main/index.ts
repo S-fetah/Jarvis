@@ -449,6 +449,21 @@ function executeNextStep(task: TaskState, stepIndex: number, workspacePath: stri
   }
 }
 
+function getChromeExecutablePath(): string | null {
+  const possiblePaths = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    process.env.LOCALAPPDATA
+      ? join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe')
+      : null
+  ].filter(Boolean) as string[]
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p
+  }
+  return null
+}
+
 async function executeApprovedAction(approval?: import('../shared/types').ApprovalRequest): Promise<void> {
   if (!approval) return
 
@@ -462,7 +477,7 @@ async function executeApprovedAction(approval?: import('../shared/types').Approv
     approval.actionType === 'browser_navigate' ||
     (approval.actionType === 'process_spawn' && (cmd.startsWith('start chrome') || cmd.startsWith('chrome')))
   ) {
-    const rawUrl = args.url || 'https://mail.google.com'
+    const rawUrl = args.url || (cmd.includes('mail.google.com') ? 'https://mail.google.com' : 'https://google.com')
     let validatedUrl: URL
     try {
       validatedUrl = new URL(rawUrl)
@@ -476,6 +491,22 @@ async function executeApprovedAction(approval?: import('../shared/types').Approv
 
     const targetUrl = validatedUrl.toString()
     if (args.app === 'chrome' || cmd.includes('chrome')) {
+      const chromePath = getChromeExecutablePath()
+      if (chromePath) {
+        try {
+          const child = spawn(chromePath, [targetUrl], {
+            windowsHide: false,
+            shell: false,
+            detached: true,
+            stdio: 'ignore'
+          })
+          child.unref()
+          return
+        } catch (err) {
+          console.warn('[Jarvis Main] Direct Chrome launch failed, falling back to start command:', err)
+        }
+      }
+
       try {
         // SEC-001: Spawn parameterized without shell string concatenation
         const child = spawn('cmd.exe', ['/c', 'start', '', 'chrome', targetUrl], {
@@ -493,6 +524,7 @@ async function executeApprovedAction(approval?: import('../shared/types').Approv
       await shell.openExternal(targetUrl)
     }
     return
+  }
   }
 
   // 2. Dev server start
@@ -586,12 +618,18 @@ function registerIpcHandlers(): void {
       }
     ) => {
       const lower = content.toLowerCase().trim()
+      const isBrowserAction =
+        lower.includes('open') ||
+        lower.includes('launch') ||
+        lower.includes('start') ||
+        lower.includes('go to') ||
+        lower.includes('visit') ||
+        lower.includes('run')
+
       const isGmailIntent =
-        (lower.includes('gmail') || lower.includes('mail.google.com')) &&
-        (lower.includes('open') || lower.includes('chrome') || lower.includes('launch') || lower.includes('go to') || lower.includes('start'))
+        (lower.includes('gmail') || lower.includes('mail.google.com')) && isBrowserAction
       const isChromeIntent =
-        (lower.startsWith('open ') || lower.startsWith('launch ')) &&
-        (lower.includes('chrome') || lower.includes('browser'))
+        (lower.includes('chrome') || lower.includes('browser') || lower.includes('google.com')) && isBrowserAction
       const isDevServerIntent =
         lower.includes('npm run dev') ||
         (lower.includes('dev server') && (lower.includes('start') || lower.includes('run') || lower.includes('launch')))
@@ -601,10 +639,15 @@ function registerIpcHandlers(): void {
 
         const chosenWorkspace = _workspacePath || settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis'
         const isBrowser = isGmailIntent || isChromeIntent
-        const targetUrl = isGmailIntent ? 'https://mail.google.com' : 'https://google.com'
+        const urlMatch = content.match(/https?:\/\/[^\s"']+/)
+        const targetUrl = isGmailIntent
+          ? 'https://mail.google.com'
+          : urlMatch
+            ? urlMatch[0]
+            : 'https://google.com'
         const command = isBrowser ? `start chrome "${targetUrl}"` : 'npm run dev'
         const title = isBrowser
-          ? (isGmailIntent ? 'Launch Google Chrome (Gmail)' : 'Launch Google Chrome')
+          ? (isGmailIntent ? 'Launch Google Chrome (Gmail)' : `Launch Google Chrome (${targetUrl})`)
           : 'Start Development Server (npm run dev)'
 
         const evalRes = policyEngine.evaluateAction(
