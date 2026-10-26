@@ -37,7 +37,8 @@ export async function launchBrowser(
   url: string = 'https://google.com',
   preferredBrowser: 'chrome' | 'default' = 'chrome',
   profile?: string,
-  enableCdp: boolean = true
+  enableCdp: boolean = true,
+  minimized: boolean = false
 ): Promise<LaunchBrowserResult> {
   let validatedUrl: URL
   try {
@@ -52,11 +53,13 @@ export async function launchBrowser(
   const targetUrl = validatedUrl.toString()
   const resolvedProfile = resolveProfileDirectory(profile)
   const cdpArgs = enableCdp ? ['--remote-debugging-port=9222'] : []
+  const minimizedArgs = minimized ? ['--window-position=-32000,-32000'] : []
 
   if (preferredBrowser === 'chrome') {
     const chromePath = getChromeExecutablePath()
     const chromeArgs = [
       ...cdpArgs,
+      ...minimizedArgs,
       ...(resolvedProfile ? [`--profile-directory=${resolvedProfile}`] : []),
       targetUrl
     ]
@@ -72,7 +75,7 @@ export async function launchBrowser(
         child.unref()
         return {
           success: true,
-          message: `Successfully launched Google Chrome${resolvedProfile ? ` (Profile: ${resolvedProfile})` : ''} navigating to ${targetUrl}`,
+          message: `Successfully launched Google Chrome${resolvedProfile ? ` (Profile: ${resolvedProfile})` : ''}${minimized ? ' [Minimized/Background]' : ''} navigating to ${targetUrl}`,
           url: targetUrl,
           usedBrowser: 'chrome'
         }
@@ -87,8 +90,10 @@ export async function launchBrowser(
         '/c',
         'start',
         '',
+        ...(minimized ? ['/min'] : []),
         'chrome',
         ...cdpArgs,
+        ...minimizedArgs,
         ...(resolvedProfile ? [`--profile-directory=${resolvedProfile}`] : []),
         targetUrl
       ]

@@ -179,12 +179,17 @@ export const SendGmailSchema = z.object({
     .boolean()
     .optional()
     .default(false)
-    .describe('Set to true to automatically press Send (Ctrl+Enter) in Gmail to dispatch the email immediately.'),
+    .describe('Set to true to automatically press Send in Gmail to dispatch the email immediately.'),
   closeTabAfter: z
     .boolean()
     .optional()
     .default(true)
-    .describe('Set to true to automatically close the compose tab (Ctrl+W) after dispatching, preventing tab clutter.')
+    .describe('Set to true to automatically close the compose tab after dispatching, preventing tab clutter.'),
+  minimized: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe('Keep Chrome minimized or offscreen while composing and dispatching so it does not interrupt your screen.')
 })
 
 export type SendGmailArgs = z.infer<typeof SendGmailSchema>
@@ -309,6 +314,9 @@ export const ManageUserMemorySchema = z.object({
       name: z.string().optional().describe('User name.'),
       preferredChromeProfile: z.string().optional().describe('Preferred Chrome profile directory (e.g. "fennec", "Default").'),
       defaultEmail: z.string().optional().describe('Default email account name or address.'),
+      smtpUser: z.string().optional().describe('Gmail or SMTP username.'),
+      smtpPass: z.string().optional().describe('Gmail App Password or SMTP password for direct sending.'),
+      preferredEmailMode: z.enum(['direct_smtp', 'browser_minimized']).optional().describe('Preferred email delivery mode.'),
       preferredDevCommand: z.string().optional().describe('Preferred dev server start script (e.g. "npm run dev").'),
       defaultDevPort: z.number().optional().describe('Preferred default dev port (e.g. 5173).'),
       noteToAdd: z.string().optional().describe('A persistent preference note to append to USER.md.')
@@ -657,6 +665,10 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
           closeTabAfter: {
             type: 'boolean',
             description: 'Automatically close the compose tab (Ctrl+W) after dispatching to prevent tab accumulation (default: true).'
+          },
+          minimized: {
+            type: 'boolean',
+            description: 'Launch Chrome minimized or off-screen so your active desktop is not disrupted (default: true).'
           }
         },
         required: ['to', 'subject', 'body'],

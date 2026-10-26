@@ -120,4 +120,23 @@ describe('CDP Browser Automation & Memory Tools', () => {
     expect(result.success).toBe(false)
     expect(result.error).toContain('Could not close tab')
   })
+
+  it('send_gmail supports minimized background launch and reports clean compose status', async () => {
+    const result = await toolExecutor.executeTool(
+      'send_gmail',
+      {
+        to: 'recipient@example.com',
+        subject: 'Status',
+        body: 'Automated notification',
+        autoSend: false,
+        minimized: true
+      },
+      testWorkspace
+    )
+
+    expect(result.toolName).toBe('send_gmail')
+    expect(result.success).toBe(true)
+    expect(result.output).toContain("Gmail compose window opened successfully in Chrome")
+    expect(result.output).toContain("(minimized)")
+  })
 })

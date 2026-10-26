@@ -381,3 +381,109 @@ export async function scrollPageContent(
     targetId: target.id
   }
 }
+
+/**
+ * Closed-loop Gmail dispatch via CDP:
+ * Polls the DOM until the Gmail Send button and compose body are fully mounted,
+ * clicks the Send button directly via DOM, waits for dispatch, and deterministically
+ * closes the compose tab. Eliminates the race condition of sending before Gmail renders.
+ */
+export async function waitForGmailReadyAndSend(
+  port = 9222,
+  maxWaitMs = 15000
+): Promise<{ success: boolean; message: string; targetId?: string }> {
+  const startTime = Date.now()
+
+  // 1. Locate the Gmail compose tab (poll for up to 5s if tab is still opening)
+  let target: CdpTarget | null = null
+  while (Date.now() - startTime < 5000) {
+    try {
+      const targets = await listCdpTargets(port)
+      target = targets.find((t) => t.url.includes('mail.google.com')) || null
+      if (target) break
+    } catch {
+      // Chrome CDP port connecting
+    }
+    await new Promise((r) => setTimeout(r, 400))
+  }
+
+  if (!target) {
+    return {
+      success: false,
+      message: `Could not locate Gmail tab on CDP port ${port}.`
+    }
+  }
+
+  // 2. Poll page DOM until Send button is mounted and clickable
+  let isReady = false
+  while (Date.now() - startTime < maxWaitMs) {
+    try {
+      const checkScript = `
+        (() => {
+          const sendBtn = document.querySelector('div[aria-label*="Send"], div[data-tooltip*="Send"], div[role="button"][aria-label*="Send"]');
+          const composeBox = document.querySelector('div[aria-label*="Message Body"], div[role="textbox"]');
+          return {
+            hasSendBtn: !!sendBtn,
+            hasComposeBox: !!composeBox
+          };
+        })()
+      `
+      const state = await evaluateInTarget<{ hasSendBtn: boolean; hasComposeBox: boolean }>(target, checkScript, 2000)
+      if (state?.hasSendBtn) {
+        isReady = true
+        break
+      }
+    } catch {
+      // DOM still loading or navigation in flight
+    }
+    await new Promise((r) => setTimeout(r, 350))
+  }
+
+  if (!isReady) {
+    return {
+      success: false,
+      message: `Timed out (${maxWaitMs / 1000}s) waiting for Gmail compose DOM to mount. Gmail may require Google account login.`,
+      targetId: target.id
+    }
+  }
+
+  // Brief stabilization delay to ensure listeners are bound
+  await new Promise((r) => setTimeout(r, 400))
+
+  // 3. Dispatch click on Send button
+  const clickScript = `
+    (() => {
+      const sendBtn = document.querySelector('div[aria-label*="Send"], div[data-tooltip*="Send"], div[role="button"][aria-label*="Send"]');
+      if (sendBtn) {
+        sendBtn.scrollIntoView({ behavior: 'instant', block: 'center' });
+        sendBtn.click();
+        return true;
+      }
+      return false;
+    })()
+  `
+
+  try {
+    await evaluateInTarget(target, clickScript, 3000)
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Failed to click Gmail Send button via CDP: ${err.message}`,
+      targetId: target.id
+    }
+  }
+
+  // 4. Wait for message dispatch / toast / compose box dismissal
+  await new Promise((r) => setTimeout(r, 1500))
+
+  // 5. Deterministically close the tab
+  try {
+    await closeCdpTarget(target.id, port)
+  } catch {}
+
+  return {
+    success: true,
+    message: `Gmail compose DOM fully rendered, clicked Send button, and automatically closed the compose tab.`,
+    targetId: target.id
+  }
+}

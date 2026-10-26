@@ -5,6 +5,9 @@ export interface UserPreferences {
   name?: string
   preferredChromeProfile?: string
   defaultEmail?: string
+  smtpUser?: string
+  smtpPass?: string
+  preferredEmailMode?: 'direct_smtp' | 'browser_minimized'
   preferredDevCommand?: string
   defaultDevPort?: number
   preferredLanguage?: string
@@ -18,6 +21,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   name: 'Abdelfetah',
   preferredChromeProfile: 'fennec',
   defaultEmail: 'fennec',
+  preferredEmailMode: 'browser_minimized',
   preferredDevCommand: 'npm run dev',
   defaultDevPort: 5173,
   preferredLanguage: 'TypeScript',
@@ -100,6 +104,9 @@ export function loadUserMemory(workspacePath?: string): UserPreferences {
 
         if (key.includes('name')) prefs.name = val
         else if (key.includes('chrome profile')) prefs.preferredChromeProfile = val
+        else if (key.includes('smtp user')) prefs.smtpUser = val
+        else if (key.includes('smtp pass') || key.includes('app password')) prefs.smtpPass = val
+        else if (key.includes('email mode')) prefs.preferredEmailMode = val === 'direct_smtp' ? 'direct_smtp' : 'browser_minimized'
         else if (key.includes('email')) prefs.defaultEmail = val
         else if (key.includes('dev command')) prefs.preferredDevCommand = val
         else if (key.includes('dev port')) prefs.defaultDevPort = parseInt(val, 10) || undefined
@@ -139,6 +146,9 @@ export function saveUserMemory(updates: Partial<UserPreferences>, workspacePath?
     `- **Name**: ${merged.name || 'User'}`,
     `- **Preferred Chrome Profile**: ${merged.preferredChromeProfile || 'fennec'}`,
     `- **Default Email**: ${merged.defaultEmail || 'fennec'}`,
+    `- **Preferred Email Mode**: ${merged.preferredEmailMode || 'browser_minimized'}`,
+    ...(merged.smtpUser ? [`- **SMTP User**: ${merged.smtpUser}`] : []),
+    ...(merged.smtpPass ? [`- **SMTP Pass**: ${merged.smtpPass}`] : []),
     '',
     '## Development Preferences',
     `- **Preferred Dev Command**: ${merged.preferredDevCommand || 'npm run dev'}`,
@@ -178,6 +188,11 @@ export function formatUserMemoryPrompt(prefs: UserPreferences): string {
   }
   if (prefs.defaultEmail) {
     parts.push(`- Default Email Address/Account: '${prefs.defaultEmail}'`)
+  }
+  if (prefs.smtpPass) {
+    parts.push(`- Direct SMTP Credentials: Configured (Send directly via 'send_email_direct' without opening browser windows).`)
+  } else {
+    parts.push(`- Email Dispatch Mode: 'browser_minimized' (Launch Chrome minimized/background with closed-loop CDP DOM ready detection). To enable instant direct email without browser, user can provide a Gmail App Password.`)
   }
   if (prefs.preferredDevCommand) {
     parts.push(`- Preferred Dev Server Command: '${prefs.preferredDevCommand}' (Port: ${prefs.defaultDevPort || 5173})`)

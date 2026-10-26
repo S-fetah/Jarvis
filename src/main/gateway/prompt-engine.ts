@@ -71,9 +71,11 @@ export class PromptEngine {
       `\n` +
       `CRITICAL RULE 3: EMAIL DELIVERY & BROWSER TAB HYGIENE:\n` +
       `- You have TWO methods to deliver email:\n` +
-      `  1. 'send_email_direct': Verified direct SMTP delivery. Highly recommended because it verifies receipt (250 OK) and does NOT open any browser tabs.\n` +
-      `  2. 'send_gmail': Browser compose. When autoSend is true, it automatically closes the tab (Ctrl+W) so tabs never accumulate.\n` +
-      `- TAB HYGIENE: Never flood the user's browser with open tabs. If you open a tab to send a message or perform a short action, ensure the tab is closed immediately after.\n` +
+      `  1. 'send_email_direct': Verified direct SMTP delivery. Zero browser tabs, 100% background delivery, server receipt verified (250 OK). If SMTP credentials exist in USER.md or environment, ALWAYS prefer this method.\n` +
+      `  2. 'send_gmail': Browser compose. Launches Chrome minimized/off-screen (so it does not interrupt user's desktop), waits for the Gmail compose DOM to be fully mounted via closed-loop CDP inspection, clicks Send, and closes the tab automatically.\n` +
+      `- MINIMIZED/BACKGROUND REQUIREMENT: When using 'send_gmail', keep 'minimized: true' (default) so Chrome does not pop up in the user's face.\n` +
+      `- If user asks to send directly without browser, explain that they can generate an App Password at https://myaccount.google.com/apppasswords and tell you to remember it.\n` +
+      `- TAB HYGIENE: Never leave open tabs. Always ensure compose tabs are closed immediately after sending.\n` +
       `- NEVER claim you cannot send emails or cannot click Send. You CAN dispatch emails directly or via browser shortcuts.`
     )
 

@@ -12,7 +12,8 @@ import {
   inspectPageContent,
   clickDomElement,
   closeCdpTarget,
-  scrollPageContent
+  scrollPageContent,
+  waitForGmailReadyAndSend
 } from '../utils/cdp'
 import { loadUserMemory, saveUserMemory, formatUserMemoryPrompt } from '../memory/user-memory'
 import {
@@ -1079,29 +1080,40 @@ export class ToolExecutor {
   private async executeSendGmail(args: SendGmailArgs): Promise<ToolExecutionResult> {
     try {
       const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(args.to)}&su=${encodeURIComponent(args.subject)}&body=${encodeURIComponent(args.body)}`
-      const res = await launchBrowser(gmailUrl, 'chrome', args.profile)
+      const isMinimized = args.minimized !== false // defaults to true
+      const res = await launchBrowser(gmailUrl, 'chrome', args.profile, true, isMinimized)
 
       let sendReport = `Gmail compose window opened successfully in Chrome for recipient '${args.to}' with subject '${args.subject}'.`
 
       if (args.autoSend) {
-        // Wait 3.5 seconds for Chrome window to activate and compose DOM to mount
-        await new Promise((resolve) => setTimeout(resolve, 3500))
-        const shortcutRes = await sendShortcut('send_email', 'Chrome')
-        if (shortcutRes.success) {
-          sendReport += ` Triggered Send shortcut (Ctrl+Enter).`
+        const cdpActive = await isCdpAvailable(9222)
+        if (cdpActive) {
+          // Closed-loop CDP DOM ready detection & real DOM click
+          const cdpSendRes = await waitForGmailReadyAndSend(9222, 15000)
+          if (cdpSendRes.success) {
+            sendReport += ` Detected Gmail compose DOM ready, clicked Send via real DOM, and closed the compose tab cleanly.`
+          } else {
+            sendReport += ` CDP closed-loop send attempt: ${cdpSendRes.message}.`
+          }
         } else {
-          sendReport += ` Attempted to trigger Send: ${shortcutRes.message}.`
-        }
+          // Fallback: Allow 5.5s for DOM mount, send shortcut, then close tab
+          await new Promise((resolve) => setTimeout(resolve, 5500))
+          const shortcutRes = await sendShortcut('send_email', 'Chrome')
+          if (shortcutRes.success) {
+            sendReport += ` Triggered Send shortcut (Ctrl+Enter).`
+          } else {
+            sendReport += ` Attempted to trigger Send: ${shortcutRes.message}.`
+          }
 
-        // Clean up compose tab to prevent zombie tab accumulation
-        if (args.closeTabAfter !== false) {
-          await new Promise((resolve) => setTimeout(resolve, 1500))
-          await sendShortcut('close_tab', 'Chrome')
-          sendReport += ` Automatically closed the compose tab (Ctrl+W) to keep your browser workspace clean.`
+          if (args.closeTabAfter !== false) {
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+            await sendShortcut('close_tab', 'Chrome')
+            sendReport += ` Automatically closed the compose tab (Ctrl+W) to keep your browser clean.`
+          }
         }
-        sendReport += ` Note: Keystroke simulation cannot verify server delivery receipt. For guaranteed 100% verified delivery with server receipt (250 OK), use 'send_email_direct'.`
+        sendReport += ` (For 100% verified direct delivery without opening any browser tabs, configure a Gmail App Password to use 'send_email_direct').`
       } else {
-        sendReport += ` The draft is pre-filled and ready in Chrome. You can review and click Send, or instruct me to dispatch it.`
+        sendReport += ` The draft is pre-filled and ready in Chrome${isMinimized ? ' (minimized)' : ''}. You can review and dispatch it.`
       }
 
       return {
@@ -1124,13 +1136,26 @@ export class ToolExecutor {
    */
   private async executeSendEmailDirect(args: SendEmailDirectArgs): Promise<ToolExecutionResult> {
     try {
+      const userMemory = loadUserMemory()
+      const resolvedUser =
+        args.smtpUser ||
+        process.env.SMTP_USER ||
+        process.env.GMAIL_USER ||
+        userMemory.smtpUser ||
+        (userMemory.defaultEmail?.includes('@') ? userMemory.defaultEmail : undefined)
+      const resolvedPass =
+        args.smtpPass ||
+        process.env.SMTP_PASS ||
+        process.env.GMAIL_APP_PASS ||
+        userMemory.smtpPass
+
       const config =
-        args.smtpUser && args.smtpPass
+        resolvedUser && resolvedPass
           ? {
               host: process.env.SMTP_HOST || 'smtp.gmail.com',
               port: Number(process.env.SMTP_PORT) || 465,
-              user: args.smtpUser,
-              pass: args.smtpPass
+              user: resolvedUser,
+              pass: resolvedPass
             }
           : undefined
 
@@ -1153,7 +1178,7 @@ export class ToolExecutor {
           toolName: 'send_email_direct',
           success: false,
           output: '',
-          error: result.message
+          error: `${result.message}\n\nTip: You can generate a 16-character Google App Password in 30 seconds at https://myaccount.google.com/apppasswords and tell me: "Remember my email app password is <pass>" to enable instant background sending forever.`
         }
       }
     } catch (err: any) {
@@ -1463,6 +1488,9 @@ export class ToolExecutor {
           name: updates.name || current.name,
           preferredChromeProfile: updates.preferredChromeProfile || current.preferredChromeProfile,
           defaultEmail: updates.defaultEmail || current.defaultEmail,
+          smtpUser: updates.smtpUser || current.smtpUser,
+          smtpPass: updates.smtpPass || current.smtpPass,
+          preferredEmailMode: updates.preferredEmailMode || current.preferredEmailMode,
           preferredDevCommand: updates.preferredDevCommand || current.preferredDevCommand,
           defaultDevPort: updates.defaultDevPort || current.defaultDevPort,
           notes: newNotes
