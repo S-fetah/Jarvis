@@ -55,7 +55,7 @@ const settings: JarvisSettings = {
   mascotEnabled: true,
   reduceMotion: false,
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
-  theme: 'dark',
+  theme: 'light',
   outputDirectory: 'C:\\work\\softwares\\jarvis\\output',
   talkingStyle: 'balanced',
   taskMode: 'chat',
@@ -268,6 +268,11 @@ app.whenReady().then(async () => {
 
     const savedDepth = db.getSetting('thinkingDepth')
     if (savedDepth) settings.thinkingDepth = savedDepth as any
+
+    const savedTheme = db.getSetting('theme')
+    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+      settings.theme = savedTheme
+    }
 
     modelAdapter.updateConfig({
       baseUrl: settings.gatewayUrl,
@@ -952,6 +957,10 @@ function registerIpcHandlers(): void {
     if (newSettings.thinkingDepth !== undefined) {
       settings.thinkingDepth = newSettings.thinkingDepth
       db.setSetting('thinkingDepth', newSettings.thinkingDepth)
+    }
+    if (newSettings.theme !== undefined) {
+      settings.theme = newSettings.theme
+      db.setSetting('theme', newSettings.theme)
     }
 
     modelAdapter.updateConfig({

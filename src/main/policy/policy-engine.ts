@@ -124,9 +124,12 @@ export class PolicyEngine {
       case 'web_search':
       case 'browser_navigate':
       case 'browser_extract':
+      case 'send_gmail':
+      case 'browser_shortcut':
+      case 'browse_github':
         category = 'network'
         requiresApproval = false
-        reason = 'Read-only web research and browser extraction allowed without mutation.'
+        reason = 'Read-only web research, desktop navigation, and browser actions allowed without mutation.'
         break
 
       default:

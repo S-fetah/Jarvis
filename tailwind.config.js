@@ -6,23 +6,23 @@ export default {
     extend: {
       colors: {
         jarvis: {
-          base: '#0a1114',
-          dark: '#0a1114',
-          surface: '#111f1e',
-          elevated: '#172c29',
-          hover: '#1e3834',
-          border: '#1f3832',
-          borderStrong: '#2b5049',
-          accent: '#3ba172',
-          accentHover: '#46b883',
-          accentGlow: '#52c48e',
-          ivory: '#f5f1ee',
-          sage: '#d1d7d0',
-          muted: '#8a9992',
-          success: '#3ba172',
-          warning: '#eab308',
+          base: 'var(--jarvis-base)',
+          dark: 'var(--jarvis-base)',
+          surface: 'var(--jarvis-surface)',
+          elevated: 'var(--jarvis-elevated)',
+          hover: 'var(--jarvis-hover)',
+          border: 'var(--jarvis-border)',
+          borderStrong: 'var(--jarvis-border-strong)',
+          accent: 'var(--jarvis-accent)',
+          accentHover: 'var(--jarvis-accent-hover)',
+          accentGlow: 'var(--jarvis-accent-glow)',
+          ivory: 'var(--jarvis-ivory)',
+          sage: 'var(--jarvis-sage)',
+          muted: 'var(--jarvis-muted)',
+          success: '#10b981',
+          warning: '#f59e0b',
           danger: '#ef4444',
-          info: '#2dd4bf'
+          info: '#3b82f6'
         }
       }
     }

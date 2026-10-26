@@ -2,7 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root, html.light {
+  --jarvis-base: #f8fafc;
+  --jarvis-surface: #ffffff;
+  --jarvis-elevated: #f1f5f9;
+  --jarvis-hover: #e2e8f0;
+  --jarvis-border: #e2e8f0;
+  --jarvis-border-strong: #cbd5e1;
+  --jarvis-accent: #059669;
+  --jarvis-accent-hover: #047857;
+  --jarvis-accent-glow: #10b981;
+  --jarvis-ivory: #0f172a;
+  --jarvis-sage: #334155;
+  --jarvis-muted: #64748b;
+  color-scheme: light;
+}
+
+html.dark {
   --jarvis-base: #0a1114;
   --jarvis-surface: #111f1e;
   --jarvis-elevated: #172c29;
@@ -15,11 +31,14 @@
   --jarvis-ivory: #f5f1ee;
   --jarvis-sage: #d1d7d0;
   --jarvis-muted: #8a9992;
+  color-scheme: dark;
 }
 
 body {
   color: var(--jarvis-ivory);
   background-color: var(--jarvis-base);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 ::-webkit-scrollbar {
@@ -28,14 +47,14 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a1114;
+  background: var(--jarvis-base);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1f3832;
+  background: var(--jarvis-border-strong);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2b5049;
+  background: var(--jarvis-muted);
 }

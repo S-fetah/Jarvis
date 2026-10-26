@@ -3,7 +3,7 @@
 This file records implementation progress against [the working plan](./Jarvis_Project_Implementation_Plan.md). Update it whenever a milestone, ticket, decision, or validation result changes.
 
 **Last updated:** 2026-10-26  
-**Overall state:** Phase 0, Phase 1, Phase 2, Phase 3, and Phase 4 Complete. 56/56 automated unit and security tests passing. Phase 5 (Browser Automation & Vision / Fallback) is the next active phase.
+**Overall state:** Phase 0 through Phase 4 Complete. UI Elevation & Light Mode enabled by default. Ironman OS & Browser capabilities (`send_gmail`, `browser_shortcut`, `browse_github`) fully integrated. 60/60 automated unit tests passing. Phase 5 (Playwright/CDP Browser Automation & Multimodal Screen Capture) is the next active phase.
 
 ## Milestones
 
@@ -13,7 +13,7 @@ This file records implementation progress against [the working plan](./Jarvis_Pr
 | 1 — Secure application foundation | Complete | Electron shell, secure IPC, policy engine (ADR-004), DPAPI encrypted persistence, SEC-001 through SEC-011 remediation verified (8/8 security scan checks passing). |
 | 2 — Read-only agent loop | Complete | Bounded research tools (`workspace_list`, `file_read`, `project_inspect`, `web_search`), function calling, `PromptEngine` with zero technical leakage, Dual-Selector (Style + Mode) and 3-Tier Thinking Depth. |
 | 3 — Documents and file creation | Complete | `create_pdf` vector PDF engine, `file_write_new` with traversal and accidental overwrite defense, `download_file` with 50MB stream limits, safe Explorer reveal (`system:open-path`). |
-| 4 — Coding and development workflow | Complete | Managed development server (`start_dev_server`), Process PID tracking, port detection, rolling log stream, safe process termination (`taskkill /t /f`), controlled code patcher (`file_patch`) with automatic `.bak` backups and unified diffs, direct Chrome desktop launch (`open_browser`), and active dev server UI status bar with one-click Stop. 56/56 tests passing. |
+| 4 — Coding and development workflow | Complete | Managed development server (`start_dev_server`), Process PID tracking, port detection, rolling log stream, safe process termination (`taskkill /t /f`), controlled code patcher (`file_patch`) with automatic `.bak` backups and unified diffs, direct Chrome desktop launch (`open_browser`), UI Light Mode default + Dark/Light toggle, one-click conversation & reasoning copy buttons, and Ironman browser automation (`send_gmail`, `browser_shortcut` e.g. `Ctrl+Shift+T`, `browse_github`). 60/60 tests passing. |
 | 5 — Robustness, Browser Automation & Vision | Next up | Playwright/CDP browser navigation, webpage reading & scrolling, email workflows, multimodal screen capture (`desktopCapturer`), failure recovery and prompt-injection defenses. |
 | 6 — Windows integration and packaging | Not started | Tray, settings, clean install/upgrade validation. |
 | 7 — Optional expansion | Deferred | Only after MVP acceptance tests pass. |

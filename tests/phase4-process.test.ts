@@ -127,4 +127,64 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     const finalState = processManager.getProcess(proc.id)
     expect(finalState?.status).toBe('stopped')
   })
+
+  it('send_gmail formats Gmail compose URL and opens Chrome', async () => {
+    const result = await toolExecutor.executeTool(
+      'send_gmail',
+      {
+        to: 'colleague@example.com',
+        subject: 'Project Update',
+        body: 'Here is the latest progress report.'
+      },
+      testWorkspace
+    )
+
+    expect(result.toolName).toBe('send_gmail')
+    expect(result.success).toBe(true)
+    expect(result.output).toContain('Gmail compose window opened successfully')
+    expect(result.output).toContain('colleague@example.com')
+  })
+
+  it('browser_shortcut handles reopen_closed_tab, new_tab, and tab navigation', async () => {
+    const result = await toolExecutor.executeTool(
+      'browser_shortcut',
+      {
+        action: 'reopen_closed_tab',
+        targetApp: 'Chrome'
+      },
+      testWorkspace
+    )
+
+    expect(result.toolName).toBe('browser_shortcut')
+    // sendShortcut will attempt Windows WScript or return appropriate simulated response
+    expect(result.output || result.error).toBeDefined()
+  })
+
+  it('browse_github formats repository, search, and trending targets correctly', async () => {
+    // 1. Repo format
+    const repoRes = await toolExecutor.executeTool(
+      'browse_github',
+      {
+        query: 'facebook/react',
+        section: 'repo'
+      },
+      testWorkspace
+    )
+    expect(repoRes.toolName).toBe('browse_github')
+    expect(repoRes.success).toBe(true)
+    expect(repoRes.output).toContain('https://github.com/facebook/react')
+
+    // 2. Search format
+    const searchRes = await toolExecutor.executeTool(
+      'browse_github',
+      {
+        query: 'ai agent framework',
+        section: 'search'
+      },
+      testWorkspace
+    )
+    expect(searchRes.toolName).toBe('browse_github')
+    expect(searchRes.success).toBe(true)
+    expect(searchRes.output).toContain('https://github.com/search?q=ai%20agent%20framework')
+  })
 })

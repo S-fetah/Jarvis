@@ -276,6 +276,10 @@ export class AgentOrchestrator {
       text.includes("i can't launch") ||
       text.includes("unable to launch") ||
       text.includes("cannot browse") ||
+      text.includes("cannot send") ||
+      text.includes("can't send") ||
+      text.includes("cannot reopen") ||
+      text.includes("can't reopen") ||
       text.includes("as an ai, i cannot") ||
       text.includes("as an ai model, i cannot") ||
       text.includes("i am not able to open") ||
@@ -295,7 +299,11 @@ export class AgentOrchestrator {
       userText.includes('browser') ||
       userText.includes('chrome') ||
       userText.includes('dev server') ||
-      userText.includes('run')
+      userText.includes('run') ||
+      userText.includes('gmail') ||
+      userText.includes('email') ||
+      userText.includes('tab') ||
+      userText.includes('github')
 
     return isActionRequest
   }

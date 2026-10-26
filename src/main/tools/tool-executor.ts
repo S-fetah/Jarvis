@@ -3,6 +3,7 @@ import path from 'path'
 import { PolicyEngine } from '../policy/policy-engine'
 import { ProcessManager } from '../process/process-manager'
 import { launchBrowser } from '../utils/browser'
+import { sendShortcut } from '../utils/keyboard'
 import {
   WorkspaceListSchema,
   FileReadSchema,
@@ -15,6 +16,9 @@ import {
   StartDevServerSchema,
   StopProcessSchema,
   FilePatchSchema,
+  SendGmailSchema,
+  BrowserShortcutSchema,
+  BrowseGithubSchema,
   WorkspaceListArgs,
   FileReadArgs,
   ProjectInspectArgs,
@@ -25,7 +29,10 @@ import {
   OpenBrowserArgs,
   StartDevServerArgs,
   StopProcessArgs,
-  FilePatchArgs
+  FilePatchArgs,
+  SendGmailArgs,
+  BrowserShortcutArgs,
+  BrowseGithubArgs
 } from './tool-registry'
 import { PdfGenerator } from './pdf-generator'
 
@@ -129,12 +136,24 @@ export class ToolExecutor {
           const args = FilePatchSchema.parse(rawArgs || {})
           return await this.executeFilePatch(args, workspacePath)
         }
+        case 'send_gmail': {
+          const args = SendGmailSchema.parse(rawArgs || {})
+          return await this.executeSendGmail(args)
+        }
+        case 'browser_shortcut': {
+          const args = BrowserShortcutSchema.parse(rawArgs || {})
+          return await this.executeBrowserShortcut(args)
+        }
+        case 'browse_github': {
+          const args = BrowseGithubSchema.parse(rawArgs || {})
+          return await this.executeBrowseGithub(args)
+        }
         default:
           return {
             toolName: name,
             success: false,
             output: '',
-            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch.`
+            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch, send_gmail, browser_shortcut, browse_github.`
           }
       }
     } catch (err: any) {
@@ -995,6 +1014,90 @@ export class ToolExecutor {
       toolName: 'file_patch',
       success: true,
       output: `File '${args.path}' patched successfully.${args.backup !== false ? ` Backup saved to ${args.path}.bak.` : ''}\n\nDiff preview:\n${diffPreview}`
+    }
+  }
+
+  /**
+   * Opens Gmail in Google Chrome with a pre-filled compose window.
+   */
+  private async executeSendGmail(args: SendGmailArgs): Promise<ToolExecutionResult> {
+    try {
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(args.to)}&su=${encodeURIComponent(args.subject)}&body=${encodeURIComponent(args.body)}`
+      const res = await launchBrowser(gmailUrl, 'chrome')
+      return {
+        toolName: 'send_gmail',
+        success: res.success,
+        output: `Gmail compose window opened successfully in Chrome for recipient '${args.to}' with subject '${args.subject}'.`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'send_gmail',
+        success: false,
+        output: '',
+        error: `Failed to open Gmail: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Simulates browser keyboard shortcuts on desktop (e.g. reopen closed tab Ctrl+Shift+T).
+   */
+  private async executeBrowserShortcut(args: BrowserShortcutArgs): Promise<ToolExecutionResult> {
+    try {
+      const res = await sendShortcut(args.action, args.targetApp || 'Chrome')
+      return {
+        toolName: 'browser_shortcut',
+        success: res.success,
+        output: res.message,
+        error: res.success ? undefined : res.message
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'browser_shortcut',
+        success: false,
+        output: '',
+        error: `Failed to execute shortcut: ${err.message}`
+      }
+    }
+  }
+
+  /**
+   * Navigates directly to GitHub repos, searches, or trending pages.
+   */
+  private async executeBrowseGithub(args: BrowseGithubArgs): Promise<ToolExecutionResult> {
+    try {
+      let targetUrl = 'https://github.com'
+      const query = args.query.trim()
+      const isRepoPath = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(query)
+
+      if (args.section === 'trending') {
+        targetUrl = query ? `https://github.com/trending/${encodeURIComponent(query)}` : 'https://github.com/trending'
+      } else if (isRepoPath || args.section === 'repo') {
+        const repoClean = query.replace(/^https?:\/\/github\.com\//, '')
+        if (args.section === 'issues') {
+          targetUrl = `https://github.com/${repoClean}/issues`
+        } else if (args.section === 'pulls') {
+          targetUrl = `https://github.com/${repoClean}/pulls`
+        } else {
+          targetUrl = `https://github.com/${repoClean}`
+        }
+      } else {
+        targetUrl = `https://github.com/search?q=${encodeURIComponent(query)}`
+      }
+
+      const res = await launchBrowser(targetUrl, 'chrome')
+      return {
+        toolName: 'browse_github',
+        success: res.success,
+        output: `Navigated to GitHub (${targetUrl}) in Google Chrome.`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'browse_github',
+        success: false,
+        output: '',
+        error: `Failed to browse GitHub: ${err.message}`
+      }
     }
   }
 

@@ -20,7 +20,11 @@ import {
   Square,
   ExternalLink,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Sun,
+  Moon,
+  Copy,
+  Check
 } from 'lucide-react'
 import {
   Conversation,
@@ -65,12 +69,14 @@ export default function App(): React.JSX.Element {
   const [hubOpen, setHubOpen] = useState(false)
 
   // App Settings & Models
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [settings, setSettings] = useState<JarvisSettings>({
     gatewayUrl: 'http://127.0.0.1:31415/v1',
     defaultModel: 'gemini-3.6-flash',
     lightMode: false,
     workspacePaths: ['C:\\work\\softwares\\jarvis'],
-    theme: 'dark',
+    theme: 'light',
     outputDirectory: 'C:\\work\\softwares\\jarvis\\output'
   })
   const [modelCatalog, setModelCatalog] = useState<ModelCatalog>({
@@ -83,6 +89,11 @@ export default function App(): React.JSX.Element {
   const [expandedLogsProcessId, setExpandedLogsProcessId] = useState<string | null>(null)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // Ensure HTML element class matches current theme
+  useEffect(() => {
+    document.documentElement.className = theme
+  }, [theme])
 
   // Auto-scroll chat to bottom
   const scrollToBottom = (): void => {
@@ -100,6 +111,9 @@ export default function App(): React.JSX.Element {
     // 1. Load Settings
     window.jarvisAPI.getSettings().then((s) => {
       setSettings(s)
+      const initialTheme = (s.theme === 'dark' || s.theme === 'light') ? s.theme : 'light'
+      setTheme(initialTheme)
+      document.documentElement.className = initialTheme
       if (s.talkingStyle) setTalkingStyle(s.talkingStyle)
       if (s.taskMode) setTaskMode(s.taskMode)
       if (s.thinkingDepth) setThinkingDepth(s.thinkingDepth)
@@ -325,6 +339,25 @@ export default function App(): React.JSX.Element {
     setModelCatalog(catalog)
   }
 
+  // Copy Message to Clipboard
+  const handleCopyMessage = (id: string, text: string): void => {
+    if (!text) return
+    navigator.clipboard.writeText(text)
+    setCopiedMessageId(id)
+    setTimeout(() => setCopiedMessageId(null), 2000)
+  }
+
+  // Toggle Theme (Light / Dark)
+  const handleToggleTheme = async (): Promise<void> => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light'
+    setTheme(nextTheme)
+    document.documentElement.className = nextTheme
+    if (window.jarvisAPI) {
+      const updated = await window.jarvisAPI.updateSettings({ theme: nextTheme })
+      setSettings(updated)
+    }
+  }
+
   // Resolve ADR-004 Approvals
   const handleResolveApproval = async (
     approval: ApprovalRequest,
@@ -492,6 +525,19 @@ export default function App(): React.JSX.Element {
               title="Toggle Floating 3D Owl Mascot on Desktop"
             >
               <Eye className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Theme Toggle (Light / Dark) */}
+            <button
+              onClick={handleToggleTheme}
+              className="p-1.5 rounded border border-jarvis-border bg-jarvis-elevated text-jarvis-muted hover:text-jarvis-ivory hover:border-jarvis-accent transition shadow-sm"
+              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            >
+              {theme === 'light' ? (
+                <Moon className="w-3.5 h-3.5 text-jarvis-sage" />
+              ) : (
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+              )}
             </button>
 
             {/* Settings Modal Button */}
@@ -715,15 +761,34 @@ export default function App(): React.JSX.Element {
 
                             <div className="pt-2 border-t border-jarvis-border flex items-center justify-between text-[11px] text-jarvis-muted font-mono">
                               <span className="flex items-center space-x-1.5">
-                                <Cpu className="w-3 h-3 text-jarvis-accentGlow" />
+                                <Cpu className="w-3 h-3 text-jarvis-accent" />
                                 <span>{settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel}</span>
                               </span>
-                              <span>
-                                {new Date(msg.timestamp).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
+                              <div className="flex items-center space-x-2.5">
+                                <button
+                                  onClick={() => handleCopyMessage(msg.id, msg.content)}
+                                  className="flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-jarvis-elevated border border-jarvis-border text-jarvis-muted hover:text-jarvis-ivory transition cursor-pointer text-[10px]"
+                                  title="Copy response to clipboard"
+                                >
+                                  {copiedMessageId === msg.id ? (
+                                    <>
+                                      <Check className="w-3 h-3 text-jarvis-accent" />
+                                      <span className="text-jarvis-accent font-sans font-medium">Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3" />
+                                      <span className="font-sans">Copy</span>
+                                    </>
+                                  )}
+                                </button>
+                                <span>
+                                  {new Date(msg.timestamp).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         )}

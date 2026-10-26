@@ -163,6 +163,48 @@ export const FilePatchSchema = z.object({
 
 export type FilePatchArgs = z.infer<typeof FilePatchSchema>
 
+export const SendGmailSchema = z.object({
+  to: z.string().describe('Recipient email address (e.g. "team@example.com").'),
+  subject: z.string().describe('Subject line of the email.'),
+  body: z.string().describe('Email message body text.')
+})
+
+export type SendGmailArgs = z.infer<typeof SendGmailSchema>
+
+export const BrowserShortcutSchema = z.object({
+  action: z
+    .enum([
+      'reopen_tab',
+      'close_tab',
+      'new_tab',
+      'refresh',
+      'next_tab',
+      'prev_tab',
+      'focus_address_bar'
+    ])
+    .describe('Browser shortcut action to execute (e.g. "reopen_tab" for Ctrl+Shift+T, "close_tab" for Ctrl+W).'),
+  targetApp: z
+    .string()
+    .optional()
+    .default('Chrome')
+    .describe('Target browser window (defaults to "Chrome").')
+})
+
+export type BrowserShortcutArgs = z.infer<typeof BrowserShortcutSchema>
+
+export const BrowseGithubSchema = z.object({
+  query: z
+    .string()
+    .describe('GitHub repository name (e.g. "facebook/react"), topic, or search term.'),
+  section: z
+    .enum(['repo', 'search', 'trending', 'issues', 'pulls'])
+    .optional()
+    .default('search')
+    .describe('Target GitHub view (defaults to "search").')
+})
+
+export type BrowseGithubArgs = z.infer<typeof BrowseGithubSchema>
+
 /**
  * Standard OpenAI Function Calling Tool Specification
  */
@@ -448,6 +490,89 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
           }
         },
         required: ['path', 'findTarget', 'replaceContent'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'send_gmail',
+      description:
+        'Opens Google Chrome with a pre-filled Gmail compose window ready to send an email. When the user asks to send an email or draft a message in Gmail, call this tool.',
+      parameters: {
+        type: 'object',
+        properties: {
+          to: {
+            type: 'string',
+            description: 'Recipient email address (e.g. "team@example.com").'
+          },
+          subject: {
+            type: 'string',
+            description: 'Subject line of the email.'
+          },
+          body: {
+            type: 'string',
+            description: 'Body content of the email.'
+          }
+        },
+        required: ['to', 'subject', 'body'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_shortcut',
+      description:
+        'Simulates desktop browser keyboard shortcuts. Use "reopen_tab" to reopen the last closed tab (Ctrl+Shift+T), "close_tab" for Ctrl+W, "new_tab" for Ctrl+T, "refresh" for Ctrl+R, "next_tab" for Ctrl+Tab, or "focus_address_bar" for Ctrl+L.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: [
+              'reopen_tab',
+              'close_tab',
+              'new_tab',
+              'refresh',
+              'next_tab',
+              'prev_tab',
+              'focus_address_bar'
+            ],
+            description: 'The shortcut action to execute (e.g. "reopen_tab" for Ctrl+Shift+T).'
+          },
+          targetApp: {
+            type: 'string',
+            description: 'Target browser window name (defaults to "Chrome").'
+          }
+        },
+        required: ['action'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browse_github',
+      description:
+        'Navigates directly to GitHub repositories, searches, trending projects, issues, or PRs in Google Chrome.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'GitHub repository path (e.g. "facebook/react"), user/org, or search query.'
+          },
+          section: {
+            type: 'string',
+            enum: ['repo', 'search', 'trending', 'issues', 'pulls'],
+            description: 'GitHub section to view (defaults to "search").'
+          }
+        },
+        required: ['query'],
         additionalProperties: false
       }
     }

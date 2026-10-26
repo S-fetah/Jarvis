@@ -22,28 +22,28 @@ function CodeBlock({ language, value }: CodeBlockProps): React.JSX.Element {
   }
 
   return (
-    <div className="my-3 rounded-xl overflow-hidden border border-[#1f3832] bg-[#070d0f] text-[#d1d7d0]">
-      <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#111f1e] border-b border-[#1f3832] text-xs font-mono text-[#8a9992]">
+    <div className="my-3 rounded-xl overflow-hidden border border-jarvis-border bg-jarvis-surface text-jarvis-sage shadow-sm">
+      <div className="flex items-center justify-between px-3.5 py-1.5 bg-jarvis-elevated border-b border-jarvis-border text-xs font-mono text-jarvis-muted">
         <span>{language || 'code'}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center space-x-1 text-[#8a9992] hover:text-[#f5f1ee] transition px-2 py-0.5 rounded bg-[#172c29] hover:bg-[#1e3834] border border-[#1f3832]"
+          className="flex items-center space-x-1 text-jarvis-muted hover:text-jarvis-ivory transition px-2 py-0.5 rounded bg-jarvis-surface hover:bg-jarvis-hover border border-jarvis-border"
           title="Copy code"
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5 text-[#3ba172]" />
-              <span className="text-[11px] text-[#3ba172]">Copied</span>
+              <Check className="w-3.5 h-3.5 text-jarvis-accent" />
+              <span className="text-[11px] text-jarvis-accent">Copied</span>
             </>
           ) : (
             <>
-              <Copy className="w-3.5 h-3.5 text-[#8a9992]" />
+              <Copy className="w-3.5 h-3.5 text-jarvis-muted" />
               <span className="text-[11px]">Copy</span>
             </>
           )}
         </button>
       </div>
-      <pre className="p-3.5 overflow-x-auto text-xs font-mono leading-relaxed text-[#f5f1ee]">
+      <pre className="p-3.5 overflow-x-auto text-xs font-mono leading-relaxed text-jarvis-ivory bg-jarvis-base/50">
         <code>{value}</code>
       </pre>
     </div>
@@ -56,7 +56,7 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.Element {
   return (
-    <div className="prose prose-invert max-w-none text-xs text-[#d1d7d0] leading-relaxed space-y-2">
+    <div className="max-w-none text-xs text-jarvis-sage leading-relaxed space-y-2">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -68,7 +68,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
             if (isInline) {
               return (
                 <code
-                  className="bg-[#172c29] text-[#52c48e] font-mono text-[11px] px-1.5 py-0.5 rounded border border-[#1f3832]"
+                  className="bg-jarvis-elevated text-jarvis-accent font-mono text-[11px] px-1.5 py-0.5 rounded border border-jarvis-border"
                   {...props}
                 >
                   {children}
