@@ -22,6 +22,7 @@ export default {
           accentContrast: 'var(--jarvis-accent-contrast)',
           ivory: 'var(--jarvis-ivory)',
           sage: 'var(--jarvis-sage)',
+          prose: 'var(--jarvis-prose)',
           muted: 'var(--jarvis-muted)',
           signal: 'var(--jarvis-signal)',
           signalSoft: 'var(--jarvis-signal-soft)',

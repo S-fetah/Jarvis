@@ -21,9 +21,10 @@ html.light {
   --jarvis-accent-glow: #1e6a4e;
   --jarvis-accent-soft: #d3e7dc;
   --jarvis-accent-contrast: #faf7f0;
-  --jarvis-ivory: #0b110e;
-  --jarvis-sage: #16221b;
-  --jarvis-muted: #38463e;
+  --jarvis-ivory: #121212;
+  --jarvis-sage: #212121;
+  --jarvis-prose: #212121;
+  --jarvis-muted: #424242;
   --jarvis-signal: #944b0b;
   --jarvis-signal-soft: #f3e2cf;
   --jarvis-signal-contrast: #faf7f0;
@@ -57,6 +58,7 @@ html.dark {
   --jarvis-accent-contrast: #0d1411;
   --jarvis-ivory: #f3eee3;
   --jarvis-sage: #c9d2ca;
+  --jarvis-prose: #e8e2d6;
   --jarvis-muted: #8e9c92;
   --jarvis-signal: #f0b35e;
   --jarvis-signal-soft: #3a2a17;
@@ -90,7 +92,6 @@ body {
   color: var(--jarvis-ivory);
   background-color: var(--jarvis-base);
   font-family: 'Instrument Sans Variable', 'Segoe UI Variable', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow: hidden;
 }
@@ -244,9 +245,10 @@ button:disabled {
 
 /* Markdown prose -------------------------------------------------------- */
 .prose-jarvis {
-  color: var(--jarvis-sage);
+  color: var(--jarvis-prose, var(--jarvis-sage));
   font-size: 15px;
   line-height: 1.7;
+  font-weight: 450;
 }
 
 .prose-jarvis > *:first-child {
@@ -255,6 +257,13 @@ button:disabled {
 
 .prose-jarvis > *:last-child {
   margin-bottom: 0;
+}
+
+.prose-jarvis p,
+.prose-jarvis li,
+.prose-jarvis td {
+  color: var(--jarvis-prose, var(--jarvis-sage));
+  font-weight: 450;
 }
 
 .prose-jarvis p {
