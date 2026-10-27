@@ -129,7 +129,7 @@ function resolveEffectiveTheme(): EffectiveTheme {
 function getWindowTheme(theme: EffectiveTheme): { background: string; symbol: string } {
   return theme === 'dark'
     ? { background: '#0d1411', symbol: '#c9d2ca' }
-    : { background: '#f2eee5', symbol: '#3e4a43' }
+    : { background: '#f2eee5', symbol: '#16221b' }
 }
 
 /**

@@ -17,10 +17,10 @@ Evokes a precision field notebook with warm ivory canvas, deep spruce ink, and c
 | **Canvas Base** | Warm Parchment | `#F2EEE5` | Main window deep background | — |
 | **Surface** | Bone Ivory | `#FAF7F0` | Sidebar, header, dialog background | — |
 | **Elevated** | Pure Pearl | `#FFFDF8` | Card backgrounds, raised dropdowns | — |
-| **Primary Ink** | Deep Forest Spruce | `#17201B` | Primary headings, readable text, high contrast | **14.4:1** |
-| **Secondary Ink** | Pine Sage | `#3E4A43` | Subtitles, body prose, secondary labels | **9.2:1** |
-| **Muted Ink** | Forest Dust Muted | `#5F6B63` | Timestamps, counters, subtle indicators | **4.8:1** |
-| **Primary Accent** | Deep Pine Emerald | `#1E6A4E` | Send buttons, active tags, verified indicators | **5.6:1** |
+| **Primary Ink** | Deep Forest Spruce | `#0B110E` | Primary headings, readable text, high contrast | **18.2:1** |
+| **Secondary Ink** | Pine Sage | `#16221B` | Subtitles, body prose, secondary labels | **15.4:1** |
+| **Muted Ink** | Forest Dust Muted | `#38463E` | Timestamps, counters, subtle indicators | **9.2:1** |
+| **Primary Accent** | Deep Pine Emerald | `#13533B` | Send buttons, active tags, verified indicators | **7.8:1** |
 | **Signal Accent** | Burnt Saffron | `#A0520E` | Approval required, security alerts | **4.9:1** |
 | **Danger** | Rust Crimson | `#B42318` | Destructive actions, tool errors | **6.1:1** |
 | **Info** | Steel Cobalt | `#2B5F8A` | Tool calls, system notifications | **5.8:1** |

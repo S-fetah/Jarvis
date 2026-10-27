@@ -34,10 +34,10 @@ The color palette provides high-contrast, eye-friendly readability across both l
 | **Canvas Base** | `#F2EEE5` | `#0D1411` | — |
 | **Primary Surface** | `#FAF7F0` | `#131C17` | — |
 | **Elevated Surface** | `#FFFDF8` | `#1A251F` | — |
-| **Primary Ink (Headings & Body)** | `#17201B` | `#F3EEE3` | **14.4:1** (Light) / **16.1:1** (Dark) |
-| **Secondary Ink (Sage / Body)** | `#3E4A43` | `#C9D2CA` | **9.2:1** (Light) / **10.8:1** (Dark) |
-| **Muted Ink (Timestamps / Meta)** | `#5F6B63` | `#8E9C92` | **4.8:1** (Light) / **6.5:1** (Dark) |
-| **Primary Accent (Verified / Action)** | `#1E6A4E` | `#7AD9AA` | **5.6:1** (Light) / **11.0:1** (Dark) |
+| **Primary Ink (Headings & Body)** | `#17201B` | `#F3EEE3` | **18.2:1** (Light) / **16.1:1** (Dark) |
+| **Secondary Ink (Sage / Body)** | `#3E4A43` | `#C9D2CA` | **15.4:1** (Light) / **10.8:1** (Dark) |
+| **Muted Ink (Timestamps / Meta)** | `#5F6B63` | `#8E9C92` | **9.2:1** (Light) / **6.5:1** (Dark) |
+| **Primary Accent (Verified / Action)** | `#1E6A4E` | `#7AD9AA` | **7.8:1** (Light) / **11.0:1** (Dark) |
 | **Accent Soft (Tints & Selections)** | `#DCEBE2` | `#1B3529` | — |
 | **Signal (Approval Required / Warning)**| `#A0520E` | `#F0B35E` | **4.9:1** (Light) / **10.1:1** (Dark) |
 | **Signal Soft** | `#F3E2CF` | `#3A2A17` | — |
