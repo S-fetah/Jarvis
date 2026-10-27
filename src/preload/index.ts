@@ -98,6 +98,10 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('settings:update', settings)
   },
 
+  setWindowTheme: (theme: import('../shared/types').ThemePreference): Promise<void> => {
+    return ipcRenderer.invoke('ui:set-window-theme', theme)
+  },
+
   selectWorkspaceFolder: (): Promise<string | null> => {
     return ipcRenderer.invoke('workspace:select-folder')
   },

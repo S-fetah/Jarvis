@@ -210,6 +210,7 @@ export class JarvisDatabase {
     // SEC-010: Atomic write using temporary file to prevent database corruption
     const tempPath = `${this.dbPath}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`
     try {
+      fs.mkdirSync(path.dirname(this.dbPath), { recursive: true })
       fs.writeFileSync(tempPath, buffer)
       try {
         fs.renameSync(tempPath, this.dbPath)

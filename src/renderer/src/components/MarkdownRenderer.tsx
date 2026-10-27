@@ -15,35 +15,38 @@ function CodeBlock({ language, value }: CodeBlockProps): React.JSX.Element {
     try {
       await navigator.clipboard.writeText(value)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy code:', err)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch (error) {
+      console.error('Failed to copy code:', error)
     }
   }
 
   return (
-    <div className="my-3 rounded-xl overflow-hidden border border-jarvis-border bg-jarvis-surface shadow-sm">
-      <div className="flex items-center justify-between px-3.5 py-1.5 bg-jarvis-elevated border-b border-jarvis-border text-xs font-mono text-jarvis-muted">
-        <span className="font-semibold text-jarvis-accent">{language || 'code'}</span>
+    <div className="code-block my-3 overflow-hidden rounded-lg border border-jarvis-border bg-jarvis-code">
+      <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5">
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-jarvis-codeInk/55">
+          {language || 'code'}
+        </span>
         <button
+          type="button"
           onClick={handleCopy}
-          className="flex items-center space-x-1 text-jarvis-muted hover:text-jarvis-ivory transition px-2 py-0.5 rounded bg-jarvis-surface hover:bg-jarvis-hover border border-jarvis-border"
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9.5px] text-jarvis-codeInk/60 transition hover:bg-white/10 hover:text-jarvis-codeInk"
           title="Copy code"
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5 text-jarvis-accent" />
-              <span className="text-[11px] text-jarvis-accent font-medium">Copied</span>
+              <Check className="h-3 w-3 text-jarvis-accentGlow" />
+              Copied
             </>
           ) : (
             <>
-              <Copy className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Copy</span>
+              <Copy className="h-3 w-3" />
+              Copy
             </>
           )}
         </button>
       </div>
-      <pre className="p-3.5 overflow-x-auto text-xs font-mono leading-relaxed text-jarvis-ivory bg-jarvis-elevated/40">
+      <pre className="m-0 overflow-x-auto p-3.5 font-mono text-[11.5px] leading-relaxed text-jarvis-codeInk">
         <code>{value}</code>
       </pre>
     </div>
@@ -56,7 +59,7 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.Element {
   return (
-    <div className="max-w-none text-xs text-jarvis-sage leading-relaxed space-y-2">
+    <div className="max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -67,10 +70,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
 
             if (isInline) {
               return (
-                <code
-                  className="bg-jarvis-elevated text-jarvis-accent font-mono text-[11px] px-1.5 py-0.5 rounded border border-jarvis-border"
-                  {...props}
-                >
+                <code className={className} {...props}>
                   {children}
                 </code>
               )
@@ -82,8 +82,8 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
             return (
               <a
                 href={href}
-                onClick={(e) => {
-                  e.preventDefault()
+                onClick={(event) => {
+                  event.preventDefault()
                   if (!href) return
                   const isFile =
                     href.startsWith('file://') ||
@@ -99,69 +99,18 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
                     window.jarvisAPI.openExternalUrl(href)
                   }
                 }}
-                className="text-jarvis-accent hover:text-jarvis-accentGlow underline underline-offset-2 transition font-medium cursor-pointer"
-                title={href?.endsWith('.pdf') ? 'Click to open PDF' : 'Click to open'}
+                title={href?.endsWith('.pdf') ? 'Open PDF' : 'Open link'}
               >
                 {children}
               </a>
             )
           },
-          p({ children }) {
-            return <p className="mb-2 last:mb-0 leading-relaxed text-jarvis-sage">{children}</p>
-          },
-          strong({ children }) {
-            return <strong className="font-semibold text-jarvis-ivory">{children}</strong>
-          },
-          em({ children }) {
-            return <em className="italic text-jarvis-sage">{children}</em>
-          },
-          ul({ children }) {
-            return <ul className="list-disc pl-5 my-2 space-y-1 text-jarvis-sage">{children}</ul>
-          },
-          ol({ children }) {
-            return <ol className="list-decimal pl-5 my-2 space-y-1 text-jarvis-sage">{children}</ol>
-          },
-          li({ children }) {
-            return <li className="text-jarvis-sage text-xs leading-relaxed">{children}</li>
-          },
-          h1({ children }) {
-            return (
-              <h1 className="text-base font-bold text-jarvis-ivory mt-3 mb-2 pb-1 border-b border-jarvis-border">
-                {children}
-              </h1>
-            )
-          },
-          h2({ children }) {
-            return <h2 className="text-sm font-semibold text-jarvis-ivory mt-2.5 mb-1.5">{children}</h2>
-          },
-          h3({ children }) {
-            return <h3 className="text-xs font-semibold text-jarvis-ivory mt-2 mb-1">{children}</h3>
-          },
-          blockquote({ children }) {
-            return (
-              <blockquote className="border-l-4 border-jarvis-accent pl-3 py-1.5 my-2 text-jarvis-muted italic bg-jarvis-elevated/60 rounded-r">
-                {children}
-              </blockquote>
-            )
-          },
           table({ children }) {
             return (
-              <div className="overflow-x-auto my-2.5">
-                <table className="min-w-full divide-y divide-jarvis-border border border-jarvis-border text-xs">
-                  {children}
-                </table>
+              <div className="my-3 overflow-x-auto">
+                <table>{children}</table>
               </div>
             )
-          },
-          th({ children }) {
-            return (
-              <th className="px-3 py-1.5 bg-jarvis-elevated text-left font-semibold text-jarvis-ivory">
-                {children}
-              </th>
-            )
-          },
-          td({ children }) {
-            return <td className="px-3 py-1 border-t border-jarvis-border text-jarvis-sage">{children}</td>
           }
         }}
       >

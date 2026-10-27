@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, nativeTheme } from 'electron'
 import path, { join } from 'path'
 import fs from 'fs'
 import { spawn } from 'child_process'
@@ -55,7 +55,7 @@ const settings: JarvisSettings = {
   mascotEnabled: true,
   reduceMotion: false,
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
-  theme: 'light',
+  theme: 'system',
   outputDirectory: 'C:\\work\\softwares\\jarvis\\output',
   talkingStyle: 'balanced',
   taskMode: 'chat',
@@ -117,9 +117,46 @@ function getPreloadPath(): string {
       : join(__dirname, '../preload/index.js')
 }
 
+type EffectiveTheme = 'light' | 'dark'
+
+function resolveEffectiveTheme(): EffectiveTheme {
+  if (settings.theme === 'system') {
+    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  }
+  return settings.theme
+}
+
+function getWindowTheme(theme: EffectiveTheme): { background: string; symbol: string } {
+  return theme === 'dark'
+    ? { background: '#0d1411', symbol: '#c9d2ca' }
+    : { background: '#f2eee5', symbol: '#3e4a43' }
+}
+
+/**
+ * Keeps the native window chrome (overlay controls, frame background and
+ * quick-chat shell) in step with the renderer theme.
+ */
+function applyWindowTheme(theme: EffectiveTheme = resolveEffectiveTheme()): void {
+  const colors = getWindowTheme(theme)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.setBackgroundColor(colors.background)
+      mainWindow.setTitleBarOverlay({
+        color: colors.background,
+        symbolColor: colors.symbol,
+        height: 44
+      })
+    } catch (err) {
+      console.warn('[Jarvis Main] Failed to apply window theme:', err)
+    }
+  }
+  mascotManager?.setQuickChatTheme(theme)
+}
+
 function createWindow(): void {
   const preloadPath = getPreloadPath()
   console.log('[Jarvis Main] Preload path resolved:', preloadPath)
+  const windowTheme = getWindowTheme(resolveEffectiveTheme())
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -129,7 +166,13 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: 'Jarvis — Personal AI Assistant',
-    backgroundColor: '#0a1114',
+    backgroundColor: windowTheme.background,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: windowTheme.background,
+      symbolColor: windowTheme.symbol,
+      height: 44
+    },
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -314,6 +357,11 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers()
   createWindow()
+  applyWindowTheme()
+
+  nativeTheme.on('updated', () => {
+    if (settings.theme === 'system') applyWindowTheme()
+  })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -890,6 +938,13 @@ function registerIpcHandlers(): void {
   })
 
   // --- Settings (SEC-003: Plaintext Redaction & Encryption) ---
+  ipcMain.handle('ui:set-window-theme', async (event, theme: 'light' | 'dark' | 'system') => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    if (theme !== 'light' && theme !== 'dark' && theme !== 'system') return
+    const effective = theme === 'system' ? (nativeTheme.shouldUseDarkColors ? 'dark' : 'light') : theme
+    applyWindowTheme(effective)
+  })
+
   ipcMain.handle('settings:get', async (event) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
     const { apiKey, ...safeSettings } = settings
@@ -961,6 +1016,7 @@ function registerIpcHandlers(): void {
     if (newSettings.theme !== undefined) {
       settings.theme = newSettings.theme
       db.setSetting('theme', newSettings.theme)
+      applyWindowTheme()
     }
 
     modelAdapter.updateConfig({

@@ -54,6 +54,7 @@ export class PdfGenerator {
         })
 
         win.destroy()
+        fs.mkdirSync(path.dirname(outputPath), { recursive: true })
         fs.writeFileSync(outputPath, pdfBuffer)
 
         const stat = fs.statSync(outputPath)
@@ -65,6 +66,7 @@ export class PdfGenerator {
 
     // Direct standard PDF-1.4 writer (works in headless test runners and server environments)
     const fallbackBuffer = this.buildDirectPdf(title, content, author, sources)
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true })
     fs.writeFileSync(outputPath, fallbackBuffer)
 
     const stat = fs.statSync(outputPath)

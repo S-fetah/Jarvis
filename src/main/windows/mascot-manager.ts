@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, shell } from 'electron'
+import { BrowserWindow, nativeTheme, screen, shell } from 'electron'
 import { join } from 'path'
 import { JarvisDatabase } from '../storage/database'
 import { MascotState, MascotPosition } from '../../shared/types'
@@ -114,20 +114,19 @@ export class MascotManager {
     return this.mascotWindow
   }
 
-  public createQuickChatWindow(): BrowserWindow {
-    if (this.quickChatWindow && !this.quickChatWindow.isDestroyed()) {
+  public createQuickChatWindow(): BrowserWindow {    if (this.quickChatWindow && !this.quickChatWindow.isDestroyed()) {
       return this.quickChatWindow
     }
 
     this.quickChatWindow = new BrowserWindow({
-      width: 380,
-      height: 520,
+      width: 400,
+      height: 560,
       frame: false,
       alwaysOnTop: true,
       resizable: false,
       skipTaskbar: true,
       show: false,
-      backgroundColor: '#0a1114',
+      backgroundColor: this.resolveQuickChatBackground(),
       webPreferences: {
         preload: this.preloadPath,
         contextIsolation: true,
@@ -326,6 +325,18 @@ export class MascotManager {
 
   public getQuickChatWindow(): BrowserWindow | null {
     return this.quickChatWindow
+  }
+
+  private resolveQuickChatBackground(): string {
+    const saved = this.database.getSetting('theme')
+    const isDark =
+      saved === 'dark' || (saved !== 'light' && nativeTheme.shouldUseDarkColors)
+    return isDark ? '#0d1411' : '#f2eee5'
+  }
+
+  public setQuickChatTheme(theme: 'light' | 'dark'): void {
+    if (!this.quickChatWindow || this.quickChatWindow.isDestroyed()) return
+    this.quickChatWindow.setBackgroundColor(theme === 'dark' ? '#0d1411' : '#f2eee5')
   }
 
   public getCursorOffsetFromMascot(): { nx: number; ny: number } {
