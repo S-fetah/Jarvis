@@ -108,6 +108,7 @@ export interface ManagedProcess {
 export type TalkingStyle = 'direct' | 'balanced' | 'detailed'
 export type TaskMode = 'chat' | 'debug' | 'build' | 'plan'
 export type ThinkingDepth = 'quick' | 'standard' | 'deep'
+export type ThemePreference = 'dark' | 'light' | 'system'
 
 export interface JarvisSettings {
   gatewayUrl: string
@@ -118,7 +119,7 @@ export interface JarvisSettings {
   mascotEnabled?: boolean
   reduceMotion?: boolean
   workspacePaths: string[]
-  theme: 'dark' | 'light' | 'system'
+  theme: ThemePreference
   outputDirectory: string
   talkingStyle?: TalkingStyle
   taskMode?: TaskMode
@@ -185,6 +186,7 @@ export interface JarvisAPI {
   getSettings: () => Promise<JarvisSettings>
   updateSettings: (settings: Partial<JarvisSettings>) => Promise<JarvisSettings>
   selectWorkspaceFolder: () => Promise<string | null>
+  setWindowTheme?: (theme: ThemePreference) => Promise<void>
 
   // System & External Links
   openExternalUrl: (url: string) => Promise<void>

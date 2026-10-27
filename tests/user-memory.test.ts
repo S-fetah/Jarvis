@@ -15,6 +15,8 @@ describe('User Memory & Preferences Store (USER.md)', () => {
     if (!fs.existsSync(testWs)) {
       fs.mkdirSync(testWs, { recursive: true })
     }
+    // Keep each test isolated from any USER.md left behind by another suite.
+    fs.rmSync(path.join(testWs, 'USER.md'), { force: true })
   })
 
   afterEach(() => {

@@ -1,12 +1,52 @@
 import React, { useState } from 'react'
-import { X, Key, Globe, Folder, Check, ShieldCheck } from 'lucide-react'
-import { JarvisSettings } from '../../../shared/types'
+import {
+  Check,
+  Eye,
+  EyeOff,
+  FolderOpen,
+  Globe2,
+  KeyRound,
+  Monitor,
+  Moon,
+  Settings2,
+  ShieldCheck,
+  Sun
+} from 'lucide-react'
+import type { JarvisSettings, ThemePreference } from '../../../shared/types'
+import { cn } from '../lib/cn'
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogTitle, Field, Switch } from './ui'
 
 interface SettingsModalProps {
   settings: JarvisSettings
   isOpen: boolean
   onClose: () => void
   onSave: (updated: Partial<JarvisSettings>) => Promise<void>
+}
+
+const themeOptions: Array<{ value: ThemePreference; label: string; icon: React.ElementType }> = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor }
+]
+
+function Section({
+  title,
+  description,
+  children
+}: {
+  title: string
+  description: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <section className="grid gap-3 sm:grid-cols-[140px_1fr] sm:gap-5">
+      <div>
+        <h3 className="text-[12px] font-semibold text-jarvis-ivory">{title}</h3>
+        <p className="mt-1 text-[10.5px] leading-relaxed text-jarvis-muted">{description}</p>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
+  )
 }
 
 export function SettingsModal({
@@ -19,182 +59,218 @@ export function SettingsModal({
   const [apiKey, setApiKey] = useState('')
   const [mascotEnabled, setMascotEnabled] = useState(settings.mascotEnabled !== false)
   const [reduceMotion, setReduceMotion] = useState(settings.reduceMotion === true)
+  const [theme, setTheme] = useState<ThemePreference>(settings.theme || 'system')
   const [showKey, setShowKey] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
 
   if (!isOpen) return null
 
-  const handleSave = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault()
+  const handleSave = async (event: React.FormEvent): Promise<void> => {
+    event.preventDefault()
     setIsSaving(true)
     try {
       await onSave({
         gatewayUrl,
         ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
         mascotEnabled,
-        reduceMotion
+        reduceMotion,
+        theme
       })
       setSavedSuccess(true)
-      setTimeout(() => {
+      window.setTimeout(() => {
         setSavedSuccess(false)
         onClose()
-      }, 800)
+      }, 700)
     } finally {
       setIsSaving(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-jarvis-surface border border-jarvis-borderStrong rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between pb-3 border-b border-jarvis-border">
-          <div className="flex items-center space-x-2">
-            <div className="p-1.5 rounded-lg bg-jarvis-accent/20 text-jarvis-accentGlow">
-              <Key className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-jarvis-ivory">Gateway & Model Settings</h2>
-              <p className="text-[11px] text-jarvis-muted">FreeLLMAPI & Local Provider Configuration</p>
-            </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent size="lg" className="max-h-[88vh]">
+        <div className="flex items-start gap-3 border-b border-jarvis-border px-5 py-4 pr-12">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-jarvis-accent/20 bg-jarvis-accentSoft text-jarvis-accent">
+            <Settings2 className="h-[18px] w-[18px]" />
+          </span>
+          <div>
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Gateway, appearance, workspace, and companion preferences. Changes are stored locally.
+            </DialogDescription>
           </div>
-          <button
-            onClick={onClose}
-            className="text-jarvis-muted hover:text-jarvis-ivory transition p-1 rounded-md hover:bg-jarvis-hover"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-3.5 text-xs">
-          {/* Gateway Endpoint */}
-          <div>
-            <label className="block text-[11px] font-semibold text-jarvis-muted uppercase tracking-wider mb-1">
-              Gateway URL
-            </label>
-            <div className="relative">
-              <Globe className="w-3.5 h-3.5 absolute left-3 top-3 text-jarvis-muted" />
-              <input
-                type="text"
+        <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+            <Section
+              title="Gateway"
+              description="The local FreeLLMAPI endpoint Jarvis uses for model requests."
+            >
+              <Field
+                label="Gateway URL"
                 value={gatewayUrl}
-                onChange={(e) => setGatewayUrl(e.target.value)}
+                onChange={(event) => setGatewayUrl(event.target.value)}
                 placeholder="http://127.0.0.1:31415/v1"
-                className="w-full bg-jarvis-base border border-jarvis-border rounded-lg pl-9 pr-3 py-2 text-jarvis-ivory placeholder-jarvis-muted focus:outline-none focus:border-jarvis-accent font-mono text-xs"
+                icon={<Globe2 className="h-3.5 w-3.5" />}
+                className="font-mono text-[11.5px]"
+                hint="The standard FreeLLMAPI gateway listens on port 31415."
               />
-            </div>
-            <p className="text-[10px] text-jarvis-muted mt-1">
-              Standard local FreeLLMAPI gateway runs on port 31415.
-            </p>
-          </div>
 
-          {/* Unified API Key */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-jarvis-muted uppercase tracking-wider">
-                FreeLLMAPI Unified Key
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowKey(!showKey)}
-                className="text-[10px] text-jarvis-accentGlow hover:underline font-medium"
-              >
-                {showKey ? 'Hide' : 'Reveal'}
-              </button>
-            </div>
-            <div className="relative">
-              <Key className="w-3.5 h-3.5 absolute left-3 top-3 text-jarvis-muted" />
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={
-                  settings.hasApiKey
-                    ? '•••••••• (Encrypted key saved — enter new key to replace)'
-                    : 'Leave blank for auto-detected local key'
-                }
-                className="w-full bg-jarvis-base border border-jarvis-border rounded-lg pl-9 pr-3 py-2 text-jarvis-ivory placeholder-jarvis-muted focus:outline-none focus:border-jarvis-accent font-mono text-xs"
-              />
-            </div>
-            {settings.hasApiKey ? (
-              <div className="flex items-center space-x-1.5 mt-1.5 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-2 rounded">
-                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span>
-                  Encrypted API key securely saved in local hardware-backed storage.
-                </span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xs font-semibold uppercase tracking-[0.12em] text-jarvis-muted">
+                    FreeLLMAPI unified key
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((value) => !value)}
+                    className="inline-flex items-center gap-1 text-[10px] font-medium text-jarvis-accent hover:underline"
+                  >
+                    {showKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    {showKey ? 'Hide' : 'Reveal'}
+                  </button>
+                </div>
+                <Field
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  placeholder={
+                    settings.hasApiKey
+                      ? '•••••••• — encrypted key saved; enter a new key to replace'
+                      : 'Leave blank to use the auto-detected local key'
+                  }
+                  icon={<KeyRound className="h-3.5 w-3.5" />}
+                  className="font-mono text-[11.5px]"
+                  aria-label="FreeLLMAPI unified key"
+                />
+                <div
+                  className={cn(
+                    'flex items-start gap-2 rounded-md border px-2.5 py-2 text-[10.5px] leading-snug',
+                    settings.hasApiKey
+                      ? 'border-jarvis-accent/20 bg-jarvis-accentSoft/60 text-jarvis-accent'
+                      : 'border-jarvis-border bg-jarvis-base text-jarvis-muted'
+                  )}
+                >
+                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {settings.hasApiKey
+                      ? 'Encrypted at rest with Windows hardware-backed storage. The key is never exposed to the renderer.'
+                      : 'Jarvis will auto-detect the FreeLLMAPI desktop key from the local database if this is blank.'}
+                  </span>
+                </div>
               </div>
-            ) : (
-              <div className="flex items-center space-x-1.5 mt-1.5 text-[11px] text-jarvis-accent bg-jarvis-elevated border border-jarvis-border p-2 rounded">
-                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>
-                  Jarvis auto-detects your FreeLLMAPI desktop key from local database if left blank.
-                </span>
+            </Section>
+
+            <div className="h-px bg-jarvis-border" />
+
+            <Section
+              title="Appearance"
+              description="Choose a surface. System follows the Windows light or dark preference."
+            >
+              <div className="grid grid-cols-3 gap-1 rounded-md border border-jarvis-border bg-jarvis-base p-1">
+                {themeOptions.map((option) => {
+                  const Icon = option.icon
+                  const active = theme === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setTheme(option.value)}
+                      aria-pressed={active}
+                      className={cn(
+                        'flex h-9 items-center justify-center gap-1.5 rounded text-[11px] font-medium transition',
+                        active
+                          ? 'bg-jarvis-elevated text-jarvis-ivory shadow-hairline'
+                          : 'text-jarvis-muted hover:text-jarvis-sage'
+                      )}
+                    >
+                      <Icon className={cn('h-3.5 w-3.5', active && 'text-jarvis-accent')} />
+                      {option.label}
+                    </button>
+                  )
+                })}
               </div>
-            )}
-          </div>
+              <p className="text-[10.5px] leading-relaxed text-jarvis-muted">
+                The interface, native titlebar, and quick-chat shell update together.
+              </p>
+            </Section>
 
-          {/* Workspace Path Preview */}
-          <div>
-            <label className="block text-[11px] font-semibold text-jarvis-muted uppercase tracking-wider mb-1">
-              Active Workspace
-            </label>
-            <div className="flex items-center space-x-2 bg-jarvis-base border border-jarvis-border rounded-lg px-3 py-2 text-jarvis-sage font-mono text-[11px]">
-              <Folder className="w-3.5 h-3.5 text-jarvis-accentGlow flex-shrink-0" />
-              <span className="truncate">{settings.workspacePaths[0] || 'Default'}</span>
-            </div>
-          </div>
+            <div className="h-px bg-jarvis-border" />
 
-          {/* Mascot Companion Preferences */}
-          <div className="pt-2 border-t border-jarvis-border space-y-2">
-            <label className="block text-[11px] font-semibold text-jarvis-muted uppercase tracking-wider">
-              3D Mascot Desktop Companion
-            </label>
-            <div className="space-y-1.5">
-              <label className="flex items-center space-x-2 text-jarvis-sage cursor-pointer">
-                <input
-                  type="checkbox"
+            <Section
+              title="Workspace"
+              description="The directory Jarvis reads and writes inside. Change it from the sidebar."
+            >
+              <div className="flex items-center gap-2 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
+                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-jarvis-accent" />
+                <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-jarvis-sage">
+                  {settings.workspacePaths[0] || 'Default workspace'}
+                </span>
+                <Badge variant="outline">active</Badge>
+              </div>
+            </Section>
+
+            <div className="h-px bg-jarvis-border" />
+
+            <Section
+              title="Companion"
+              description="The floating owl lives above your desktop and opens quick chat on click."
+            >
+              <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
+                <div>
+                  <p className="text-[11.5px] font-medium text-jarvis-ivory">Floating 3D owl</p>
+                  <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
+                    Show the companion window on the desktop.
+                  </p>
+                </div>
+                <Switch
                   checked={mascotEnabled}
-                  onChange={(e) => setMascotEnabled(e.target.checked)}
-                  className="rounded bg-jarvis-base border-jarvis-border text-jarvis-accent focus:ring-0"
+                  onCheckedChange={setMascotEnabled}
+                  label="Enable floating 3D owl companion"
                 />
-                <span>Enable Floating 3D Owl Desktop Companion</span>
-              </label>
-              <label className="flex items-center space-x-2 text-jarvis-muted cursor-pointer text-[11px]">
-                <input
-                  type="checkbox"
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
+                <div>
+                  <p className="text-[11.5px] font-medium text-jarvis-ivory">Reduce motion</p>
+                  <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
+                    Keep the owl calm with low-frequency animation.
+                  </p>
+                </div>
+                <Switch
                   checked={reduceMotion}
-                  onChange={(e) => setReduceMotion(e.target.checked)}
-                  className="rounded bg-jarvis-base border-jarvis-border text-jarvis-accent focus:ring-0"
+                  onCheckedChange={setReduceMotion}
+                  label="Reduce mascot motion"
                 />
-                <span>Reduce Motion (Minimal low-frequency animation)</span>
-              </label>
-            </div>
+              </div>
+            </Section>
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-jarvis-border">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 rounded-lg border border-jarvis-border bg-jarvis-elevated text-jarvis-sage hover:bg-jarvis-hover hover:text-jarvis-ivory transition text-xs"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-4 py-1.5 rounded-lg bg-jarvis-accent hover:bg-jarvis-accentHover text-white font-bold flex items-center space-x-1.5 transition text-xs shadow-md"
-            >
-              {savedSuccess ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-white" />
-                  <span>Saved!</span>
-                </>
-              ) : (
-                <span>Save Settings</span>
-              )}
-            </button>
+          <div className="flex items-center justify-between gap-3 border-t border-jarvis-border bg-jarvis-base px-5 py-3">
+            <p className="hidden text-[10px] text-jarvis-muted sm:block">
+              Local settings · no cloud sync
+            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" size="md" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="md" disabled={isSaving} className="min-w-[124px]">
+                {savedSuccess ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    Saved
+                  </>
+                ) : isSaving ? (
+                  'Saving…'
+                ) : (
+                  'Save settings'
+                )}
+              </Button>
+            </div>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
