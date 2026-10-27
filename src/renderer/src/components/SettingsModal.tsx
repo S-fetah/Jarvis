@@ -3,6 +3,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  FileText,
   FolderOpen,
   Globe2,
   KeyRound,
@@ -60,11 +61,32 @@ export function SettingsModal({
   const [mascotEnabled, setMascotEnabled] = useState(settings.mascotEnabled !== false)
   const [reduceMotion, setReduceMotion] = useState(settings.reduceMotion === true)
   const [theme, setTheme] = useState<ThemePreference>(settings.theme || 'system')
+  const [launchOnLogin, setLaunchOnLogin] = useState(settings.launchOnLogin === true)
+  const [minimizeToTray, setMinimizeToTray] = useState(settings.minimizeToTray !== false)
+  const [exportingDiag, setExportingDiag] = useState(false)
+  const [diagExported, setDiagExported] = useState(false)
   const [showKey, setShowKey] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
 
   if (!isOpen) return null
+
+  const handleExportDiagnostics = async (): Promise<void> => {
+    if (!window.jarvisAPI?.exportDiagnostics) return
+    setExportingDiag(true)
+    try {
+      const res = await window.jarvisAPI.exportDiagnostics()
+      if (res.success) {
+        setDiagExported(true)
+        window.setTimeout(() => setDiagExported(false), 2500)
+        if (window.jarvisAPI?.openPath) {
+          window.jarvisAPI.openPath(res.filePath)
+        }
+      }
+    } finally {
+      setExportingDiag(false)
+    }
+  }
 
   const handleSave = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault()
@@ -75,7 +97,9 @@ export function SettingsModal({
         ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
         mascotEnabled,
         reduceMotion,
-        theme
+        theme,
+        launchOnLogin,
+        minimizeToTray
       })
       setSavedSuccess(true)
       window.setTimeout(() => {
@@ -208,11 +232,65 @@ export function SettingsModal({
                 <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-jarvis-sage">
                   {settings.workspacePaths[0] || 'Default workspace'}
                 </span>
-                <Badge variant="outline">active</Badge>
+                <Badge variant="neutral">active</Badge>
               </div>
             </Section>
 
             <div className="h-px bg-jarvis-border" />
+
+            <div className="h-px bg-jarvis-border" />
+
+            <Section
+              title="System and Tray"
+              description="Windows integration, startup auto-launch, and diagnostic reporting."
+            >
+              <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
+                <div>
+                  <p className="text-[11.5px] font-medium text-jarvis-ivory">Launch on startup</p>
+                  <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
+                    Automatically start Jarvis when logging into Windows.
+                  </p>
+                </div>
+                <Switch
+                  checked={launchOnLogin}
+                  onCheckedChange={setLaunchOnLogin}
+                  label="Start Jarvis when Windows boots"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
+                <div>
+                  <p className="text-[11.5px] font-medium text-jarvis-ivory">Minimize to tray</p>
+                  <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
+                    Keep Jarvis running in the background when the main window is closed.
+                  </p>
+                </div>
+                <Switch
+                  checked={minimizeToTray}
+                  onCheckedChange={setMinimizeToTray}
+                  label="Minimize to system tray on close"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
+                <div>
+                  <p className="text-[11.5px] font-medium text-jarvis-ivory">Support diagnostics</p>
+                  <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
+                    Export a sanitized diagnostic bundle (JSON/Markdown) for troubleshooting.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleExportDiagnostics}
+                  className="shrink-0 gap-1"
+                >
+                  <FileText className="h-3 w-3" />
+                  {exportingDiag ? 'Exporting...' : diagExported ? 'Exported!' : 'Export bundle'}
+                </Button>
+              </div>
+            </Section>
 
             <Section
               title="Companion"

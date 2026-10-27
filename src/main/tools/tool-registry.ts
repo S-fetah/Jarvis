@@ -327,6 +327,20 @@ export const ManageUserMemorySchema = z.object({
 
 export type ManageUserMemoryArgs = z.infer<typeof ManageUserMemorySchema>
 
+export const ScreenCaptureSchema = z.object({
+  target: z
+    .enum(['primary_display', 'active_window'])
+    .optional()
+    .default('primary_display')
+    .describe('Capture target: "primary_display" for full desktop screen, or "active_window". Defaults to "primary_display".'),
+  filename: z
+    .string()
+    .optional()
+    .describe('Optional custom PNG filename (e.g. "my_screen.png"). If omitted, an ISO timestamped filename will be generated automatically.')
+})
+
+export type ScreenCaptureArgs = z.infer<typeof ScreenCaptureSchema>
+
 /**
  * Standard OpenAI Function Calling Tool Specification
  */
@@ -340,6 +354,29 @@ export interface ToolDefinition {
 }
 
 export const JARVIS_TOOLS: ToolDefinition[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'screen_capture',
+      description:
+        'Captures a high-resolution screenshot of the user\'s desktop display or active window and saves it to the output folder. Use this for visual verification, inspecting rendered pages, diagnosing UI layouts, or multimodal context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: {
+            type: 'string',
+            enum: ['primary_display', 'active_window'],
+            description: 'Capture target: "primary_display" for desktop display, or "active_window". Defaults to "primary_display".'
+          },
+          filename: {
+            type: 'string',
+            description: 'Optional custom PNG filename (e.g. "audit_view.png").'
+          }
+        },
+        additionalProperties: false
+      }
+    }
+  },
   {
     type: 'function',
     function: {

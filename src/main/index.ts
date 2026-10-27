@@ -11,6 +11,8 @@ import { ToolExecutor } from './tools/tool-executor'
 import { AgentOrchestrator } from './agent/agent-orchestrator'
 import { ProcessManager } from './process/process-manager'
 import { launchBrowser } from './utils/browser'
+import { TrayManager } from './windows/tray-manager'
+import { exportDiagnosticBundle } from './utils/diagnostics'
 import {
   TaskState,
   TimelineEvent,
@@ -21,6 +23,7 @@ import {
 
 let mainWindow: BrowserWindow | null = null
 let mascotManager: MascotManager | null = null
+let trayManager: TrayManager | null = null
 let isQuitting = false
 const processManager = new ProcessManager()
 
@@ -54,6 +57,8 @@ const settings: JarvisSettings = {
   lightMode: false,
   mascotEnabled: true,
   reduceMotion: false,
+  launchOnLogin: false,
+  minimizeToTray: true,
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
   theme: 'system',
   outputDirectory: 'C:\\work\\softwares\\jarvis\\output',
@@ -217,9 +222,12 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  trayManager?.setMainWindow(mainWindow)
+
   mainWindow.on('close', (event) => {
-    // If mascot is enabled and app is not terminating, hide instead of destroy
-    if (!isQuitting && settings.mascotEnabled) {
+    // If minimize to tray is enabled or mascot is active, hide window instead of exiting unless isQuitting
+    const shouldMinimize = settings.minimizeToTray !== false || settings.mascotEnabled
+    if (!isQuitting && shouldMinimize) {
       event.preventDefault()
       mainWindow?.hide()
     }
@@ -317,6 +325,35 @@ app.whenReady().then(async () => {
       settings.theme = savedTheme
     }
 
+    const savedLaunch = db.getSetting('launchOnLogin')
+    if (savedLaunch !== null) {
+      settings.launchOnLogin = savedLaunch === 'true'
+    } else {
+      try {
+        settings.launchOnLogin = app.getLoginItemSettings().openAtLogin
+      } catch {
+        settings.launchOnLogin = false
+      }
+    }
+
+    const savedMinToTray = db.getSetting('minimizeToTray')
+    if (savedMinToTray !== null) {
+      settings.minimizeToTray = savedMinToTray === 'true'
+    } else {
+      settings.minimizeToTray = true
+    }
+
+    const savedOutputDir = db.getSetting('outputDirectory')
+    if (savedOutputDir) settings.outputDirectory = savedOutputDir
+
+    const savedWorkspaces = db.getSetting('workspacePaths')
+    if (savedWorkspaces) {
+      try {
+        const parsed = JSON.parse(savedWorkspaces)
+        if (Array.isArray(parsed) && parsed.length > 0) settings.workspacePaths = parsed
+      } catch {}
+    }
+
     modelAdapter.updateConfig({
       baseUrl: settings.gatewayUrl,
       apiKey: settings.apiKey,
@@ -355,6 +392,21 @@ app.whenReady().then(async () => {
     mascotManager.init()
   }
 
+  // Phase 6: Initialize Windows System Tray & Shell Integration
+  trayManager = new TrayManager(
+    mainWindow,
+    mascotManager,
+    async () => {
+      const res = await exportDiagnosticBundle(settings, db, settings.outputDirectory)
+      if (res.success && res.filePath) {
+        shell.showItemInFolder(res.filePath)
+        return res.filePath
+      }
+      return null
+    }
+  )
+  trayManager.init()
+
   registerIpcHandlers()
   createWindow()
   applyWindowTheme()
@@ -369,8 +421,9 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
-  // If mascot is enabled and floating, do not quit app on mainWindow close
-  if (!settings.mascotEnabled && process.platform !== 'darwin') {
+  // If mascot or tray is active, keep app running
+  const keepAlive = settings.minimizeToTray !== false || settings.mascotEnabled
+  if (!keepAlive && process.platform !== 'darwin') {
     app.quit()
   }
 })
@@ -1018,6 +1071,31 @@ function registerIpcHandlers(): void {
       db.setSetting('theme', newSettings.theme)
       applyWindowTheme()
     }
+    if (newSettings.launchOnLogin !== undefined) {
+      settings.launchOnLogin = newSettings.launchOnLogin
+      db.setSetting('launchOnLogin', String(newSettings.launchOnLogin))
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: newSettings.launchOnLogin,
+          openAsHidden: true,
+          path: process.execPath
+        })
+      } catch (err) {
+        console.error('[Jarvis Main] Failed to update login item settings:', err)
+      }
+    }
+    if (newSettings.minimizeToTray !== undefined) {
+      settings.minimizeToTray = newSettings.minimizeToTray
+      db.setSetting('minimizeToTray', String(newSettings.minimizeToTray))
+    }
+    if (newSettings.outputDirectory !== undefined) {
+      settings.outputDirectory = newSettings.outputDirectory
+      db.setSetting('outputDirectory', newSettings.outputDirectory)
+    }
+    if (newSettings.workspacePaths !== undefined) {
+      settings.workspacePaths = newSettings.workspacePaths
+      db.setSetting('workspacePaths', JSON.stringify(newSettings.workspacePaths))
+    }
 
     modelAdapter.updateConfig({
       baseUrl: settings.gatewayUrl,
@@ -1068,6 +1146,38 @@ function registerIpcHandlers(): void {
   ipcMain.handle('system:open-freellm-dashboard', async (event) => {
     if (!isAuthorizedSender(event.sender)) return
     await shell.openExternal('http://127.0.0.1:31415')
+  })
+
+  // --- Phase 6: System Auto-Start & Support Diagnostics ---
+  ipcMain.handle('system:export-diagnostics', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return exportDiagnosticBundle(settings, db, settings.outputDirectory)
+  })
+
+  ipcMain.handle('system:get-autostart', async (event) => {
+    if (!isAuthorizedSender(event.sender)) return false
+    try {
+      return app.getLoginItemSettings().openAtLogin
+    } catch {
+      return false
+    }
+  })
+
+  ipcMain.handle('system:set-autostart', async (event, enabled: boolean) => {
+    if (!isAuthorizedSender(event.sender)) return false
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: enabled,
+        openAsHidden: true,
+        path: process.execPath
+      })
+      settings.launchOnLogin = enabled
+      db.setSetting('launchOnLogin', String(enabled))
+      return true
+    } catch (err) {
+      console.error('[Jarvis Main] Failed to set auto-start:', err)
+      return false
+    }
   })
 
   // Safe file / folder opening restricted to workspaces and output directory (SEC-006)

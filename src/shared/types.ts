@@ -118,6 +118,8 @@ export interface JarvisSettings {
   lightMode: boolean
   mascotEnabled?: boolean
   reduceMotion?: boolean
+  launchOnLogin?: boolean
+  minimizeToTray?: boolean
   workspacePaths: string[]
   theme: ThemePreference
   outputDirectory: string
@@ -187,6 +189,10 @@ export interface JarvisAPI {
   updateSettings: (settings: Partial<JarvisSettings>) => Promise<JarvisSettings>
   selectWorkspaceFolder: () => Promise<string | null>
   setWindowTheme?: (theme: ThemePreference) => Promise<void>
+  exportDiagnostics?: () => Promise<{ success: boolean; filePath: string }>
+  getAutoStart?: () => Promise<boolean>
+  setAutoStart?: (enabled: boolean) => Promise<boolean>
+  onOpenSettings?: (callback: () => void) => () => void
 
   // System & External Links
   openExternalUrl: (url: string) => Promise<void>

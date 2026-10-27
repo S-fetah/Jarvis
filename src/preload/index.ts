@@ -102,6 +102,24 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('ui:set-window-theme', theme)
   },
 
+  exportDiagnostics: (): Promise<{ success: boolean; filePath: string }> => {
+    return ipcRenderer.invoke('system:export-diagnostics')
+  },
+
+  getAutoStart: (): Promise<boolean> => {
+    return ipcRenderer.invoke('system:get-autostart')
+  },
+
+  setAutoStart: (enabled: boolean): Promise<boolean> => {
+    return ipcRenderer.invoke('system:set-autostart', enabled)
+  },
+
+  onOpenSettings: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('ui:open-settings', handler)
+    return () => ipcRenderer.removeListener('ui:open-settings', handler)
+  },
+
   selectWorkspaceFolder: (): Promise<string | null> => {
     return ipcRenderer.invoke('workspace:select-folder')
   },

@@ -135,6 +135,7 @@ export class PolicyEngine {
       case 'browser_close_tab':
       case 'browser_scroll':
       case 'manage_user_memory':
+      case 'screen_capture':
         category = 'network'
         requiresApproval = false
         reason = 'Read-only web research, desktop navigation, browser actions, profile discovery, verified direct email, CDP inspection, and user memory allowed without mutation.'

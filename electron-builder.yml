@@ -1,0 +1,41 @@
+appId: com.jarvis.desktop
+productName: Jarvis
+copyright: Copyright © 2026 Jarvis Team
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**/*
+  - resources/**/*
+  - package.json
+
+extraResources:
+  - from: resources
+    to: resources
+    filter:
+      - '**/*'
+
+win:
+  executableName: Jarvis
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Jarvis
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+
+asar: true
+asarUnpack:
+  - '**/*.node'

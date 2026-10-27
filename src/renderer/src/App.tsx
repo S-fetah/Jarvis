@@ -175,11 +175,16 @@ export default function App(): React.JSX.Element {
         })
       : () => {}
 
+    const unsubOpenSettings = window.jarvisAPI?.onOpenSettings
+      ? window.jarvisAPI.onOpenSettings(() => setSettingsOpen(true))
+      : () => {}
+
     return () => {
       unsubTask()
       unsubTimeline()
       unsubStream()
       unsubProcess()
+      unsubOpenSettings()
     }
   }, [])
 
