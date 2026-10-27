@@ -12,20 +12,18 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 - `docs/spike-results.md` — T-001 and T-002 evidence, including the benchmarked permission model and conclusions.
 - `docs/t002-benchmark.md` — full T-002 protocol and per-test records.
 - `docs/decisions/ADR-001-response-latency-and-hedging.md` — Normal/Racing/Multi-agent modes and latency policy.
+- `docs/decisions/ADR-005-ui-design-system-and-window-chrome.md` — "The Quiet Instrument" Parchment & Pine design tokens and native window chrome.
+- `docs/decisions/ADR-006-windows-integration-tray-and-diagnostics.md` — System tray lifecycle, auto-launch, diagnostics bundler, screen capture, and packaging.
 - `docs/architecture-slides.pdf` (+ `.html` source) — 16-slide architecture deck (idea, stack, approach, goals, security, operation, roadmap); regenerate via the `status-deck` skill (`.agents/skills/status-deck/SKILL.md`) with `node scripts/render-architecture-slides.cjs`.
 
 ## Current state
 
-- Git on branch `main`; ahead of origin with verified local commits (**NO PUSH rule strictly observed**).
-- **Phase 0 through Phase 4 Complete.**
-- **Phase 5 (Browser Automation & Robustness) In Progress:**
-  - Native Chrome DevTools Protocol (CDP) engine implemented in `src/main/utils/cdp.ts`.
-  - 5 CDP browser tools added: `browser_list_tabs`, `browser_inspect_page`, `browser_click_element`, `browser_close_tab`, `browser_scroll`.
-  - RFC 5321 TLS SMTP engine implemented in `src/main/utils/smtp.ts` (`send_email_direct`) for verified email delivery with server receipts (250 OK) and zero browser tabs.
-  - Closed-loop Gmail DOM ready detection, minimized/offscreen background launch, and automatic tab closing (`Ctrl+W`) in `send_gmail`.
-  - Persistent user memory & preferences system (`src/main/memory/user-memory.ts`, `USER.md`, `manage_user_memory`).
-  - Active tool suite: 20 native tools across filesystem, process, network, browser, and memory.
-  - Automated test suite: 73/73 tests passing across 12 test files (`tests/user-memory.test.ts`, `tests/cdp-browser.test.ts`, `tests/phase4-process.test.ts`, `tests/tool-executor.test.ts`, etc.).
+- Git on branch `main`; synchronized with `origin/main`.
+- **Phase 0 through Phase 6 Complete:**
+  - **Phase 5:** Native Chrome DevTools Protocol (CDP) browser engine (`browser_list_tabs`, `browser_inspect_page`, `browser_click_element`, `browser_close_tab`, `browser_scroll`), RFC 5321 TLS SMTP delivery (`send_email_direct`), closed-loop Gmail DOM ready detection & minimized background dispatch (`send_gmail`), persistent user memory (`USER.md`, `manage_user_memory`), and full UI v2 overhaul ("The Quiet Instrument" / Parchment & Pine design system).
+  - **Phase 6:** Windows system tray integration (`TrayManager`) with gateway status and quick actions, startup launch-on-login synchronization (`app.setLoginItemSettings`), minimize-to-tray lifecycle handling, SEC-003 support diagnostics bundle exporter (`exportDiagnosticBundle`), desktop screen capture tool (`screen_capture`), packaging configuration (`electron-builder.yml`), and Phase 6 unit test suite (`tests/phase6-windows.test.ts`).
+  - Active tool suite: 21 native tools across filesystem, process, network, browser, memory, and desktop capture.
+  - Automated test suite: 79/79 tests passing across 13 test files (`tests/phase6-windows.test.ts`, `tests/user-memory.test.ts`, `tests/cdp-browser.test.ts`, `tests/tool-executor.test.ts`, etc.).
   - Security scanner: 8/8 checks passing (0 Critical, 0 High findings).
   - Production build: Passing cleanly via `electron-vite build`.
 
@@ -41,10 +39,10 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 8. (Phase 5) Browser automation uses zero-dependency Chrome DevTools Protocol (CDP) connecting to Chrome (`--remote-debugging-port=9222`) for deterministic DOM inspection and tab control rather than blind OS keystrokes.
 9. (Phase 5) Persistent user habits and preferences are stored in human-readable `USER.md` in the workspace and injected into the agent's system prompt so Jarvis remembers user defaults (e.g. Chrome profile `fennec`, dev port `5173`).
 
-## Immediate next step — Phase 5: Vision & Multimodal Desktop Screen Capture
+## Immediate next step — Phase 7: Real-world user dogfooding & release packaging
 
-1. Wire up `desktopCapturer` in Electron Main to allow Jarvis to take screenshots of the user's workspace or active screen upon request.
-2. Support vision-based multimodal analysis in `ModelGatewayAdapter` for models that support image input.
+1. Execute Windows release installer packaging validation (`npm run build:win`) to produce installable NSIS and portable `.exe` packages in `dist/`.
+2. Conduct end-to-end dogfooding across multi-monitor setups and real-world day-to-day assistant workflows.
 
 ## Re-running gateway checks (regression)
 

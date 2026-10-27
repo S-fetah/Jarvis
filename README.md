@@ -21,10 +21,15 @@
 | **Code & Dev Workflow** | ✅ Implemented | Managed dev server spawning (`start_dev_server`), port detection, process termination (`taskkill`), and unified-diff code patcher (`file_patch`) with `.bak` backups. |
 | **Email & Delivery Engines** | ✅ Implemented | Direct RFC 5321 TLS SMTP delivery (`send_email_direct`) with server receipts (250 OK) and minimized background Chrome Gmail dispatch (`send_gmail`). |
 | **User Memory & Preferences** | ✅ Implemented | Persistent long-term memory store (`USER.md`, `manage_user_memory`) auto-injected into system prompt for habit retention across sessions. |
+| **Windows System Tray & Shell** | ✅ Implemented | Native notification area icon (`TrayManager`) with quick actions, gateway status, and minimize-to-tray window intercept. |
+| **Startup Auto-Launch** | ✅ Implemented | Windows login item synchronization (`app.setLoginItemSettings`) persisted across system reboots. |
+| **Support Diagnostics** | ✅ Implemented | SEC-003 sanitized Markdown & JSON diagnostics bundle exporter (`exportDiagnosticBundle`) with zero secret leakage. |
+| **Multimodal Screen Capture** | ✅ Implemented | High-resolution desktop and window screenshot tool (`screen_capture`) with strict path traversal defenses. |
+| **Packaging & Distribution** | ✅ Configured | Production `electron-builder.yml` configuring Windows x64 NSIS installer and portable targets. |
 
 ## Verified Testing & Environment Status
 
-- **Automated Tests:** **73/73 unit & security regression tests passing** across 12 test suites (`vitest run`).
+- **Automated Tests:** **79/79 unit & security regression tests passing** across 13 test suites (`vitest run`).
 - **TypeScript & Build:** Typecheck clean (`npm run typecheck`), `electron-vite build` passing.
 - **Runtime Environment:** Verified on Node.js `v24.13.0`, Electron `34.2.0`, React `19.0.0`, Vite `6.1.0` on Windows 11.
 - **Full Security Audit:** See [docs/security/SECURITY_AUDIT_v0.0.1.md](./docs/security/SECURITY_AUDIT_v0.0.1.md).
