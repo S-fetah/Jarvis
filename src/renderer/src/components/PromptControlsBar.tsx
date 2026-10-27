@@ -136,7 +136,7 @@ function ControlMenu<T extends string>({
   )
 }
 
-export function PromptControlsBar({
+export const PromptControlsBar = React.memo(function PromptControlsBar({
   talkingStyle,
   taskMode,
   thinkingDepth,
@@ -179,4 +179,4 @@ export function PromptControlsBar({
       />
     </div>
   )
-}
+})

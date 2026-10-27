@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { CornerDownLeft, Send, Zap } from 'lucide-react'
 import type { TalkingStyle, TaskMode, ThinkingDepth } from '../../../../shared/types'
 import { cn } from '../../lib/cn'
@@ -6,9 +6,8 @@ import { Button, Kbd } from '../ui'
 import { PromptControlsBar } from '../PromptControlsBar'
 
 interface ComposerProps {
-  inputPrompt: string
-  onInputChange: (value: string) => void
-  onSubmit: (event?: React.FormEvent) => void
+  initialPrompt?: string
+  onSubmit: (prompt: string) => void
   isStreaming: boolean
   lightMode: boolean
   model: string
@@ -21,9 +20,8 @@ interface ComposerProps {
   onToggleLightMode: () => void
 }
 
-export function Composer({
-  inputPrompt,
-  onInputChange,
+export const Composer = React.memo(function Composer({
+  initialPrompt = '',
   onSubmit,
   isStreaming,
   lightMode,
@@ -36,20 +34,38 @@ export function Composer({
   onDepthChange,
   onToggleLightMode
 }: ComposerProps): React.JSX.Element {
+  const [inputPrompt, setInputPrompt] = useState(initialPrompt)
+
+  useEffect(() => {
+    if (initialPrompt) {
+      setInputPrompt(initialPrompt)
+    }
+  }, [initialPrompt])
+
   const canSend = Boolean(inputPrompt.trim()) && !isStreaming
+
+  const handleSubmit = (event?: React.FormEvent): void => {
+    event?.preventDefault()
+    const trimmed = inputPrompt.trim()
+    if (!trimmed || isStreaming) return
+    onSubmit(trimmed)
+    setInputPrompt('')
+  }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key !== 'Enter' || event.shiftKey) return
     if (event.nativeEvent.isComposing) return
     event.preventDefault()
-    if (canSend) event.currentTarget.form?.requestSubmit()
+    if (canSend) {
+      handleSubmit()
+    }
   }
 
   return (
     <div className="shrink-0 border-t border-jarvis-border bg-jarvis-base/92 px-5 pb-3 pt-2.5 backdrop-blur">
       <div className="mx-auto w-full max-w-[860px]">
         <form
-          onSubmit={onSubmit}
+          onSubmit={handleSubmit}
           className={cn(
             'overflow-hidden rounded-xl border border-jarvis-border bg-jarvis-surface shadow-raised transition-[border-color,box-shadow] duration-200',
             'focus-within:border-jarvis-accent/55 focus-within:ring-1 focus-within:ring-jarvis-accent/20'
@@ -69,7 +85,7 @@ export function Composer({
 
           <textarea
             value={inputPrompt}
-            onChange={(event) => onInputChange(event.target.value)}
+            onChange={(event) => setInputPrompt(event.target.value)}
             onKeyDown={handleKeyDown}
             rows={2}
             disabled={isStreaming}
@@ -143,4 +159,4 @@ export function Composer({
       </div>
     </div>
   )
-}
+})

@@ -34,7 +34,6 @@ export default function App(): React.JSX.Element {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConvId, setActiveConvId] = useState<string>('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [inputPrompt, setInputPrompt] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [currentThought, setCurrentThought] = useState('')
   const [currentReply, setCurrentReply] = useState('')
@@ -249,10 +248,9 @@ export default function App(): React.JSX.Element {
   }
 
   // Send Message / Task Execution
-  const handleSendMessage = async (event?: React.FormEvent, customPrompt?: string): Promise<void> => {
-    if (event) event.preventDefault()
-    const promptToSend = (customPrompt || inputPrompt).trim()
-    if (!promptToSend || isStreaming) return
+  const handleSendMessage = async (promptToSend?: string): Promise<void> => {
+    const prompt = (promptToSend || '').trim()
+    if (!prompt || isStreaming) return
 
     if (!window.jarvisAPI) {
       alert('Jarvis IPC bridge is not connected.')
@@ -262,12 +260,11 @@ export default function App(): React.JSX.Element {
     const tempUserMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: promptToSend,
+      content: prompt,
       timestamp: Date.now()
     }
 
     setMessages((prev) => [...prev, tempUserMsg])
-    setInputPrompt('')
     setIsStreaming(true)
     setCurrentThought('')
     setCurrentReply('')
@@ -275,7 +272,7 @@ export default function App(): React.JSX.Element {
     try {
       const res = await window.jarvisAPI.sendMessage(
         activeConvId,
-        promptToSend,
+        prompt,
         workspacePath,
         { talkingStyle, taskMode, thinkingDepth }
       )
@@ -383,7 +380,7 @@ export default function App(): React.JSX.Element {
 
   const handleRetryLast = (): void => {
     const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user')
-    if (lastUserMessage) void handleSendMessage(undefined, lastUserMessage.content)
+    if (lastUserMessage) void handleSendMessage(lastUserMessage.content)
   }
 
   return (
@@ -450,7 +447,7 @@ export default function App(): React.JSX.Element {
 
                     {messages.length === 0 && !isStreaming ? (
                       <WelcomeView
-                        onSuggestion={(prompt) => void handleSendMessage(undefined, prompt)}
+                        onSuggestion={(prompt) => void handleSendMessage(prompt)}
                         workspaceName={basename(workspacePath)}
                       />
                     ) : (
@@ -474,8 +471,6 @@ export default function App(): React.JSX.Element {
                 </div>
 
                 <Composer
-                  inputPrompt={inputPrompt}
-                  onInputChange={setInputPrompt}
                   onSubmit={handleSendMessage}
                   isStreaming={isStreaming}
                   lightMode={settings.lightMode}

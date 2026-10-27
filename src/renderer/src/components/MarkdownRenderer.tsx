@@ -8,7 +8,7 @@ interface CodeBlockProps {
   value: string
 }
 
-function CodeBlock({ language, value }: CodeBlockProps): React.JSX.Element {
+const CodeBlock = React.memo(function CodeBlock({ language, value }: CodeBlockProps): React.JSX.Element {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async (): Promise<void> => {
@@ -51,71 +51,72 @@ function CodeBlock({ language, value }: CodeBlockProps): React.JSX.Element {
       </pre>
     </div>
   )
+})
+
+const REMARK_PLUGINS = [remarkGfm]
+
+const MARKDOWN_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>['components'] = {
+  code({ className, children, ...props }) {
+    const match = /language-(\w+)/.exec(className || '')
+    const textContent = String(children).replace(/\n$/, '')
+    const isInline = !match && !textContent.includes('\n')
+
+    if (isInline) {
+      return (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      )
+    }
+
+    return <CodeBlock language={match ? match[1] : ''} value={textContent} />
+  },
+  a({ href, children }) {
+    return (
+      <a
+        href={href}
+        onClick={(event) => {
+          event.preventDefault()
+          if (!href) return
+          const isFile =
+            href.startsWith('file://') ||
+            href.endsWith('.pdf') ||
+            href.includes('/output/') ||
+            href.includes('\\output\\')
+          const isWeb = href.startsWith('http://') || href.startsWith('https://')
+
+          if (isFile && window.jarvisAPI?.openPath) {
+            const cleanPath = href.replace(/^file:\/\/\/?/, '')
+            window.jarvisAPI.openPath(cleanPath)
+          } else if (isWeb && window.jarvisAPI?.openExternalUrl) {
+            window.jarvisAPI.openExternalUrl(href)
+          }
+        }}
+        title={href?.endsWith('.pdf') ? 'Open PDF' : 'Open link'}
+      >
+        {children}
+      </a>
+    )
+  },
+  table({ children }) {
+    return (
+      <div className="my-3 overflow-x-auto">
+        <table>{children}</table>
+      </div>
+    )
+  }
 }
 
 interface MarkdownRendererProps {
   content: string
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.Element {
+export const MarkdownRenderer = React.memo(function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.Element {
   return (
     <div className="max-w-none">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '')
-            const textContent = String(children).replace(/\n$/, '')
-            const isInline = !match && !textContent.includes('\n')
-
-            if (isInline) {
-              return (
-                <code className={className} {...props}>
-                  {children}
-                </code>
-              )
-            }
-
-            return <CodeBlock language={match ? match[1] : ''} value={textContent} />
-          },
-          a({ href, children }) {
-            return (
-              <a
-                href={href}
-                onClick={(event) => {
-                  event.preventDefault()
-                  if (!href) return
-                  const isFile =
-                    href.startsWith('file://') ||
-                    href.endsWith('.pdf') ||
-                    href.includes('/output/') ||
-                    href.includes('\\output\\')
-                  const isWeb = href.startsWith('http://') || href.startsWith('https://')
-
-                  if (isFile && window.jarvisAPI?.openPath) {
-                    const cleanPath = href.replace(/^file:\/\/\/?/, '')
-                    window.jarvisAPI.openPath(cleanPath)
-                  } else if (isWeb && window.jarvisAPI?.openExternalUrl) {
-                    window.jarvisAPI.openExternalUrl(href)
-                  }
-                }}
-                title={href?.endsWith('.pdf') ? 'Open PDF' : 'Open link'}
-              >
-                {children}
-              </a>
-            )
-          },
-          table({ children }) {
-            return (
-              <div className="my-3 overflow-x-auto">
-                <table>{children}</table>
-              </div>
-            )
-          }
-        }}
-      >
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
         {content}
       </ReactMarkdown>
     </div>
   )
-}
+})

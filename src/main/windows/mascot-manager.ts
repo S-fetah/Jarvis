@@ -362,12 +362,19 @@ export class MascotManager {
 
   public startCursorTracking(): void {
     if (this.cursorInterval) return
+    let lastNx = 0
+    let lastNy = 0
     this.cursorInterval = setInterval(() => {
       if (this.mascotWindow && !this.mascotWindow.isDestroyed() && this.mascotWindow.isVisible()) {
         const offset = this.getCursorOffsetFromMascot()
-        this.mascotWindow.webContents.send('mascot:cursor-tracking', offset)
+        // Only send when cursor actually moved to prevent flooding the IPC bridge
+        if (Math.abs(offset.nx - lastNx) > 0.005 || Math.abs(offset.ny - lastNy) > 0.005) {
+          lastNx = offset.nx
+          lastNy = offset.ny
+          this.mascotWindow.webContents.send('mascot:cursor-tracking', offset)
+        }
       }
-    }, 16) // ~60 FPS high-precision full desktop cursor tracking
+    }, 33) // ~30 FPS throttled cursor tracking
   }
 
   public stopCursorTracking(): void {

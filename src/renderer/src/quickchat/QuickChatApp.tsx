@@ -30,10 +30,71 @@ import { Badge, Button, IconButton, Spinner } from '../components/ui'
 import { applyTheme, readCachedTheme } from '../lib/theme'
 import { cn } from '../lib/cn'
 
+interface QuickChatComposerProps {
+  onSubmit: (prompt: string) => void
+  isStreaming: boolean
+}
+
+const QuickChatComposer = React.memo(function QuickChatComposer({
+  onSubmit,
+  isStreaming
+}: QuickChatComposerProps): React.JSX.Element {
+  const [inputPrompt, setInputPrompt] = useState('')
+  const canSend = Boolean(inputPrompt.trim()) && !isStreaming
+
+  const handleSubmit = (event?: React.FormEvent): void => {
+    event?.preventDefault()
+    const trimmed = inputPrompt.trim()
+    if (!trimmed || isStreaming) return
+    onSubmit(trimmed)
+    setInputPrompt('')
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key !== 'Enter' || event.shiftKey) return
+    if (event.nativeEvent.isComposing) return
+    event.preventDefault()
+    if (canSend) handleSubmit()
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-1.5">
+      <div className="rounded-lg border border-jarvis-border bg-jarvis-base p-1.5 transition focus-within:border-jarvis-accent/55 focus-within:ring-1 focus-within:ring-jarvis-accent/15">
+        <textarea
+          value={inputPrompt}
+          onChange={(event) => setInputPrompt(event.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={2}
+          disabled={isStreaming}
+          placeholder={isStreaming ? 'Thinking…' : 'Instruct Jarvis…'}
+          aria-label="Message Jarvis"
+          className="max-h-24 min-h-[40px] w-full resize-none bg-transparent px-1.5 py-1 text-[11.5px] leading-relaxed text-jarvis-ivory placeholder:text-jarvis-muted/75 focus:outline-none disabled:opacity-60"
+          autoFocus
+        />
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1 pl-1 text-[8.5px] text-jarvis-muted/75">
+            <CornerDownLeft className="h-2.5 w-2.5" />
+            send · shift+enter for a new line
+          </span>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            disabled={!canSend}
+            className="h-7 gap-1 px-2.5 text-[10px]"
+          >
+            <Send className="h-3 w-3" />
+            Send
+          </Button>
+        </div>
+      </div>
+    </form>
+  )
+})
+
 export function QuickChatApp(): React.JSX.Element {
   const [activeConv, setActiveConv] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [inputPrompt, setInputPrompt] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [currentThought, setCurrentThought] = useState('')
   const [currentReply, setCurrentReply] = useState('')
@@ -98,22 +159,20 @@ export function QuickChatApp(): React.JSX.Element {
     }
   }, [])
 
-  const handleSendMessage = async (event?: React.FormEvent, customPrompt?: string): Promise<void> => {
-    if (event) event.preventDefault()
-    const promptToSend = (customPrompt || inputPrompt).trim()
-    if (!promptToSend || isStreaming) return
+  const handleSendMessage = async (promptToSend?: string): Promise<void> => {
+    const prompt = (promptToSend || '').trim()
+    if (!prompt || isStreaming) return
 
     if (!window.jarvisAPI || !activeConv) return
 
     const tempUserMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: promptToSend,
+      content: prompt,
       timestamp: Date.now()
     }
 
     setMessages((prev) => [...prev, tempUserMsg])
-    setInputPrompt('')
     setIsStreaming(true)
     setCurrentThought('')
     setCurrentReply('')
@@ -121,7 +180,7 @@ export function QuickChatApp(): React.JSX.Element {
     try {
       const res = await window.jarvisAPI.sendMessage(
         activeConv.id,
-        promptToSend,
+        prompt,
         settings.workspacePaths[0],
         { talkingStyle, taskMode, thinkingDepth }
       )
@@ -185,12 +244,7 @@ export function QuickChatApp(): React.JSX.Element {
     }
   }
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (event.key !== 'Enter' || event.shiftKey) return
-    if (event.nativeEvent.isComposing) return
-    event.preventDefault()
-    if (inputPrompt.trim() && !isStreaming) event.currentTarget.form?.requestSubmit()
-  }
+
 
   const approval = taskState?.currentApproval
 
@@ -259,7 +313,7 @@ export function QuickChatApp(): React.JSX.Element {
                 <button
                   key={prompt}
                   type="button"
-                  onClick={() => void handleSendMessage(undefined, prompt)}
+                  onClick={() => void handleSendMessage(prompt)}
                   className="group flex w-full items-center justify-between rounded-md border border-jarvis-border bg-jarvis-surface px-2.5 py-2 text-left transition hover:border-jarvis-accent/40 hover:bg-jarvis-elevated"
                 >
                   <span className="text-[11px] font-medium text-jarvis-sage group-hover:text-jarvis-ivory">
@@ -320,7 +374,7 @@ export function QuickChatApp(): React.JSX.Element {
                       onOpenHub={() => void handleOpenMain()}
                       onRetry={() => {
                         const lastUser = [...messages].reverse().find((item) => item.role === 'user')
-                        if (lastUser) void handleSendMessage(undefined, lastUser.content)
+                        if (lastUser) void handleSendMessage(lastUser.content)
                       }}
                     />
                   ) : (
@@ -454,37 +508,7 @@ export function QuickChatApp(): React.JSX.Element {
           compact
         />
 
-        <form onSubmit={handleSendMessage} className="mt-1.5">
-          <div className="rounded-lg border border-jarvis-border bg-jarvis-base p-1.5 transition focus-within:border-jarvis-accent/55 focus-within:ring-1 focus-within:ring-jarvis-accent/15">
-            <textarea
-              value={inputPrompt}
-              onChange={(event) => setInputPrompt(event.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={2}
-              disabled={isStreaming}
-              placeholder={isStreaming ? 'Thinking…' : 'Instruct Jarvis…'}
-              aria-label="Message Jarvis"
-              className="max-h-24 min-h-[40px] w-full resize-none bg-transparent px-1.5 py-1 text-[11.5px] leading-relaxed text-jarvis-ivory placeholder:text-jarvis-muted/75 focus:outline-none disabled:opacity-60"
-              autoFocus
-            />
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1 pl-1 text-[8.5px] text-jarvis-muted/75">
-                <CornerDownLeft className="h-2.5 w-2.5" />
-                send · shift+enter for a new line
-              </span>
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                disabled={!inputPrompt.trim() || isStreaming}
-                className="h-7 gap-1 px-2.5 text-[10px]"
-              >
-                <Send className="h-3 w-3" />
-                Send
-              </Button>
-            </div>
-          </div>
-        </form>
+        <QuickChatComposer onSubmit={handleSendMessage} isStreaming={isStreaming} />
       </div>
     </div>
   )
