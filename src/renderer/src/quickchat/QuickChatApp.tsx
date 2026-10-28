@@ -249,7 +249,7 @@ export function QuickChatApp(): React.JSX.Element {
   const approval = taskState?.currentApproval
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden rounded-xl border border-jarvis-border bg-jarvis-base font-sans text-jarvis-sage shadow-floating">
+    <div className="relative flex h-screen flex-col overflow-hidden rounded-xl border border-jarvis-border bg-jarvis-base font-sans text-jarvis-sage shadow-floating">
       <header className="drag-region flex h-12 shrink-0 items-center gap-2.5 border-b border-jarvis-border bg-jarvis-surface px-3">
         <JarvisMark className="h-5 w-5 shrink-0 text-jarvis-accent" />
         <div className="min-w-0 flex-1">
@@ -418,74 +418,94 @@ export function QuickChatApp(): React.JSX.Element {
         <div ref={chatEndRef} />
       </div>
 
+      {/* Floating Permission Modal / Card in Quick Chat (Pinned and Unclipped) */}
       {approval && (
-        <div className="shrink-0 border-t border-jarvis-signal/30 bg-jarvis-signalSoft/45 px-3 py-2.5">
-          <div className="flex items-start gap-2">
-            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-jarvis-signal" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-jarvis-signal">
-                Approval required
-              </p>
-              <p className="mt-0.5 text-[10.5px] leading-snug text-jarvis-sage">
-                {approval.title || 'Review this exact action.'}
-              </p>
+        <>
+          <div className="absolute inset-0 z-40 bg-black/45 backdrop-blur-[1.5px] animate-fade-in" />
+          <div className="absolute inset-x-2.5 bottom-2.5 z-50 flex max-h-[82%] flex-col animate-slide-up rounded-xl border border-jarvis-signal/45 bg-jarvis-surface p-3 shadow-floating">
+            <div className="flex items-start gap-2.5 shrink-0">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-jarvis-signal/30 bg-jarvis-signalSoft/60 text-jarvis-signal shadow-sm">
+                <ShieldAlert className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-jarvis-signal">
+                    Approval required
+                  </p>
+                  <span className="rounded-full border border-jarvis-signal/30 bg-jarvis-signalSoft/80 px-1.5 py-0.2 font-mono text-[8px] uppercase tracking-wider text-jarvis-signal">
+                    {approval.category.replace('_', ' ')}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11px] font-medium leading-snug text-jarvis-ivory truncate">
+                  {approval.title || 'Review this exact action.'}
+                </p>
+              </div>
+              {approval.command && (
+                <button
+                  type="button"
+                  onClick={() => void handleCopyCommand()}
+                  className="inline-flex shrink-0 items-center gap-1 rounded border border-jarvis-border bg-jarvis-elevated px-1.5 py-0.5 text-[9px] text-jarvis-muted transition hover:bg-jarvis-hover hover:text-jarvis-ivory"
+                  title="Copy command"
+                >
+                  {copiedCommand ? (
+                    <>
+                      <Check className="h-2.5 w-2.5 text-jarvis-accent" />
+                      copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-2.5 w-2.5" />
+                      copy
+                    </>
+                  )}
+                </button>
+              )}
             </div>
-            {approval.command && (
-              <button
-                type="button"
-                onClick={() => void handleCopyCommand()}
-                className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[9px] text-jarvis-muted transition hover:bg-jarvis-hover hover:text-jarvis-ivory"
-              >
-                {copiedCommand ? (
-                  <>
-                    <Check className="h-2.5 w-2.5 text-jarvis-accent" />
-                    copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-2.5 w-2.5" />
-                    copy
-                  </>
-                )}
-              </button>
-            )}
-          </div>
 
-          <div className="code-well mt-2 max-h-32 select-text overflow-y-auto rounded-md border border-jarvis-border p-2">
-            <code className="block break-all whitespace-pre-wrap font-mono text-[9.5px] leading-relaxed text-jarvis-codeInk">
-              {approval.command || approval.actionType}
-            </code>
-          </div>
+            <div className="mt-2 min-h-0 flex-1 overflow-y-auto space-y-1.5 pr-0.5">
+              <div className="code-well select-text rounded-md border border-jarvis-border bg-jarvis-code p-2">
+                <code className="block max-h-24 overflow-y-auto break-all font-mono text-[10px] leading-relaxed text-jarvis-codeInk">
+                  {approval.command || approval.actionType}
+                </code>
+              </div>
 
-          <p className="mt-1.5 break-all font-mono text-[8.5px] leading-snug text-jarvis-muted">
-            {approval.workingDirectory || approval.workspacePath}
-          </p>
+              <p className="break-all font-mono text-[8.5px] leading-snug text-jarvis-muted" title={approval.workingDirectory || approval.workspacePath}>
+                📁 {approval.workingDirectory || approval.workspacePath}
+              </p>
 
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1 text-[8.5px] text-jarvis-muted">
-              <ShieldCheck className="h-2.5 w-2.5 text-jarvis-accent" />
-              one exact action · no global allow
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="dangerGhost"
-                size="sm"
-                onClick={() => void handleResolveApproval(approval, 'denied')}
-                className="h-7 px-2 text-[10px]"
-              >
-                Deny
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => void handleResolveApproval(approval, 'granted')}
-                className="h-7 px-2.5 text-[10px]"
-              >
-                Approve
-              </Button>
+              {approval.explanation && (
+                <p className="rounded border border-jarvis-border/60 bg-jarvis-elevated/40 p-1.5 text-[9.5px] leading-relaxed text-jarvis-sage">
+                  {approval.explanation}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-2.5 shrink-0 flex items-center justify-between gap-2 border-t border-jarvis-border pt-2">
+              <span className="flex items-center gap-1 text-[8.5px] text-jarvis-muted">
+                <ShieldCheck className="h-2.5 w-2.5 text-jarvis-accent" />
+                one-time execution
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="dangerGhost"
+                  size="sm"
+                  onClick={() => void handleResolveApproval(approval, 'denied')}
+                  className="h-7 px-2.5 text-[10.5px]"
+                >
+                  Deny
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleResolveApproval(approval, 'granted')}
+                  className="h-7 px-3 text-[10.5px]"
+                >
+                  Approve
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       <div className="shrink-0 border-t border-jarvis-border bg-jarvis-surface px-2.5 pb-2.5 pt-2">

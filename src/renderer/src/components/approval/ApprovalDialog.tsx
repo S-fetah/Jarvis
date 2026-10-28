@@ -33,9 +33,9 @@ export function ApprovalDialog({ approval, onResolve }: ApprovalDialogProps): Re
           size="md"
           onEscapeKeyDown={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => event.preventDefault()}
-          className="border-jarvis-signal/35"
+          className="border-jarvis-signal/35 max-h-[85vh] flex flex-col overflow-hidden p-0 shadow-floating"
         >
-          <div className="flex items-start gap-3 border-b border-jarvis-border bg-jarvis-signalSoft/55 px-5 py-4">
+          <div className="shrink-0 flex items-start gap-3 border-b border-jarvis-border bg-jarvis-signalSoft/55 px-5 py-3.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-jarvis-signal/30 bg-jarvis-surface text-jarvis-signal">
               <ShieldAlert className="h-5 w-5" />
             </span>
@@ -58,7 +58,7 @@ export function ApprovalDialog({ approval, onResolve }: ApprovalDialogProps): Re
             </span>
           </div>
 
-          <div className="flex-1 space-y-3.5 overflow-y-auto px-5 py-4">
+          <div className="flex-1 min-h-0 space-y-3 overflow-y-auto px-5 py-3.5 overscroll-contain">
             <div>
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span className="text-2xs font-semibold uppercase tracking-[0.13em] text-jarvis-muted">
@@ -89,7 +89,7 @@ export function ApprovalDialog({ approval, onResolve }: ApprovalDialogProps): Re
                   <Terminal className="h-3 w-3" />
                   {approval.command ? 'powershell / system' : approval.actionType}
                 </div>
-                <code className="block max-h-40 overflow-y-auto break-all font-mono text-[11.5px] leading-relaxed text-jarvis-codeInk">
+                <code className="block max-h-32 overflow-y-auto break-all font-mono text-[11px] leading-relaxed text-jarvis-codeInk">
                   {approval.command || approval.actionType}
                 </code>
               </div>
@@ -135,7 +135,7 @@ export function ApprovalDialog({ approval, onResolve }: ApprovalDialogProps): Re
             )}
           </div>
 
-          <div className="flex flex-col gap-2 border-t border-jarvis-border bg-jarvis-base px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="shrink-0 flex flex-col gap-2 border-t border-jarvis-border bg-jarvis-base px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-start gap-1.5 text-[10px] leading-snug text-jarvis-muted">
               <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-jarvis-accent" />
               Approving executes this exact action once. It does not create a global allow.
