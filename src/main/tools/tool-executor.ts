@@ -60,8 +60,15 @@ import {
   BrowserCloseTabArgs,
   BrowserScrollArgs,
   ManageUserMemoryArgs,
-  ScreenCaptureArgs
+  ScreenCaptureArgs,
+  ListSkillsSchema,
+  ListSkillsArgs,
+  LoadSkillSchema,
+  LoadSkillArgs,
+  SuggestSkillsSchema,
+  SuggestSkillsArgs
 } from './tool-registry'
+import { SkillManager } from '../skills/skill-manager'
 import { PdfGenerator } from './pdf-generator'
 
 export interface ToolExecutionResult {
@@ -211,12 +218,24 @@ export class ToolExecutor {
           const args = ScreenCaptureSchema.parse(rawArgs || {})
           return await this.executeScreenCapture(args, workspacePath, resolvedOutputDir)
         }
+        case 'list_skills': {
+          const args = ListSkillsSchema.parse(rawArgs || {})
+          return await this.executeListSkills(args, workspacePath)
+        }
+        case 'load_skill': {
+          const args = LoadSkillSchema.parse(rawArgs || {})
+          return await this.executeLoadSkill(args, workspacePath)
+        }
+        case 'suggest_skills': {
+          const args = SuggestSkillsSchema.parse(rawArgs || {})
+          return await this.executeSuggestSkills(args, workspacePath)
+        }
         default:
           return {
             toolName: name,
             success: false,
             output: '',
-            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch, send_gmail, send_email_direct, browser_shortcut, browse_github, list_chrome_profiles, browser_list_tabs, browser_inspect_page, browser_click_element, browser_close_tab, browser_scroll, manage_user_memory, screen_capture.`
+            error: `Unknown tool: '${name}'. Allowed tools are workspace_list, file_read, project_inspect, web_search, create_pdf, file_write_new, download_file, open_browser, start_dev_server, stop_process, file_patch, send_gmail, send_email_direct, browser_shortcut, browse_github, list_chrome_profiles, browser_list_tabs, browser_inspect_page, browser_click_element, browser_close_tab, browser_scroll, manage_user_memory, screen_capture, list_skills, load_skill, suggest_skills.`
           }
       }
     } catch (err: any) {
@@ -1596,6 +1615,126 @@ export class ToolExecutor {
         success: false,
         output: '',
         error: `Failed to capture screen: ${err?.message || String(err)}`
+      }
+    }
+  }
+
+  private async executeListSkills(
+    args: ListSkillsArgs,
+    workspacePath: string
+  ): Promise<ToolExecutionResult> {
+    try {
+      const manager = new SkillManager(workspacePath)
+      let skills = manager.listSkills()
+
+      if (args.query) {
+        const q = args.query.toLowerCase()
+        skills = skills.filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.description.toLowerCase().includes(q)
+        )
+      }
+
+      if (skills.length === 0) {
+        return {
+          toolName: 'list_skills',
+          success: true,
+          output: args.query
+            ? `No skills found matching "${args.query}". Run without a query to see all available skills.`
+            : 'No skills found in the workspace. Skills should be placed in `skills/` or `.agents/skills/` directories with a `SKILL.md` file.'
+        }
+      }
+
+      const listing = skills
+        .map(
+          (s, i) =>
+            `${i + 1}. **${s.name}** — ${s.description}\n   Path: \`${s.path}\``
+        )
+        .join('\n')
+
+      return {
+        toolName: 'list_skills',
+        success: true,
+        output: `### Available Skills (${skills.length})\n\n${listing}\n\n_Use \`load_skill\` to load a skill's full instructions into your active context._`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'list_skills',
+        success: false,
+        output: '',
+        error: `Failed to list skills: ${err.message}`
+      }
+    }
+  }
+
+  private async executeLoadSkill(
+    args: LoadSkillArgs,
+    workspacePath: string
+  ): Promise<ToolExecutionResult> {
+    try {
+      const manager = new SkillManager(workspacePath)
+      const result = manager.loadSkill(args.skillName)
+
+      if (!result.success) {
+        return {
+          toolName: 'load_skill',
+          success: false,
+          output: '',
+          error: result.error || `Skill "${args.skillName}" not found.`
+        }
+      }
+
+      return {
+        toolName: 'load_skill',
+        success: true,
+        output: this.truncateOutput(result.content || '')
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'load_skill',
+        success: false,
+        output: '',
+        error: `Failed to load skill: ${err.message}`
+      }
+    }
+  }
+
+  private async executeSuggestSkills(
+    args: SuggestSkillsArgs,
+    workspacePath: string
+  ): Promise<ToolExecutionResult> {
+    try {
+      const manager = new SkillManager(workspacePath)
+      const matches = manager.matchSkillsForGoal(args.goal)
+
+      if (matches.length === 0) {
+        const allSkills = manager.listSkills()
+        return {
+          toolName: 'suggest_skills',
+          success: true,
+          output: `No specialized skill match found for this goal. ${allSkills.length} skills are available — run \`list_skills\` to browse them, or consider creating a new skill for this domain.`
+        }
+      }
+
+      const suggestions = matches
+        .map(
+          (s, i) =>
+            `${i + 1}. **${s.name}** — ${s.description}\n   → Load with: \`load_skill({ skillName: "${s.name}" })\``
+        )
+        .join('\n')
+
+      return {
+        toolName: 'suggest_skills',
+        success: true,
+        output: `### Recommended Skills for This Task\n\n${suggestions}\n\n_Load the suggested skill(s) to receive detailed step-by-step guidance for your task._`
+      }
+    } catch (err: any) {
+      return {
+        toolName: 'suggest_skills',
+        success: false,
+        output: '',
+        error: `Failed to suggest skills: ${err.message}`
       }
     }
   }

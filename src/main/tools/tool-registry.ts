@@ -341,6 +341,21 @@ export const ScreenCaptureSchema = z.object({
 
 export type ScreenCaptureArgs = z.infer<typeof ScreenCaptureSchema>
 
+export const ListSkillsSchema = z.object({
+  query: z.string().optional().describe('Optional filter keyword to search skills by name or capability.')
+})
+export type ListSkillsArgs = z.infer<typeof ListSkillsSchema>
+
+export const LoadSkillSchema = z.object({
+  skillName: z.string().describe('Exact name of the skill to load (e.g. "sequential-thinking", "security-audit", "docx", "pptx", "playwright-research").')
+})
+export type LoadSkillArgs = z.infer<typeof LoadSkillSchema>
+
+export const SuggestSkillsSchema = z.object({
+  goal: z.string().describe('The user goal or task to find skill recommendations for.')
+})
+export type SuggestSkillsArgs = z.infer<typeof SuggestSkillsSchema>
+
 /**
  * Standard OpenAI Function Calling Tool Specification
  */
@@ -962,6 +977,59 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
         },
         required: ['action'],
         additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_skills',
+      description:
+        'Discovers and lists all modular assistant skills available in the workspace and repository (e.g. sequential-thinking, security-audit, docx, pptx, xlsx, playwright-research, frontend-design). Use this to inspect available domain capabilities.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Optional keyword filter (e.g. "document", "test", "security", "design").'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'load_skill',
+      description:
+        'Loads the full instructions, guidelines, and workflows of a specialized skill into your active context. Use whenever you need deep domain guidance (e.g. complex reasoning, Word documents, slide decks, testing, audits).',
+      parameters: {
+        type: 'object',
+        properties: {
+          skillName: {
+            type: 'string',
+            description: 'Name of the skill to load (e.g. "sequential-thinking", "docx", "pptx", "security-audit", "status-deck").'
+          }
+        },
+        required: ['skillName']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'suggest_skills',
+      description:
+        'Analyzes a task goal and suggests which existing skills to load, or recommends skills to create or download to accomplish the task.',
+      parameters: {
+        type: 'object',
+        properties: {
+          goal: {
+            type: 'string',
+            description: 'Task objective to analyze.'
+          }
+        },
+        required: ['goal']
       }
     }
   }

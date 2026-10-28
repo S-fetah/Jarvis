@@ -136,9 +136,12 @@ export class PolicyEngine {
       case 'browser_scroll':
       case 'manage_user_memory':
       case 'screen_capture':
+      case 'list_skills':
+      case 'load_skill':
+      case 'suggest_skills':
         category = 'network'
         requiresApproval = false
-        reason = 'Read-only web research, desktop navigation, browser actions, profile discovery, verified direct email, CDP inspection, and user memory allowed without mutation.'
+        reason = 'Read-only web research, desktop navigation, browser actions, profile discovery, verified direct email, CDP inspection, skills discovery, and user memory allowed without mutation.'
         break
 
       default:

@@ -4,6 +4,8 @@ import { ModelGatewayAdapter, ChatCompletionMessage } from '../gateway/model-ada
 import { ToolExecutor, ToolExecutionResult } from '../tools/tool-executor'
 import { JARVIS_TOOLS } from '../tools/tool-registry'
 import { TimelineEvent, TalkingStyle, TaskMode, ThinkingDepth } from '../../shared/types'
+import { SkillManager } from '../skills/skill-manager'
+import { LearningEngine } from '../memory/learning-engine'
 
 export interface AgentOrchestratorConfig {
   maxTurns?: number
@@ -42,6 +44,8 @@ export class AgentOrchestrator {
   private modelAdapter: ModelGatewayAdapter
   private toolExecutor: ToolExecutor
   private config: AgentOrchestratorConfig
+  private skillManager: SkillManager
+  private learningEngine: LearningEngine
 
   constructor(
     modelAdapter: ModelGatewayAdapter,
@@ -54,6 +58,8 @@ export class AgentOrchestrator {
       maxTurns: 5,
       ...config
     }
+    this.skillManager = new SkillManager(config.defaultWorkspacePath)
+    this.learningEngine = new LearningEngine(config.defaultWorkspacePath)
   }
 
   /**
@@ -97,6 +103,35 @@ export class AgentOrchestrator {
           category: 'read_in'
         })
       }
+    }
+
+    // Proactive Skill Suggestion: Check if the user's goal matches an available skill
+    try {
+      this.skillManager.updateWorkspacePath(workspacePath)
+      this.learningEngine.updateWorkspacePath(workspacePath)
+      const suggestedSkills = this.skillManager.matchSkillsForGoal(userPrompt)
+      if (suggestedSkills.length > 0) {
+        const skillHint = suggestedSkills
+          .map((s) => `• **${s.name}**: ${s.description}`)
+          .join('\n')
+        conversationMessages.push({
+          role: 'system',
+          content: `[Skill Advisor] Relevant skills detected for this task:\n${skillHint}\n\nConsider using \`load_skill\` to load detailed guidance for these domains before proceeding.`
+        })
+        if (options?.onTimelineEvent) {
+          options.onTimelineEvent({
+            id: crypto.randomUUID(),
+            taskId,
+            timestamp: Date.now(),
+            type: 'log',
+            title: `Skill Match: ${suggestedSkills.map((s) => s.name).join(', ')}`,
+            details: `Found ${suggestedSkills.length} relevant skill(s) for the current task.`,
+            category: 'read_in'
+          })
+        }
+      }
+    } catch (err) {
+      console.warn('[AgentOrchestrator] Skill suggestion check failed:', err)
     }
 
     while (turn < maxTurns) {
@@ -240,14 +275,33 @@ export class AgentOrchestrator {
         }
 
         // Append tool result into context for next model turn
-        conversationMessages.push({
-          role: 'tool',
-          name: toolName,
-          tool_call_id: call.id,
-          content: execResult.success
-            ? execResult.output
-            : `Tool failed: ${execResult.error}`
-        })
+        if (execResult.success) {
+          conversationMessages.push({
+            role: 'tool',
+            name: toolName,
+            tool_call_id: call.id,
+            content: execResult.output
+          })
+        } else {
+          // Self-Correction: On tool failure, provide diagnostic context for the model to retry
+          conversationMessages.push({
+            role: 'tool',
+            name: toolName,
+            tool_call_id: call.id,
+            content: `Tool failed: ${execResult.error}\n\n[Self-Correction Guidance]: The tool "${toolName}" failed with the above error. Analyze the error, adjust your approach (e.g. verify file paths with workspace_list, read the file before patching, check selectors, or try alternative arguments), and retry if appropriate. If the error is unrecoverable, explain the issue to the user and suggest alternatives.`
+          })
+          if (options?.onTimelineEvent) {
+            options.onTimelineEvent({
+              id: crypto.randomUUID(),
+              taskId,
+              timestamp: Date.now(),
+              type: 'log',
+              title: `Self-Correction: ${toolName} failed`,
+              details: `Error: ${execResult.error?.slice(0, 150)}. Model will attempt recovery.`,
+              category: 'process'
+            })
+          }
+        }
       }
 
       // If we've reached maxTurns - 1, remind model to synthesize
@@ -279,6 +333,31 @@ export class AgentOrchestrator {
       } catch (err: any) {
         finalReply = `Inspection completed with ${toolsUsed.length} tool call(s).`
       }
+    }
+
+    // Autonomous Learning: Detect and propose learning opportunities
+    try {
+      const toolSummary = toolsUsed
+        .filter((t) => !t.success)
+        .map((t) => `${t.toolName} failed: ${t.output.slice(0, 100)}`)
+        .join('; ')
+      const learningProposal = this.learningEngine.detectLearningOpportunity(userPrompt, toolSummary || undefined)
+      if (learningProposal) {
+        finalReply += `\n\n---\n💡 **Learning Suggestion** _(${learningProposal.category})_: ${learningProposal.detectedInsight}\n\n> Proposed note: _"${learningProposal.suggestedNote}"_\n\nWould you like me to save this to your persistent memory (USER.md)? Reply "yes, save it" to confirm.`
+        if (options?.onTimelineEvent) {
+          options.onTimelineEvent({
+            id: crypto.randomUUID(),
+            taskId,
+            timestamp: Date.now(),
+            type: 'log',
+            title: 'Learning Opportunity Detected',
+            details: `Category: ${learningProposal.category} — "${learningProposal.suggestedNote.slice(0, 100)}"`,
+            category: 'read_in'
+          })
+        }
+      }
+    } catch (err) {
+      console.warn('[AgentOrchestrator] Learning detection failed:', err)
     }
 
     return {
