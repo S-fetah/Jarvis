@@ -25,9 +25,11 @@ import { EvidenceRail } from './components/activity/EvidenceRail'
 import { ApprovalDialog } from './components/approval/ApprovalDialog'
 import { SettingsModal } from './components/SettingsModal'
 import { FreeModelsHubModal } from './components/FreeModelsHubModal'
+import { WorkspaceCanvas, CanvasState } from './components/canvas/WorkspaceCanvas'
 import { TooltipProvider } from './components/ui'
 import { applyTheme, cacheTheme, onSystemThemeChange, readCachedTheme } from './lib/theme'
 import { basename } from './lib/format'
+import { cn } from './lib/cn'
 
 export default function App(): React.JSX.Element {
   // --- State Management ---
@@ -43,11 +45,18 @@ export default function App(): React.JSX.Element {
   const [taskMode, setTaskMode] = useState<TaskMode>('chat')
   const [thinkingDepth, setThinkingDepth] = useState<ThinkingDepth>('standard')
 
-  // UI Modals & Drawers
+  // UI Modals, Canvas & Drawers
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [timelineOpen, setTimelineOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [hubOpen, setHubOpen] = useState(false)
+  const [chatWidthMode, setChatWidthMode] = useState<'adaptive' | 'compact'>('adaptive')
+  const [canvasState, setCanvasState] = useState<CanvasState>({
+    open: false,
+    type: 'browser',
+    url: '',
+    title: ''
+  })
 
   // App Settings & Models
   const [theme, setTheme] = useState<ThemePreference>(() => readCachedTheme())
@@ -119,27 +128,35 @@ export default function App(): React.JSX.Element {
     })
 
     // 3. Load Conversations
-    window.jarvisAPI.getConversations().then((list) => {
-      setConversations(list)
-      if (list.length > 0) {
-        setActiveConvId(list[0].id)
-        setMessages(list[0].messages || [])
+    window.jarvisAPI.getConversations().then((convList) => {
+      setConversations(convList)
+      if (convList.length > 0) {
+        const lastConv = convList[0]
+        setActiveConvId(lastConv.id)
+        setMessages(lastConv.messages || [])
       } else {
-        window.jarvisAPI.createConversation('Jarvis General Chat').then((newConv) => {
-          setConversations([newConv])
-          setActiveConvId(newConv.id)
-          setMessages([])
-        })
+        handleNewChat()
       }
     })
 
-    // 4. Subscriptions
+    // 4. Register Event Listeners
     const unsubTask = window.jarvisAPI.onTaskUpdated((state) => {
       setTaskState(state)
     })
 
     const unsubTimeline = window.jarvisAPI.onTimelineEvent((event) => {
       setTimelineEvents((prev) => [...prev, event])
+      // Auto open Canvas for newly created PDF or HTML artifacts
+      if (event.type === 'artifact_created' && event.details) {
+        const pathStr = event.details
+        if (pathStr.toLowerCase().endsWith('.pdf') || pathStr.toLowerCase().endsWith('.html')) {
+          void handleOpenCanvas({
+            url: pathStr,
+            type: pathStr.toLowerCase().endsWith('.pdf') ? 'pdf' : 'preview',
+            title: basename(pathStr)
+          })
+        }
+      }
     })
 
     const unsubStream = window.jarvisAPI.onMessageStream((data) => {
@@ -150,7 +167,7 @@ export default function App(): React.JSX.Element {
       }
     })
 
-    // 5. Managed Processes (Phase 4)
+    // 5. Managed Processes
     if (window.jarvisAPI.getActiveProcesses) {
       window.jarvisAPI.getActiveProcesses().then((procs) => {
         setActiveProcesses(procs.filter((proc) => proc.status === 'running' || proc.status === 'starting'))
@@ -171,6 +188,20 @@ export default function App(): React.JSX.Element {
             }
             return [...prev, proc]
           })
+          // Auto-dock live dev server into Canvas when port is detected
+          if (proc.port && proc.status === 'running') {
+            setCanvasState((prev) => {
+              if (!prev.open) {
+                return {
+                  open: true,
+                  type: 'browser',
+                  url: `http://localhost:${proc.port}`,
+                  title: `Live: localhost:${proc.port}`
+                }
+              }
+              return prev
+            })
+          }
         })
       : () => {}
 
@@ -187,75 +218,93 @@ export default function App(): React.JSX.Element {
     }
   }, [])
 
-  // Terminate Managed Process (Dev Server)
-  const handleStopProcess = async (processId: string): Promise<void> => {
-    if (!window.jarvisAPI?.stopProcess) return
-    await window.jarvisAPI.stopProcess(processId)
+  // --- Handlers ---
+
+  const handleOpenCanvas = async (params: {
+    url: string
+    type: 'browser' | 'pdf' | 'preview'
+    title?: string
+  }): Promise<void> => {
+    let dataUrl: string | undefined
+    if (params.type === 'pdf' || params.url.toLowerCase().endsWith('.pdf')) {
+      if (window.jarvisAPI?.readFileData) {
+        const fileRes = await window.jarvisAPI.readFileData(params.url)
+        if (fileRes.success && fileRes.dataUrl) {
+          dataUrl = fileRes.dataUrl
+        }
+      }
+    }
+    setCanvasState({
+      open: true,
+      type: params.type,
+      url: params.url,
+      title: params.title || params.url,
+      dataUrl
+    })
   }
 
-  // Switch Conversation
-  const handleSelectConversation = (conv: Conversation): void => {
-    setActiveConvId(conv.id)
-    setMessages(conv.messages || [])
-    setCurrentThought('')
-    setCurrentReply('')
-  }
-
-  // Create New Chat
   const handleNewChat = async (): Promise<void> => {
     if (!window.jarvisAPI) return
-    const newConv = await window.jarvisAPI.createConversation('New Chat')
+    const newConv = await window.jarvisAPI.createConversation('New conversation')
     setConversations((prev) => [newConv, ...prev])
     setActiveConvId(newConv.id)
     setMessages([])
-    setCurrentThought('')
-    setCurrentReply('')
+    setTaskState(null)
+    setTimelineEvents([])
   }
 
-  // Delete Conversation
-  const handleDeleteConversation = async (event: React.MouseEvent, id: string): Promise<void> => {
+  const handleSelectConversation = (conv: Conversation): void => {
+    setActiveConvId(conv.id)
+    setMessages(conv.messages || [])
+    setTaskState(null)
+    setTimelineEvents([])
+  }
+
+  const handleDeleteConversation = async (
+    event: React.MouseEvent,
+    id: string
+  ): Promise<void> => {
     event.stopPropagation()
     if (!window.jarvisAPI) return
-    await window.jarvisAPI.deleteConversation(id)
-
-    const remaining = conversations.filter((conversation) => conversation.id !== id)
-    setConversations(remaining)
-
-    if (activeConvId === id) {
-      if (remaining.length > 0) {
-        handleSelectConversation(remaining[0])
-      } else {
-        const fresh = await window.jarvisAPI.createConversation('Jarvis General Chat')
-        setConversations([fresh])
-        handleSelectConversation(fresh)
+    const success = await window.jarvisAPI.deleteConversation(id)
+    if (success) {
+      setConversations((prev) => prev.filter((conv) => conv.id !== id))
+      if (activeConvId === id) {
+        const remaining = conversations.filter((conv) => conv.id !== id)
+        if (remaining.length > 0) {
+          handleSelectConversation(remaining[0])
+        } else {
+          handleNewChat()
+        }
       }
     }
   }
 
-  const handleStyleChange = (style: TalkingStyle): void => {
+  // Assistant Mode & Style Handlers
+  const handleStyleChange = async (style: TalkingStyle): Promise<void> => {
     setTalkingStyle(style)
-    if (window.jarvisAPI) window.jarvisAPI.updateSettings({ talkingStyle: style })
-  }
-
-  const handleModeChange = (mode: TaskMode): void => {
-    setTaskMode(mode)
-    if (window.jarvisAPI) window.jarvisAPI.updateSettings({ taskMode: mode })
-  }
-
-  const handleDepthChange = (depth: ThinkingDepth): void => {
-    setThinkingDepth(depth)
-    if (window.jarvisAPI) window.jarvisAPI.updateSettings({ thinkingDepth: depth })
-  }
-
-  // Send Message / Task Execution
-  const handleSendMessage = async (promptToSend?: string): Promise<void> => {
-    const prompt = (promptToSend || '').trim()
-    if (!prompt || isStreaming) return
-
-    if (!window.jarvisAPI) {
-      alert('Jarvis IPC bridge is not connected.')
-      return
+    if (window.jarvisAPI) {
+      await window.jarvisAPI.updateSettings({ talkingStyle: style })
     }
+  }
+
+  const handleModeChange = async (mode: TaskMode): Promise<void> => {
+    setTaskMode(mode)
+    if (window.jarvisAPI) {
+      await window.jarvisAPI.updateSettings({ taskMode: mode })
+    }
+  }
+
+  const handleDepthChange = async (depth: ThinkingDepth): Promise<void> => {
+    setThinkingDepth(depth)
+    if (window.jarvisAPI) {
+      await window.jarvisAPI.updateSettings({ thinkingDepth: depth })
+    }
+  }
+
+  // Send Message / Goal
+  const handleSendMessage = async (prompt: string): Promise<void> => {
+    if (!prompt.trim() || isStreaming || !window.jarvisAPI) return
 
     const tempUserMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -282,13 +331,21 @@ export default function App(): React.JSX.Element {
         role: 'assistant',
         content: res.reply,
         reasoning: res.reasoning,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        latencyMs: (res as any).latencyMs,
+        model: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel
       }
 
       setMessages((prev) => [...prev, finalAssistantMsg])
 
       const updatedList = await window.jarvisAPI.getConversations()
       setConversations(updatedList)
+
+      // Auto-preview dev server or PDF if mentioned in assistant answer
+      const localUrlMatch = res.reply.match(/(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/[^\s)]*)?)/i)
+      if (localUrlMatch && !canvasState.open) {
+        void handleOpenCanvas({ url: localUrlMatch[1], type: 'browser', title: localUrlMatch[1] })
+      }
     } catch (err: any) {
       console.error('[Jarvis] Send message error:', err)
       const errorMsg: ChatMessage = {
@@ -344,7 +401,7 @@ export default function App(): React.JSX.Element {
     window.setTimeout(() => setCopiedMessageId(null), 2000)
   }
 
-  // Toggle Theme (Light / Dark) — the three-way preference lives in Settings.
+  // Toggle Theme (Light / Dark)
   const handleToggleTheme = async (): Promise<void> => {
     const nextTheme: ThemePreference = isDark ? 'light' : 'dark'
     setTheme(nextTheme)
@@ -358,6 +415,11 @@ export default function App(): React.JSX.Element {
     if (!window.jarvisAPI) return
     const visible = await window.jarvisAPI.toggleMascotVisibility()
     setSettings((prev) => ({ ...prev, mascotEnabled: visible }))
+  }
+
+  const handleStopProcess = async (id: string): Promise<void> => {
+    if (!window.jarvisAPI) return
+    await window.jarvisAPI.stopProcess(id)
   }
 
   // Resolve ADR-004 Approvals
@@ -382,6 +444,13 @@ export default function App(): React.JSX.Element {
     const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user')
     if (lastUserMessage) void handleSendMessage(lastUserMessage.content)
   }
+
+  const containerMaxWidth =
+    chatWidthMode === 'adaptive'
+      ? canvasState.open
+        ? 'max-w-full'
+        : 'max-w-[1100px]'
+      : 'max-w-[800px]'
 
   return (
     <TooltipProvider>
@@ -424,23 +493,34 @@ export default function App(): React.JSX.Element {
               onToggleTimeline={() => setTimelineOpen((value) => !value)}
               eventCount={timelineEvents.length}
               taskStatus={taskState?.status}
+              chatWidthMode={chatWidthMode}
+              onToggleChatWidth={() =>
+                setChatWidthMode((m) => (m === 'adaptive' ? 'compact' : 'adaptive'))
+              }
+              canvasOpen={canvasState.open}
+              onToggleCanvas={() => setCanvasState((prev) => ({ ...prev, open: !prev.open }))}
             />
 
             <ProcessStrip
               processes={activeProcesses}
               expandedLogsProcessId={expandedLogsProcessId}
+              containerMaxWidth={containerMaxWidth}
               onToggleLogs={(id) =>
                 setExpandedLogsProcessId((current) => (current === id ? null : id))
               }
               onStopProcess={handleStopProcess}
+              onOpenCanvas={(url) =>
+                void handleOpenCanvas({ url, type: 'browser', title: url })
+              }
             />
 
             <div className="flex min-h-0 flex-1 overflow-hidden">
+              {/* Chat Messages Column */}
               <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex-1 overflow-y-auto px-5 py-6">
-                  <div className="mx-auto flex min-h-full w-full max-w-[860px] flex-col">
+                <div className="flex-1 overflow-y-auto px-5 py-5">
+                  <div className={cn('mx-auto flex min-h-full w-full flex-col transition-all duration-200', containerMaxWidth)}>
                     {taskState && taskState.steps.length > 0 && (
-                      <div className="mb-5">
+                      <div className="mb-4">
                         <PlanCard taskState={taskState} />
                       </div>
                     )}
@@ -463,6 +543,8 @@ export default function App(): React.JSX.Element {
                         onSwitchLightMode={() => void handleToggleLightMode(true)}
                         onOpenHub={() => setHubOpen(true)}
                         onRetry={handleRetryLast}
+                        onResubmitPrompt={handleSendMessage}
+                        onOpenCanvas={handleOpenCanvas}
                       />
                     )}
 
@@ -478,6 +560,9 @@ export default function App(): React.JSX.Element {
                   talkingStyle={talkingStyle}
                   taskMode={taskMode}
                   thinkingDepth={thinkingDepth}
+                  chatWidthMode={chatWidthMode}
+                  isCanvasOpen={canvasState.open}
+                  workspacePath={workspacePath}
                   onStyleChange={handleStyleChange}
                   onModeChange={handleModeChange}
                   onDepthChange={handleDepthChange}
@@ -485,6 +570,17 @@ export default function App(): React.JSX.Element {
                 />
               </div>
 
+              {/* Workspace Canvas Runner (Mini-browser, PDF, Previews) */}
+              {canvasState.open && (
+                <WorkspaceCanvas
+                  canvasState={canvasState}
+                  onClose={() => setCanvasState((prev) => ({ ...prev, open: false }))}
+                  onUpdateState={(updates) => setCanvasState((prev) => ({ ...prev, ...updates }))}
+                  onOpenExternal={(url) => window.jarvisAPI?.openExternalUrl(url)}
+                />
+              )}
+
+              {/* Timeline Evidence Rail */}
               {timelineOpen && (
                 <EvidenceRail
                   timelineEvents={timelineEvents}

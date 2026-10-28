@@ -722,6 +722,7 @@ function registerIpcHandlers(): void {
         thinkingDepth?: import('../shared/types').ThinkingDepth
       }
     ) => {
+      const chatStartTime = Date.now()
       db.addMessage(conversationId, 'user', content)
       mascotManager?.setMascotState('thinking')
 
@@ -762,9 +763,11 @@ function registerIpcHandlers(): void {
         db.addMessage(conversationId, 'assistant', agentResult.reply, agentResult.reasoning)
         mascotManager?.setMascotState('idle')
 
+        const latencyMs = Date.now() - chatStartTime
         return {
           reply: agentResult.reply,
-          reasoning: agentResult.reasoning
+          reasoning: agentResult.reasoning,
+          latencyMs
         }
       } catch (err: any) {
         console.error('[Jarvis Main] Error in agent runLoop:', err)
@@ -1133,6 +1136,60 @@ function registerIpcHandlers(): void {
       return result.filePaths[0]
     }
     return null
+  })
+
+  ipcMain.handle('workspace:list-files', async (event, customWorkspacePath?: string) => {
+    if (!isAuthorizedSender(event.sender)) return []
+    const wsPath = customWorkspacePath || settings.workspacePaths[0] || process.cwd()
+    if (!fs.existsSync(wsPath)) return []
+
+    const files: string[] = []
+    const IGNORED = new Set(['node_modules', '.git', 'dist', 'out', '.vite', '.vscode', 'userData', 'coverage', 'build', '.idea', '__pycache__'])
+    const scan = (dir: string, depth: number): void => {
+      if (depth > 2 || files.length >= 80) return
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true })
+        for (const e of entries) {
+          if (files.length >= 80) break
+          if (IGNORED.has(e.name) || e.name.startsWith('.')) continue
+          const fullPath = path.join(dir, e.name)
+          const relPath = path.relative(wsPath, fullPath).replace(/\\/g, '/')
+          if (e.isDirectory()) {
+            scan(fullPath, depth + 1)
+          } else {
+            files.push(relPath)
+          }
+        }
+      } catch {}
+    }
+    scan(wsPath, 0)
+    return files
+  })
+
+  ipcMain.handle('workspace:read-file-data', async (event, relativeOrAbsolutePath: string) => {
+    if (!isAuthorizedSender(event.sender)) return { success: false, error: 'Unauthorized' }
+    const wsPath = settings.workspacePaths[0] || process.cwd()
+    const targetPath = path.isAbsolute(relativeOrAbsolutePath)
+      ? relativeOrAbsolutePath
+      : path.join(wsPath, relativeOrAbsolutePath)
+
+    if (!fs.existsSync(targetPath)) {
+      return { success: false, error: 'File not found' }
+    }
+    try {
+      const ext = path.extname(targetPath).toLowerCase()
+      const buffer = fs.readFileSync(targetPath)
+      const mimeType = ext === '.pdf' ? 'application/pdf' : ext === '.html' ? 'text/html' : 'application/octet-stream'
+      const base64 = buffer.toString('base64')
+      return {
+        success: true,
+        dataUrl: `data:${mimeType};base64,${base64}`,
+        filePath: targetPath,
+        fileName: path.basename(targetPath)
+      }
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to read file' }
+    }
   })
 
   // --- System & External Links (SEC-005 URL Protocol Guard) ---

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Activity, FolderOpen } from 'lucide-react'
+import { Activity, FolderOpen, Maximize2, Minimize2, PanelRight } from 'lucide-react'
 import type { ModelCatalog, TaskStatus } from '../../../../shared/types'
 import { basename } from '../../lib/format'
 import { cn } from '../../lib/cn'
@@ -19,6 +19,10 @@ interface ChatHeaderProps {
   onToggleTimeline: () => void
   eventCount: number
   taskStatus?: TaskStatus
+  chatWidthMode?: 'adaptive' | 'compact'
+  onToggleChatWidth?: () => void
+  canvasOpen?: boolean
+  onToggleCanvas?: () => void
 }
 
 const statusLabel: Record<TaskStatus, string> = {
@@ -55,7 +59,11 @@ export function ChatHeader({
   timelineOpen,
   onToggleTimeline,
   eventCount,
-  taskStatus
+  taskStatus,
+  chatWidthMode = 'adaptive',
+  onToggleChatWidth,
+  canvasOpen = false,
+  onToggleCanvas
 }: ChatHeaderProps): React.JSX.Element {
   return (
     <header className="flex h-[62px] shrink-0 items-center gap-3 border-b border-jarvis-border bg-jarvis-base px-5">
@@ -94,6 +102,38 @@ export function ChatHeader({
           onSelectModel={onSelectModel}
           onToggleLightMode={onToggleLightMode}
         />
+
+        {onToggleChatWidth && (
+          <Tooltip label={chatWidthMode === 'adaptive' ? 'Switch to compact chat width' : 'Switch to adaptive wide layout'}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleChatWidth}
+              className="px-2"
+              aria-label="Toggle chat layout width"
+            >
+              {chatWidthMode === 'adaptive' ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Maximize2 className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </Tooltip>
+        )}
+
+        {onToggleCanvas && (
+          <Button
+            variant={canvasOpen ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={onToggleCanvas}
+            aria-pressed={canvasOpen}
+            className={cn('gap-1.5', canvasOpen && 'border-jarvis-accent/35 text-jarvis-accent')}
+            title="Toggle Workspace Canvas"
+          >
+            <PanelRight className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Canvas</span>
+          </Button>
+        )}
 
         <Button
           variant={timelineOpen ? 'secondary' : 'ghost'}

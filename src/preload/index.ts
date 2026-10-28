@@ -208,6 +208,14 @@ const api: JarvisAPI = {
     const handler = (_event: Electron.IpcRendererEvent, offset: { nx: number; ny: number }): void => callback(offset)
     ipcRenderer.on('mascot:cursor-tracking', handler)
     return () => ipcRenderer.removeListener('mascot:cursor-tracking', handler)
+  },
+
+  listWorkspaceFiles: (workspacePath?: string): Promise<string[]> => {
+    return ipcRenderer.invoke('workspace:list-files', workspacePath)
+  },
+
+  readFileData: (filePath: string): Promise<{ success: boolean; dataUrl?: string; filePath?: string; fileName?: string; error?: string }> => {
+    return ipcRenderer.invoke('workspace:read-file-data', filePath)
   }
 }
 

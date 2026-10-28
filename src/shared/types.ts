@@ -81,6 +81,8 @@ export interface ChatMessage {
   content: string
   reasoning?: string
   timestamp: number
+  latencyMs?: number
+  model?: string
 }
 
 export interface Conversation {
@@ -216,4 +218,6 @@ export interface JarvisAPI {
   toggleMascotVisibility: () => Promise<boolean>
   onMascotStateChanged: (callback: (state: MascotState) => void) => () => void
   onMascotCursorTracking?: (callback: (offset: { nx: number; ny: number }) => void) => () => void
+  listWorkspaceFiles?: (workspacePath?: string) => Promise<string[]>
+  readFileData?: (filePath: string) => Promise<{ success: boolean; dataUrl?: string; filePath?: string; fileName?: string; error?: string }>
 }

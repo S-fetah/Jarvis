@@ -1,9 +1,19 @@
-import React from 'react'
-import { Check, Copy, Cpu } from 'lucide-react'
+import React, { useState } from 'react'
+import {
+  Check,
+  Clock,
+  Copy,
+  Cpu,
+  Edit3,
+  ExternalLink,
+  FileText,
+  Globe,
+  RotateCw
+} from 'lucide-react'
 import type { ChatMessage } from '../../../../shared/types'
 import { formatTime } from '../../lib/format'
 import { JarvisMark } from '../brand/JarvisMark'
-import { IconButton, Spinner } from '../ui'
+import { Button, IconButton, Spinner } from '../ui'
 import { MarkdownRenderer } from '../MarkdownRenderer'
 import { ThinkingBlock } from '../ThinkingBlock'
 import { RateLimitCard } from '../RateLimitCard'
@@ -20,6 +30,8 @@ interface MessageListProps {
   onSwitchLightMode: () => void
   onOpenHub: () => void
   onRetry: () => void
+  onResubmitPrompt?: (newPrompt: string) => void
+  onOpenCanvas?: (params: { url: string; type: 'browser' | 'pdf' | 'preview'; title: string }) => void
 }
 
 function parseRateLimit(content: string): { isRateLimit: boolean; info: { retrySeconds?: number; model?: string } } {
@@ -43,6 +55,8 @@ interface MessageItemProps {
   onSwitchLightMode: () => void
   onOpenHub: () => void
   onRetry: () => void
+  onResubmitPrompt?: (newPrompt: string) => void
+  onOpenCanvas?: (params: { url: string; type: 'browser' | 'pdf' | 'preview'; title: string }) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -53,14 +67,91 @@ const MessageItem = React.memo(function MessageItem({
   onCopyMessage,
   onSwitchLightMode,
   onOpenHub,
-  onRetry
+  onRetry,
+  onResubmitPrompt,
+  onOpenCanvas
 }: MessageItemProps): React.JSX.Element {
   const isUser = message.role === 'user'
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(message.content)
 
   if (isUser) {
+    if (isEditing) {
+      return (
+        <div className="flex animate-slide-up justify-end">
+          <div className="w-full max-w-[85%] rounded-2xl border border-jarvis-borderStrong bg-jarvis-surface p-3 shadow-raised">
+            <span className="text-3xs font-semibold uppercase tracking-wider text-jarvis-accent">
+              Edit Prompt
+            </span>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={3}
+              className="mt-1.5 w-full rounded-md border border-jarvis-border bg-jarvis-base p-2 text-xs text-jarvis-ivory focus:border-jarvis-accent/60 focus:outline-none"
+              autoFocus
+            />
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditContent(message.content)
+                  setIsEditing(false)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!editContent.trim()}
+                onClick={() => {
+                  setIsEditing(false)
+                  if (editContent.trim() && onResubmitPrompt) {
+                    onResubmitPrompt(editContent.trim())
+                  }
+                }}
+              >
+                Save & Resubmit
+              </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
-      <div className="flex animate-slide-up justify-end">
-        <div className="max-w-[78%]">
+      <div className="group relative flex animate-slide-up justify-end">
+        <div className="relative max-w-[80%]">
+          {/* User Prompt Hover Toolbar */}
+          <div className="absolute -top-3.5 right-2 z-10 flex items-center gap-0.5 rounded-full border border-jarvis-border bg-jarvis-elevated px-1.5 py-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <IconButton
+              label={isCopied ? 'Copied prompt' : 'Copy prompt'}
+              size="sm"
+              onClick={() => onCopyMessage(message.id, message.content)}
+            >
+              {isCopied ? (
+                <Check className="h-3 w-3 text-jarvis-accent" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </IconButton>
+            <IconButton
+              label="Edit prompt"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+            >
+              <Edit3 className="h-3 w-3" />
+            </IconButton>
+            <IconButton
+              label="Retry prompt"
+              size="sm"
+              onClick={() => onResubmitPrompt?.(message.content)}
+            >
+              <RotateCw className="h-3 w-3" />
+            </IconButton>
+          </div>
+
           <div className="rounded-2xl rounded-br-sm bg-jarvis-accent px-4 py-3 text-jarvis-accentContrast shadow-hairline">
             <p className="select-text whitespace-pre-wrap text-[13.5px] font-medium leading-relaxed">
               {message.content}
@@ -78,6 +169,16 @@ const MessageItem = React.memo(function MessageItem({
 
   const { isRateLimit, info } = parseRateLimit(message.content)
 
+  // Detect live links or PDFs in assistant message
+  const urlMatch = message.content.match(/(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/[^\s)]*)?)/i)
+  const pdfMatch = message.content.match(/(?:output[\\/][\w.-]+\.pdf|[\w.-]+\.pdf)/i)
+
+  const detectedAsset = urlMatch
+    ? { url: urlMatch[1], type: 'browser' as const, label: urlMatch[1], isPdf: false }
+    : pdfMatch
+      ? { url: pdfMatch[0], type: 'pdf' as const, label: pdfMatch[0], isPdf: true }
+      : null
+
   return (
     <article className="group animate-slide-up">
       <div className="mb-2.5 flex items-center gap-2.5">
@@ -86,8 +187,17 @@ const MessageItem = React.memo(function MessageItem({
         <span className="h-1 w-1 rounded-full bg-jarvis-borderStrong" />
         <span className="flex items-center gap-1 font-mono text-[10px] text-jarvis-muted">
           <Cpu className="h-3 w-3" />
-          {lightMode ? 'gemini-flash-lite' : model}
+          {message.model || (lightMode ? 'gemini-flash-lite' : model)}
         </span>
+        {message.latencyMs && (
+          <>
+            <span className="h-1 w-1 rounded-full bg-jarvis-borderStrong" />
+            <span className="flex items-center gap-1 font-mono text-[10px] text-jarvis-accent">
+              <Clock className="h-2.5 w-2.5" />
+              {(message.latencyMs / 1000).toFixed(1)}s
+            </span>
+          </>
+        )}
         <span className="ml-auto flex items-center gap-2">
           <span className="font-mono text-[10px] text-jarvis-muted/80">
             {formatTime(message.timestamp)}
@@ -122,6 +232,36 @@ const MessageItem = React.memo(function MessageItem({
           <MarkdownRenderer content={message.content} />
         </div>
       )}
+
+      {/* Interactive Canvas Quick-Action Card */}
+      {detectedAsset && onOpenCanvas && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-jarvis-accent/30 bg-jarvis-accentSoft/20 p-2.5 transition hover:border-jarvis-accent/50">
+          <div className="flex min-w-0 items-center gap-2">
+            {detectedAsset.isPdf ? (
+              <FileText className="h-4 w-4 shrink-0 text-jarvis-accent" />
+            ) : (
+              <Globe className="h-4 w-4 shrink-0 text-jarvis-accent" />
+            )}
+            <span className="truncate font-mono text-[11px] text-jarvis-ivory">
+              {detectedAsset.label}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              onOpenCanvas({
+                url: detectedAsset.url,
+                type: detectedAsset.type,
+                title: detectedAsset.label
+              })
+            }
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-jarvis-accent px-2.5 py-1 text-[11px] font-semibold text-jarvis-accentContrast shadow transition hover:opacity-90"
+          >
+            <span>Preview in Canvas</span>
+            <ExternalLink className="h-3 w-3" />
+          </button>
+        </div>
+      )}
     </article>
   )
 })
@@ -137,10 +277,12 @@ export const MessageList = React.memo(function MessageList({
   onCopyMessage,
   onSwitchLightMode,
   onOpenHub,
-  onRetry
+  onRetry,
+  onResubmitPrompt,
+  onOpenCanvas
 }: MessageListProps): React.JSX.Element {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {messages.map((message) => (
         <MessageItem
           key={message.id}
@@ -152,6 +294,8 @@ export const MessageList = React.memo(function MessageList({
           onSwitchLightMode={onSwitchLightMode}
           onOpenHub={onOpenHub}
           onRetry={onRetry}
+          onResubmitPrompt={onResubmitPrompt}
+          onOpenCanvas={onOpenCanvas}
         />
       ))}
 
