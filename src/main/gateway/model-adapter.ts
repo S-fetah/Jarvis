@@ -43,6 +43,12 @@ export interface StreamChunk {
   chunk: string
 }
 
+export interface TaskModelRouting {
+  model: string
+  category: 'coding' | 'reasoning' | 'fast_chat' | 'general'
+  reason: string
+}
+
 export class ModelGatewayAdapter {
   private config: ModelGatewayConfig
   private cachedApiKey: string | null = null
@@ -106,11 +112,132 @@ export class ModelGatewayAdapter {
   }
 
   /**
+   * Intelligently classifies the user prompt and selects the best model from the available catalog.
+   */
+  public resolveModelForTask(prompt: string, catalog?: ModelCatalog): TaskModelRouting {
+    const allModels =
+      catalog?.all && catalog.all.length > 0
+        ? catalog.all.filter((m) => m !== 'auto')
+        : [
+            'gemini-3.6-flash',
+            'gemini-flash-lite',
+            'gemini-3.7-flash',
+            'gpt-4o',
+            'gpt-4o-mini',
+            'claude-haiku-4-5',
+            'deepseek-v4-flash-thinking'
+          ]
+
+    const findBestAvailable = (preferences: string[], fallback: string): string => {
+      for (const pref of preferences) {
+        const found = allModels.find((m) => m.toLowerCase().includes(pref.toLowerCase()))
+        if (found) return found
+      }
+      return allModels.includes(fallback) ? fallback : allModels[0] || fallback
+    }
+
+    // 1. Coding & Technical Tasks
+    const isCoding =
+      prompt.includes('```') ||
+      (prompt.includes('{') && prompt.includes('}')) ||
+      /\b(code|script|function|class|import|export|const|let|var|def|return|interface|type|async|await|bug|error|exception|patch|refactor|compile|build|npm|git|bash|powershell|regex|typescript|python|javascript|rust|sql|terminal|test)\b/i.test(
+        prompt
+      )
+
+    if (isCoding) {
+      const best = findBestAvailable(
+        [
+          'deepseek-v4-flash-thinking',
+          'deepseek-coder',
+          'qwen',
+          'claude-3-5',
+          'claude-3-7',
+          'gemini-3.7-flash',
+          'gpt-4o',
+          'gemini-3.6-flash'
+        ],
+        'gemini-3.6-flash'
+      )
+      return {
+        model: best,
+        category: 'coding',
+        reason: 'Technical code analysis, syntax parsing, or file modification'
+      }
+    }
+
+    // 2. Deep Analytical Reasoning & Complex Logic
+    const isReasoning =
+      /\b(why|compare|tradeoff|analyze|architect|explain the difference|derive|calculate|math|logic|proof|evaluate|strategy|pros and cons|decide|recommend)\b/i.test(
+        prompt
+      )
+
+    if (isReasoning) {
+      const best = findBestAvailable(
+        [
+          'deepseek-v4-flash-thinking',
+          'deepseek-r1',
+          'gemini-3.7-flash',
+          'o1',
+          'o3',
+          'gpt-4o',
+          'claude',
+          'gemini-3.6-flash'
+        ],
+        'gemini-3.6-flash'
+      )
+      return {
+        model: best,
+        category: 'reasoning',
+        reason: 'Multi-step analytical reasoning and architectural logic'
+      }
+    }
+
+    // 3. Fast Conversational Chat, Greetings & Simple Lookups
+    const isFastChat =
+      prompt.trim().length < 80 &&
+      /\b(hi|hello|hey|good morning|how are you|who are you|what is your name|thank you|thanks|briefly|what time|status|ping)\b/i.test(
+        prompt
+      )
+
+    if (isFastChat) {
+      const best = findBestAvailable(
+        [
+          'gemini-flash-lite',
+          'gemini-3.5-flash-lite',
+          'gemini-2.5-flash-lite',
+          'gpt-4o-mini',
+          'claude-haiku',
+          'llama-3.1-8b',
+          'gemini-3.6-flash'
+        ],
+        'gemini-flash-lite'
+      )
+      return {
+        model: best,
+        category: 'fast_chat',
+        reason: 'Low-latency conversational query'
+      }
+    }
+
+    // 4. General / Web Research / Document & PDF Generation
+    const best = findBestAvailable(
+      ['gemini-3.6-flash', 'gpt-4o', 'gemini-3.7-flash', 'llama-3.3-70b'],
+      'gemini-3.6-flash'
+    )
+    return {
+      model: best,
+      category: 'general',
+      reason: 'General balanced capability for web, documents, or planning'
+    }
+  }
+
+  /**
    * Fetches available models from the gateway and categorizes them into light and standard models.
    */
   public async listModels(): Promise<ModelCatalog> {
     const fallbackCatalog: ModelCatalog = {
       all: [
+        'auto',
         'gemini-3.6-flash',
         'gemini-flash-lite',
         'gemini-3.5-flash-lite',
@@ -154,6 +281,10 @@ export class ModelGatewayAdapter {
         return fallbackCatalog
       }
 
+      if (!modelList.includes('auto')) {
+        modelList.unshift('auto')
+      }
+
       // Prioritize light models
       const lightKeywords = ['flash-lite', 'lite', 'mini', 'haiku']
       const lightModels = modelList.filter((id) => {
@@ -190,6 +321,12 @@ export class ModelGatewayAdapter {
     let chosenModel = options?.isLightMode
       ? this.config.lightModel || 'gemini-flash-lite'
       : options?.model || this.config.model
+
+    if (!chosenModel || chosenModel === 'auto') {
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+      const routing = this.resolveModelForTask(lastUser?.content || '')
+      chosenModel = routing.model
+    }
 
     const systemPrompt: ChatCompletionMessage = {
       role: 'system',
@@ -363,9 +500,15 @@ export class ModelGatewayAdapter {
     }
   ): Promise<ChatWithToolsResult> {
     const apiKey = await this.getEffectiveApiKey()
-    const chosenModel = options?.isLightMode
+    let chosenModel = options?.isLightMode
       ? this.config.lightModel || 'gemini-flash-lite'
       : options?.model || this.config.model
+
+    if (!chosenModel || chosenModel === 'auto') {
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+      const routing = this.resolveModelForTask(lastUser?.content || '')
+      chosenModel = routing.model
+    }
 
     const systemPrompt: ChatCompletionMessage = {
       role: 'system',
@@ -583,6 +726,11 @@ Output ONLY a JSON array with this structure:
   { "id": "step-1", "title": "Step Title", "description": "Brief step description", "category": "read_in" }
 ]`
 
+    const planModel =
+      !this.config.model || this.config.model === 'auto'
+        ? this.resolveModelForTask(goal).model
+        : this.config.model
+
     const res = await fetch(`${this.config.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -590,7 +738,7 @@ Output ONLY a JSON array with this structure:
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: this.config.model,
+        model: planModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1
       }),

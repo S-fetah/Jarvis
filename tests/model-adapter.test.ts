@@ -58,4 +58,31 @@ describe('ModelGatewayAdapter', () => {
     const desc = browserStep?.description.toLowerCase() || ''
     expect(desc.includes('mail.google.com') || desc.includes('gmail')).toBe(true)
   }, 20000)
+
+  it('intelligently routes tasks to coding, reasoning, fast_chat, and general models', () => {
+    const adapter = new ModelGatewayAdapter({
+      baseUrl: 'http://127.0.0.1:31415/v1',
+      model: 'auto'
+    })
+
+    // 1. Coding task
+    const codingRouting = adapter.resolveModelForTask('write a typescript function to sort an array')
+    expect(codingRouting.category).toBe('coding')
+    expect(codingRouting.model).toBeDefined()
+
+    // 2. Analytical reasoning task
+    const reasoningRouting = adapter.resolveModelForTask('why is quicksort faster than bubblesort? compare the tradeoffs')
+    expect(reasoningRouting.category).toBe('reasoning')
+    expect(reasoningRouting.model).toBeDefined()
+
+    // 3. Fast chat / greeting
+    const fastRouting = adapter.resolveModelForTask('hi jarvis, how are you?')
+    expect(fastRouting.category).toBe('fast_chat')
+    expect(fastRouting.model).toContain('lite')
+
+    // 4. General / document task
+    const generalRouting = adapter.resolveModelForTask('create a summary of this document and save to pdf')
+    expect(generalRouting.category).toBe('general')
+    expect(generalRouting.model).toBeDefined()
+  })
 })

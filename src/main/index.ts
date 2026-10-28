@@ -53,7 +53,7 @@ let activeTask: TaskState | null = null
 const settings: JarvisSettings = {
   gatewayUrl: 'http://127.0.0.1:31415/v1',
   apiKey: process.env.FREELLMAPI_API_KEY,
-  defaultModel: 'gemini-3.6-flash',
+  defaultModel: 'auto',
   lightMode: false,
   mascotEnabled: true,
   reduceMotion: false,
@@ -820,6 +820,13 @@ function registerIpcHandlers(): void {
       details: goal
     })
 
+    const routing = modelAdapter.resolveModelForTask(goal)
+    const activeModelForTask = settings.lightMode
+      ? 'gemini-flash-lite'
+      : settings.defaultModel === 'auto'
+        ? `${routing.model} (Auto)`
+        : settings.defaultModel
+
     const planResult = await modelAdapter.generatePlanForGoal(goal, chosenWorkspace)
 
     if (planResult.directResponse) {
@@ -828,7 +835,7 @@ function registerIpcHandlers(): void {
         goal,
         status: 'completed',
         workspacePath: chosenWorkspace,
-        activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
+        activeModel: activeModelForTask,
         steps: planResult.steps,
         activeStepId: planResult.steps[0]?.id,
         createdAt: Date.now(),
@@ -853,7 +860,7 @@ function registerIpcHandlers(): void {
       goal,
       status: 'running',
       workspacePath: chosenWorkspace,
-      activeModel: settings.lightMode ? 'gemini-flash-lite' : settings.defaultModel,
+      activeModel: activeModelForTask,
       steps: planResult.steps,
       activeStepId: planResult.steps[0]?.id,
       createdAt: Date.now(),

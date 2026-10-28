@@ -78,6 +78,27 @@ export class AgentOrchestrator {
 
     options?.onStatusUpdate?.('thinking', 'Analyzing request...')
 
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+    const userPrompt = lastUserMsg?.content || ''
+    const isAutoModel = !options?.model || options.model === 'auto'
+    let effectiveModel = options?.model
+
+    if (isAutoModel && typeof this.modelAdapter.resolveModelForTask === 'function') {
+      const routing = this.modelAdapter.resolveModelForTask(userPrompt)
+      effectiveModel = routing.model
+      if (options?.onTimelineEvent) {
+        options.onTimelineEvent({
+          id: crypto.randomUUID(),
+          taskId,
+          timestamp: Date.now(),
+          type: 'log',
+          title: `Smart Auto-Routing → ${routing.model}`,
+          details: `Classified as ${routing.category.replace('_', ' ')}: ${routing.reason}.`,
+          category: 'read_in'
+        })
+      }
+    }
+
     while (turn < maxTurns) {
       turn++
 
@@ -88,7 +109,7 @@ export class AgentOrchestrator {
           conversationMessages,
           JARVIS_TOOLS,
           {
-            model: options?.model,
+            model: effectiveModel,
             isLightMode: options?.isLightMode,
             talkingStyle: options?.talkingStyle,
             taskMode: options?.taskMode,
@@ -140,7 +161,7 @@ export class AgentOrchestrator {
             role: 'user',
             content: isQuestion
               ? '[Action Verification Protocol]: You stated that you cannot perform this desktop action, browse/scroll pages, send emails, or reopen tabs. However, you possess active live tools in your catalog (including `browser_list_tabs`, `browser_inspect_page`, `browser_click_element`, `browser_close_tab`, `browser_scroll`, `manage_user_memory`, `send_email_direct` for verified direct delivery, `send_gmail` which can compose and send with tab cleanup, `browser_shortcut` which can reopen tabs and send emails, `list_chrome_profiles`, `open_browser`). Since the user asked a QUESTION about your capabilities, answer affirmatively in plain text that YES you can perform these actions, explain the steps, and offer to proceed upon their instruction. Do NOT execute tools prematurely for a question.'
-              : '[Action Verification Protocol]: You stated that you cannot perform this desktop action. However, you possess active tools in your catalog (including `browser_list_tabs`, `browser_inspect_page`, `browser_click_element`, `browser_close_tab`, `browser_scroll`, `manage_user_memory`, `send_email_direct`, `send_gmail`, `browser_shortcut`, `list_chrome_profiles`, `open_browser`, `start_dev_server`, `workspace_list`, `file_patch`, `create_pdf`). Re-read the user request, verify against your tools, check for needed parameters (like Chrome profile from USER.md), and invoke the appropriate tool.'
+              : '[Action Verification Protocol]: You stated that you cannot perform this desktop action. However, you possess active tools in your catalog (including `browser_list_tabs`, `browser_inspect_page`, `browser_click_element`, `browser_close_tab`, `browser_scroll`, `manage_user_memory`, `send_email_direct`, `send_gmail`, `browser_shortcut`, `list_chrome_profiles`, `open_browser`, `start_dev_server`, `workspace_list`, `file_patch`, `create_pdf`). Re-read the user request, verify against your tools, check for needed parameters (remember: if a Chrome profile was not explicitly specified by the user, ask which profile to use or check with list_chrome_profiles), and invoke the appropriate tool.'
           })
           continue
         }

@@ -184,7 +184,9 @@ export function formatUserMemoryPrompt(prefs: UserPreferences): string {
 
   parts.push(`User Persona & Identity: ${prefs.name || 'User'}`)
   if (prefs.preferredChromeProfile) {
-    parts.push(`- Preferred Google Chrome Profile: '${prefs.preferredChromeProfile}' (Use this by default when launching Chrome or sending emails unless specified otherwise).`)
+    parts.push(
+      `- Preferred Google Chrome Profile: '${prefs.preferredChromeProfile}'. (MANDATORY: Always ask the user which profile to use before launching Chrome or Gmail unless they explicitly specified the profile in their current message).`
+    )
   }
   if (prefs.defaultEmail) {
     parts.push(`- Default Email Address/Account: '${prefs.defaultEmail}'`)

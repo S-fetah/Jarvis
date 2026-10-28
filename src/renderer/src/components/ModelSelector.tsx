@@ -22,9 +22,10 @@ export function ModelSelector({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const activeModel = isLightMode ? 'gemini-flash-lite' : currentModel
-  const filtered = catalog.all.filter((model) =>
-    model.toLowerCase().includes(query.trim().toLowerCase())
+  const isAuto = currentModel === 'auto'
+  const activeModel = isLightMode ? 'gemini-flash-lite' : isAuto ? 'Auto (Smart)' : currentModel
+  const filtered = catalog.all.filter(
+    (model) => model !== 'auto' && model.toLowerCase().includes(query.trim().toLowerCase())
   )
 
   const isFast = (model: string): boolean =>
@@ -55,6 +56,8 @@ export function ModelSelector({
         >
           {isLightMode ? (
             <Zap className="h-3.5 w-3.5 shrink-0 fill-jarvis-signal text-jarvis-signal" />
+          ) : isAuto ? (
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-jarvis-accent" />
           ) : (
             <Cpu className="h-3.5 w-3.5 shrink-0 text-jarvis-accent" />
           )}
@@ -89,6 +92,40 @@ export function ModelSelector({
                 autoFocus
               />
             </div>
+
+            <button
+              type="button"
+              onClick={() => chooseModel('auto')}
+              className={cn(
+                'mt-2 flex w-full items-start gap-2.5 rounded-md border p-2 text-left transition',
+                !isLightMode && isAuto
+                  ? 'border-jarvis-accent/45 bg-jarvis-accent/15 text-jarvis-ivory'
+                  : 'border-jarvis-border bg-jarvis-base text-jarvis-sage hover:border-jarvis-accent/30 hover:bg-jarvis-elevated'
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border',
+                  !isLightMode && isAuto
+                    ? 'border-jarvis-accent/40 bg-jarvis-accent text-jarvis-base'
+                    : 'border-jarvis-border bg-jarvis-surface text-jarvis-accent'
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-[11.5px] font-semibold text-jarvis-ivory">Auto (Smart Router)</span>
+                  <span className="rounded bg-jarvis-accent/20 px-1.5 py-0.2 font-mono text-[8.5px] font-semibold uppercase text-jarvis-accent">
+                    Auto
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-jarvis-muted">
+                  Selects best model (Coding, Reasoning, Fast, or Flagship) per prompt.
+                </span>
+              </span>
+              {!isLightMode && isAuto && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-jarvis-accent" />}
+            </button>
 
             <button
               type="button"

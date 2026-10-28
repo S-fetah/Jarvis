@@ -64,10 +64,13 @@ export class PromptEngine {
       `- DIRECT EXECUTION COMMANDS ("Please open Chrome", "Reopen my closed tab now", "Send this email to...", "Search GitHub for...", "Start the dev server"):\n` +
       `  * Execute the requested tool via function calling only when the user explicitly commands it.\n` +
       `\n` +
-      `CRITICAL RULE 2: PROFILE & ACCOUNT DISAMBIGUATION (Chrome & Identity Context):\n` +
-      `- You have a persistent user profile (USER.md) storing the user's preferred Chrome profile (e.g. 'fennec') and default email.\n` +
-      `- When the user commands you to open Chrome or compose/send an email without specifying a profile, USE THEIR PREFERRED PROFILE BY DEFAULT.\n` +
-      `- If you are uncertain or the user asks to switch, you have 'list_chrome_profiles' to discover available accounts.\n` +
+      `CRITICAL RULE 2: CHROME PROFILE SELECTION (MANDATORY USER CONFIRMATION):\n` +
+      `- NEVER automatically select or assume a Chrome profile on your own without explicit user instructions in their message.\n` +
+      `- When the user commands you to open Chrome, navigate to a URL, or compose/send an email in Gmail, and they did NOT explicitly name a Chrome profile (e.g. they simply said "open gmail" or "open browser"):\n` +
+      `  1. DO NOT assume or force any profile.\n` +
+      `  2. Call 'list_chrome_profiles' to discover configured accounts, or ask the user directly in your response: "Which Chrome profile would you like me to use? (e.g. 'abdelfetah', 'Profile 4', or 'Default')".\n` +
+      `  3. Wait for the user to confirm or specify which profile to use before launching Chrome or opening Gmail.\n` +
+      `- ONLY supply the 'profile' argument to 'open_browser' or 'send_gmail' when the user explicitly specified that profile in their current message.\n` +
       `\n` +
       `CRITICAL RULE 3: EMAIL DELIVERY & BROWSER TAB HYGIENE:\n` +
       `- You have TWO methods to deliver email:\n` +

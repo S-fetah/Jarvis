@@ -4,8 +4,9 @@ This file stores persistent user preferences and habits across sessions. Jarvis 
 
 ## Profile & Identity
 - **Name**: Abdelfetah (S-fetah)
-- **Preferred Chrome Profile**: abdelfetah
+- **Preferred Chrome Profile**: Default
 - **Default Email**: fettahsafi6@gmail.com
+- **Preferred Email Mode**: browser_minimized
 
 ## Development Preferences
 - **Preferred Dev Command**: npm run dev
@@ -20,7 +21,7 @@ This file stores persistent user preferences and habits across sessions. Jarvis 
 ## Persistent Memory & Notes
 - Keep all git commits strictly local on main branch (never git push).
 - Always verify email delivery and maintain clean browser tab hygiene.
-- Use Chrome profile 'fennec' by default for web browsing and Gmail.
+- NEVER automatically select or assume a Chrome profile without asking. Always ask which profile to use before launching Chrome or opening Gmail, unless explicitly specified in the user's message.
 - Prefer verified direct delivery or closed-loop confirmation before assuming actions succeeded.
-- Default email is fettahsafi6@gmail.com (Abdelfetah's profile). Use this as the default recipient/sender identity unless specified otherwise.
-- CORRECTION: Default Chrome profile is 'abdelfetah' (Default directory, account fettahsafi6@gmail.com). The previous 'fennec' preference was incorrect - use abdelfetah for all Gmail and browsing by default.
+- Default email is fettahsafi6@gmail.com (Abdelfetah's profile).
+- When Chrome is running without remote debugging enabled, proactively suggest closing Chrome, restarting it with --remote-debugging-port=9222, and executing Ctrl+Shift+T (reopen_tab) to seamlessly restore all closed tabs.

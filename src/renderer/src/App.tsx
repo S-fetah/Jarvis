@@ -57,7 +57,7 @@ export default function App(): React.JSX.Element {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [settings, setSettings] = useState<JarvisSettings>({
     gatewayUrl: 'http://127.0.0.1:31415/v1',
-    defaultModel: 'gemini-3.6-flash',
+    defaultModel: 'auto',
     lightMode: false,
     workspacePaths: ['C:\\work\\softwares\\jarvis'],
     theme: 'system',
