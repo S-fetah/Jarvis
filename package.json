@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Local-first Windows desktop AI assistant with assistive autonomy and strict approvals",
+  "author": "Jarvis Team",
   "main": "out/main/index.js",
   "scripts": {
     "format": "prettier --write .",

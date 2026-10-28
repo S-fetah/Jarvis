@@ -163,7 +163,7 @@
 <!-- ══════════ SLIDE 1 · COVER ══════════ -->
 <div class="page dark">
   <div style="margin-top: 150px;">
-    <div class="kicker">Architecture Overview · v0.0.1 · 2026</div>
+    <div class="kicker">Architecture Overview · v0.1.0 · 2026</div>
     <div class="cover-hero">JARVIS</div>
     <div class="cover-line"></div>
     <div class="cover-sub">A local-first AI assistant for Windows<br>with strict approvals and a replaceable model gateway.</div>
@@ -376,8 +376,8 @@
   </div>
   <div style="margin-top:18px;" class="grid-4">
     <div class="stat"><div class="num">11</div><div class="lbl">Findings remediated</div></div>
-    <div class="stat"><div class="num">73<span>/73</span></div><div class="lbl">Tests passing</div></div>
-    <div class="stat"><div class="num">4</div><div class="lbl">ADRs governing design</div></div>
+    <div class="stat"><div class="num">79<span>/79</span></div><div class="lbl">Tests passing</div></div>
+    <div class="stat"><div class="num">6</div><div class="lbl">ADRs governing design</div></div>
     <div class="stat"><div class="num">0</div><div class="lbl">Secrets in repo or renderer</div></div>
   </div>
   <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>07 / 16</span></div>
@@ -530,8 +530,8 @@
 <!-- ══════════ SLIDE 13 · STATUS TODAY ══════════ -->
 <div class="page">
   <div class="kicker">12 · Status Today</div>
-  <h1 class="slide-title">v0.0.1 — a remediated, working baseline</h1>
-  <p class="slide-sub">Phase 0 closed; Phase 1 foundation and Phase 2 agent loop are in flight on GitHub.</p>
+  <h1 class="slide-title">v0.1.0 — a production-ready, verified baseline</h1>
+  <p class="slide-sub">Phase 0–6 complete; Phase 7 release validation and dogfooding active on GitHub.</p>
   <div class="grid-3" style="margin-bottom:18px;">
     <div class="card">
       <h3>Surface A — mascot</h3>
@@ -550,19 +550,19 @@
     <div class="card" style="border-left:3px solid #16A34A;">
       <h3>Working now</h3>
       <ul>
-        <li>20 native tools: CDP browser automation, dev server, PDF engine, code patcher</li>
-        <li>Zero-dependency CDP driver + closed-loop Gmail DOM ready detection</li>
-        <li>Direct RFC 5321 TLS SMTP delivery & persistent user memory (`USER.md`)</li>
-        <li>73/73 tests · typecheck + production build clean</li>
+        <li>21 native tools: CDP browser automation, dev server, PDF engine, screen capture</li>
+        <li>Windows Tray (`TrayManager`), minimize-to-tray &amp; auto-launch on startup</li>
+        <li>HMAC-SHA256 bound approvals, DPAPI encryption &amp; SEC-003 diagnostics bundle</li>
+        <li>79/79 tests · 8/8 security scan checks · NSIS + portable packages verified</li>
       </ul>
     </div>
     <div class="card" style="border-left:3px solid var(--indigo);">
-      <h3>Next up (Phase 5)</h3>
+      <h3>Next up (Phase 7)</h3>
       <ul>
-        <li>Multimodal screen capture (`desktopCapturer`)</li>
-        <li>Vision-based screen inspection</li>
-        <li>Tray integration & settings persistence</li>
-        <li>MCP (Model Context Protocol) client expander</li>
+        <li>Real-world desktop dogfooding across multi-monitor workflows</li>
+        <li>Code signing certificate integration &amp; auto-updater feed</li>
+        <li>MCP (Model Context Protocol) external client expander</li>
+        <li>Optional vision &amp; local multimodal model routing</li>
       </ul>
     </div>
   </div>
@@ -595,17 +595,17 @@
       <div class="ph-no">P4</div><div class="ph-name">Coding workflow</div>
       <div class="ph-desc">Dev server management, process tracking, code patcher, Chrome profile discovery — <b>complete 2026-10-26</b></div>
     </div>
-    <div class="phase now">
-      <div class="ph-no">P5</div><div class="ph-name">Browser &amp; Robustness<span class="now-flag">NOW</span></div>
-      <div class="ph-desc">CDP DOM automation, closed-loop email delivery, persistent user memory (USER.md) — <b>in flight</b></div>
+    <div class="phase">
+      <div class="ph-no">P5</div><div class="ph-name">Browser, Memory &amp; UI v2</div>
+      <div class="ph-desc">CDP automation, USER.md memory, "Parchment &amp; Pine" design tokens — <b>complete 2026-10-27</b></div>
     </div>
     <div class="phase">
       <div class="ph-no">P6</div><div class="ph-name">Windows integration</div>
-      <div class="ph-desc">Tray, settings, clean install/upgrade validation, installer</div>
+      <div class="ph-desc">System tray, startup auto-launch, diagnostics bundle, packaging — <b>complete 2026-10-28</b></div>
     </div>
-    <div class="phase">
-      <div class="ph-no">P7</div><div class="ph-name">Expansion</div>
-      <div class="ph-desc">Image generation, richer automation, optional voice — only after MVP acceptance</div>
+    <div class="phase now">
+      <div class="ph-no">P7</div><div class="ph-name">Release &amp; Dogfooding<span class="now-flag">NOW</span></div>
+      <div class="ph-desc">Installer distribution, multi-monitor dogfooding, MCP expander — <b>in flight</b></div>
     </div>
   </div>
   <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>14 / 16</span></div>
@@ -653,7 +653,7 @@
     </div>
   </div>
   <div class="cover-meta">
-    <span>README · PLAN · DOCS/DECISIONS/ADR-001…004 · DOCS/SPIKE-RESULTS · SECURITY AUDIT v0.0.1</span>
+    <span>README · PLAN · DOCS/DECISIONS/ADR-001…006 · DOCS/SPIKE-RESULTS · SECURITY AUDIT v0.0.1</span>
     <span>GITHUB.COM/S-FETAH/MYJARVIS</span>
   </div>
 </div>
