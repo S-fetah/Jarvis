@@ -767,7 +767,8 @@ function registerIpcHandlers(): void {
         return {
           reply: agentResult.reply,
           reasoning: agentResult.reasoning,
-          latencyMs
+          latencyMs,
+          model: agentResult.activeModel || settings.defaultModel
         }
       } catch (err: any) {
         console.error('[Jarvis Main] Error in agent runLoop:', err)

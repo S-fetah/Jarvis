@@ -31,6 +31,8 @@ export interface AgentRunOptions {
 export interface AgentRunResult {
   reply: string
   reasoning?: string
+  activeModel?: string
+  isLowQuota?: boolean
   toolsUsed: Array<{
     toolName: string
     args: Record<string, unknown>
@@ -81,6 +83,7 @@ export class AgentOrchestrator {
     let turn = 0
     let finalReply = ''
     let reasoning = ''
+    let hasLowQuotaAlert = false
 
     options?.onStatusUpdate?.('thinking', 'Analyzing request...')
 
@@ -104,6 +107,8 @@ export class AgentOrchestrator {
         })
       }
     }
+
+    let activeModelUsed = effectiveModel
 
     // Proactive Skill Suggestion: Check if the user's goal matches an available skill
     try {
@@ -155,6 +160,28 @@ export class AgentOrchestrator {
         console.error(`[AgentOrchestrator] Turn ${turn} model gateway error:`, err)
         options?.onStatusUpdate?.('error', err.message)
         throw err
+      }
+
+      if (response.activeModel) {
+        if (effectiveModel && response.activeModel !== effectiveModel) {
+          if (options?.onTimelineEvent) {
+            options.onTimelineEvent({
+              id: crypto.randomUUID(),
+              taskId,
+              timestamp: Date.now(),
+              type: 'log',
+              title: `Seamless Failover → ${response.activeModel}`,
+              details: `Primary model was on cooldown or rate-limited. Switched to ${response.activeModel}.`,
+              category: 'read_in'
+            })
+          }
+          effectiveModel = response.activeModel
+        }
+        activeModelUsed = response.activeModel
+      }
+
+      if (response.isLowQuota) {
+        hasLowQuotaAlert = true
       }
 
       const assistantMessage = response.message
@@ -360,9 +387,15 @@ export class AgentOrchestrator {
       console.warn('[AgentOrchestrator] Learning detection failed:', err)
     }
 
+    if (hasLowQuotaAlert && !finalReply.includes('Low Token Quota Alert')) {
+      finalReply += `\n\n> ⚠️ **Low Token Quota Alert:** Operating on fallback model (*${activeModelUsed}*). Approximately ~10k tokens remaining before provider cooldown. Add more keys in FreeLLMAPI to restore full quota.`
+    }
+
     return {
       reply: finalReply,
       reasoning,
+      activeModel: activeModelUsed,
+      isLowQuota: hasLowQuotaAlert,
       toolsUsed,
       turnsCount: turn
     }

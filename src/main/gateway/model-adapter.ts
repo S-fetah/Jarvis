@@ -29,6 +29,8 @@ export interface ChatWithToolsResult {
     tool_calls?: ToolCall[]
   }
   finishReason?: string
+  activeModel?: string
+  isLowQuota?: boolean
 }
 
 export interface ModelGatewayConfig {
@@ -303,6 +305,37 @@ export class ModelGatewayAdapter {
   }
 
   /**
+   * Generates an ordered list of resilient fallback models across different provider families
+   * to ensure zero interruption when one provider or model experiences rate limits or cooldowns.
+   */
+  public getResilientFallbackQueue(primaryModel: string): string[] {
+    const queue: string[] = []
+    if (primaryModel && primaryModel !== 'auto') {
+      queue.push(primaryModel)
+    }
+
+    const priorityFallbacks = [
+      'claude-haiku-4-5',
+      'qwen2.5-coder-32b',
+      'mistral-small-3.1-24b',
+      'llama-3.3-70b-fp8-fast',
+      'gemini-3.6-flash',
+      'gemini-flash-lite',
+      'claude-sonnet-4-5',
+      'gpt-oss-120b',
+      'auto'
+    ]
+
+    for (const model of priorityFallbacks) {
+      if (!queue.includes(model)) {
+        queue.push(model)
+      }
+    }
+
+    return queue
+  }
+
+  /**
    * Streams a chat completion response, parsing both reasoning/thinking tokens
    * and final response content.
    */
@@ -339,7 +372,12 @@ export class ModelGatewayAdapter {
     let fullReasoning = ''
     let insideThinkTag = false
 
-    const sendRequest = async (modelToUse: string, attempt = 1): Promise<Response> => {
+    const candidates = this.getResilientFallbackQueue(chosenModel)
+    let response: Response | null = null
+    let lastError: Error | null = null
+
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i]
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }
@@ -347,63 +385,49 @@ export class ModelGatewayAdapter {
         headers['Authorization'] = `Bearer ${apiKey}`
       }
 
-      const res = await fetch(`${this.config.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: payloadMessages,
-          stream: true,
-          temperature: 0.3
-        }),
-        signal: AbortSignal.timeout(45000)
-      })
+      try {
+        const res = await fetch(`${this.config.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: candidate,
+            messages: payloadMessages,
+            stream: true,
+            temperature: 0.3
+          }),
+          signal: AbortSignal.timeout(45000)
+        })
 
-      // Transient 502/503/504 retry
-      if ([502, 503, 504].includes(res.status) && attempt <= 2) {
-        console.warn(`[ModelGatewayAdapter] Received ${res.status}, retrying (attempt ${attempt})...`)
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
-        return sendRequest(modelToUse, attempt + 1)
-      }
-
-      // Handle 429 Rate Limit: Try fallback to light model if not already using it
-      if (res.status === 429 && modelToUse !== 'gemini-flash-lite' && attempt === 1) {
-        console.warn(
-          `[ModelGatewayAdapter] Model ${modelToUse} rate limited (429), attempting fallback to gemini-flash-lite...`
-        )
-        return sendRequest('gemini-flash-lite', 2)
-      }
-
-      if (!res.ok) {
-        const errorText = await res.text()
-        let retrySeconds = 75
-        try {
-          const parsed = JSON.parse(errorText)
-          const match = parsed?.error?.message?.match(/reset ~(\d+)s/)
-          if (match) {
-            retrySeconds = parseInt(match[1], 10)
-          } else if (parsed?.error?.retryAtMs) {
-            retrySeconds = Math.max(5, Math.round((parsed.error.retryAtMs - Date.now()) / 1000))
-          }
-        } catch {}
-
-        if (res.status === 429) {
-          throw new Error(
-            JSON.stringify({
-              isRateLimit: true,
-              retrySeconds,
-              model: modelToUse
-            })
+        if (res.status === 429 || [502, 503, 504].includes(res.status)) {
+          const errText = await res.text()
+          console.warn(
+            `[ModelGatewayAdapter] Model '${candidate}' rate-limited/unavailable (HTTP ${res.status}). Seamlessly switching to next fallback...`
           )
+          lastError = new Error(`Gateway returned HTTP ${res.status}: ${errText}`)
+          continue
         }
 
-        throw new Error(`Gateway returned HTTP ${res.status}: ${errorText}`)
-      }
+        if (!res.ok) {
+          const errText = await res.text()
+          if (res.status === 404) {
+            console.warn(`[ModelGatewayAdapter] Model '${candidate}' not found (404), trying next...`)
+            lastError = new Error(`Model not found (404): ${errText}`)
+            continue
+          }
+          throw new Error(`Gateway returned HTTP ${res.status}: ${errText}`)
+        }
 
-      return res
+        response = res
+        break
+      } catch (err: any) {
+        lastError = err
+        continue
+      }
     }
 
-    const response = await sendRequest(chosenModel)
+    if (!response || !response.body) {
+      throw lastError || new Error('All candidate models exhausted.')
+    }
     if (!response.body) {
       throw new Error('Response body is empty')
     }
@@ -517,7 +541,13 @@ export class ModelGatewayAdapter {
 
     const payloadMessages = [systemPrompt, ...messages]
 
-    const sendRequest = async (modelToUse: string, attempt = 1): Promise<Response> => {
+    const candidates = this.getResilientFallbackQueue(chosenModel)
+    let lastError: Error | null = null
+
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i]
+      const isLastFallback = i >= candidates.length - 2
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }
@@ -526,7 +556,7 @@ export class ModelGatewayAdapter {
       }
 
       const bodyPayload: Record<string, unknown> = {
-        model: modelToUse,
+        model: candidate,
         messages: payloadMessages,
         temperature: 0.2
       }
@@ -536,49 +566,60 @@ export class ModelGatewayAdapter {
         bodyPayload.tool_choice = 'auto'
       }
 
-      const res = await fetch(`${this.config.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(bodyPayload),
-        signal: AbortSignal.timeout(35000)
-      })
+      try {
+        const res = await fetch(`${this.config.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(bodyPayload),
+          signal: AbortSignal.timeout(35000)
+        })
 
-      // Transient 502/503/504 retry
-      if ([502, 503, 504].includes(res.status) && attempt <= 2) {
-        console.warn(`[ModelGatewayAdapter] chatWithTools received ${res.status}, retrying (attempt ${attempt})...`)
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
-        return sendRequest(modelToUse, attempt + 1)
+        if (res.status === 429 || [502, 503, 504].includes(res.status)) {
+          const errText = await res.text()
+          console.warn(
+            `[ModelGatewayAdapter] Model '${candidate}' rate-limited/unavailable (HTTP ${res.status}). Seamlessly switching to next fallback...`
+          )
+          lastError = new Error(`Gateway returned HTTP ${res.status}: ${errText}`)
+          continue
+        }
+
+        if (!res.ok) {
+          const errText = await res.text()
+          if (res.status === 404) {
+            console.warn(`[ModelGatewayAdapter] Model '${candidate}' not found (404), trying next...`)
+            lastError = new Error(`Model not found (404): ${errText}`)
+            continue
+          }
+          throw new Error(`Gateway returned HTTP ${res.status}: ${errText}`)
+        }
+
+        const json = await res.json()
+        const choice = json.choices?.[0]
+        if (!choice || !choice.message) {
+          throw new Error('Invalid response structure from model gateway: no choices returned.')
+        }
+
+        if (i > 0) {
+          console.log(`[ModelGatewayAdapter] Seamlessly recovered using fallback model '${candidate}'.`)
+        }
+
+        return {
+          message: {
+            role: 'assistant',
+            content: choice.message.content ?? null,
+            tool_calls: choice.message.tool_calls
+          },
+          finishReason: choice.finish_reason,
+          activeModel: candidate,
+          isLowQuota: isLastFallback && i > 0
+        }
+      } catch (err: any) {
+        lastError = err
+        continue
       }
-
-      // Handle 429 Rate Limit: Try fallback to light model
-      if (res.status === 429 && modelToUse !== 'gemini-flash-lite' && attempt === 1) {
-        console.warn(`[ModelGatewayAdapter] chatWithTools rate limited (429), falling back to gemini-flash-lite...`)
-        return sendRequest('gemini-flash-lite', 2)
-      }
-
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(`Gateway returned HTTP ${res.status}: ${errorText}`)
-      }
-
-      return res
     }
 
-    const res = await sendRequest(chosenModel)
-    const json = await res.json()
-    const choice = json.choices?.[0]
-    if (!choice || !choice.message) {
-      throw new Error('Invalid response structure from model gateway: no choices returned.')
-    }
-
-    return {
-      message: {
-        role: 'assistant',
-        content: choice.message.content ?? null,
-        tool_calls: choice.message.tool_calls
-      },
-      finishReason: choice.finish_reason
-    }
+    throw lastError || new Error('All fallback models exhausted.')
   }
 
   /**
