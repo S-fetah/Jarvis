@@ -199,7 +199,8 @@ export interface JarvisAPI {
   // System & External Links
   openExternalUrl: (url: string) => Promise<void>
   openFreeLLMDashboard: () => Promise<void>
-  openPath: (targetPath: string) => Promise<boolean>
+  openPath: (targetPath: string, openWithApp?: boolean) => Promise<boolean>
+  showItemInFolder?: (filePath: string) => Promise<boolean>
 
   // Process & Dev Server Management (Phase 4)
   getActiveProcesses: () => Promise<ManagedProcess[]>

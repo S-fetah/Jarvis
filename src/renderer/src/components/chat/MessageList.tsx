@@ -31,7 +31,7 @@ interface MessageListProps {
   onOpenHub: () => void
   onRetry: () => void
   onResubmitPrompt?: (newPrompt: string) => void
-  onOpenCanvas?: (params: { url: string; type: 'browser' | 'pdf' | 'preview'; title: string }) => void
+  onOpenCanvas?: (params: { url: string; type: 'browser' | 'pdf' | 'preview'; title: string; filePath?: string }) => void
 }
 
 function parseRateLimit(content: string): { isRateLimit: boolean; info: { retrySeconds?: number; model?: string } } {
@@ -56,7 +56,54 @@ interface MessageItemProps {
   onOpenHub: () => void
   onRetry: () => void
   onResubmitPrompt?: (newPrompt: string) => void
-  onOpenCanvas?: (params: { url: string; type: 'browser' | 'pdf' | 'preview'; title: string }) => void
+  onOpenCanvas?: (params: { url: string; type: 'browser' | 'pdf' | 'preview'; title: string; filePath?: string }) => void
+}
+
+export function detectAssetInMessage(content: string): {
+  url: string
+  type: 'browser' | 'pdf'
+  label: string
+  isPdf: boolean
+} | null {
+  // 1. Detect live web / dev URLs
+  const urlMatch = content.match(/(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/[^\s)]*)?)/i)
+  if (urlMatch) {
+    return { url: urlMatch[1], type: 'browser', label: urlMatch[1], isPdf: false }
+  }
+
+  // 2. Detect absolute Windows path to PDF (e.g. C:\work\softwares\jarvis\output\chat_summary.pdf)
+  const absWinMatch = content.match(/([a-zA-Z]:[\\/][^\s\n"'`)]+?\.pdf)/i)
+  if (absWinMatch) {
+    const fullPath = absWinMatch[1].replace(/[.,;:!?]+$/, '')
+    const parts = fullPath.split(/[\\/]/)
+    const label = parts[parts.length - 1] || fullPath
+    return { url: fullPath, type: 'pdf', label, isPdf: true }
+  }
+
+  // 3. Detect output-relative path (e.g. output/chat_summary.pdf or output\chat_summary.pdf)
+  const relMatch = content.match(/((?:output[\\/])[\w.-]+\.pdf)/i)
+  if (relMatch) {
+    const fullPath = relMatch[1]
+    const label = fullPath.split(/[\\/]/).pop() || fullPath
+    return { url: fullPath, type: 'pdf', label, isPdf: true }
+  }
+
+  // 4. Detect absolute Unix path to PDF
+  const absUnixMatch = content.match(/(?:^|[\s"'`])(\/(?:[^\s\n"'`)]+?\/)*?[^\s\n"'`)]+?\.pdf)/i)
+  if (absUnixMatch) {
+    const fullPath = absUnixMatch[1].replace(/[.,;:!?]+$/, '')
+    const parts = fullPath.split('/')
+    const label = parts[parts.length - 1] || fullPath
+    return { url: fullPath, type: 'pdf', label, isPdf: true }
+  }
+
+  // 5. Detect bare filename with .pdf extension
+  const bareMatch = content.match(/([\w.-]+\.pdf)/i)
+  if (bareMatch) {
+    return { url: bareMatch[0], type: 'pdf', label: bareMatch[0], isPdf: true }
+  }
+
+  return null
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -170,14 +217,7 @@ const MessageItem = React.memo(function MessageItem({
   const { isRateLimit, info } = parseRateLimit(message.content)
 
   // Detect live links or PDFs in assistant message
-  const urlMatch = message.content.match(/(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/[^\s)]*)?)/i)
-  const pdfMatch = message.content.match(/(?:output[\\/][\w.-]+\.pdf|[\w.-]+\.pdf)/i)
-
-  const detectedAsset = urlMatch
-    ? { url: urlMatch[1], type: 'browser' as const, label: urlMatch[1], isPdf: false }
-    : pdfMatch
-      ? { url: pdfMatch[0], type: 'pdf' as const, label: pdfMatch[0], isPdf: true }
-      : null
+  const detectedAsset = React.useMemo(() => detectAssetInMessage(message.content), [message.content])
 
   return (
     <article className="group animate-slide-up">
@@ -252,7 +292,8 @@ const MessageItem = React.memo(function MessageItem({
               onOpenCanvas({
                 url: detectedAsset.url,
                 type: detectedAsset.type,
-                title: detectedAsset.label
+                title: detectedAsset.label,
+                filePath: detectedAsset.isPdf ? detectedAsset.url : undefined
               })
             }
             className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-jarvis-accent px-2.5 py-1 text-[11px] font-semibold text-jarvis-accentContrast shadow transition hover:opacity-90"

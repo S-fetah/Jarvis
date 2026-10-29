@@ -133,8 +133,12 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('system:open-freellm-dashboard')
   },
 
-  openPath: (targetPath: string): Promise<boolean> => {
-    return ipcRenderer.invoke('system:open-path', targetPath)
+  openPath: (targetPath: string, openWithApp?: boolean): Promise<boolean> => {
+    return ipcRenderer.invoke('system:open-path', targetPath, openWithApp)
+  },
+
+  showItemInFolder: (filePath: string): Promise<boolean> => {
+    return ipcRenderer.invoke('system:show-in-folder', filePath)
   },
 
   // Process & Development Server Management (Phase 4)

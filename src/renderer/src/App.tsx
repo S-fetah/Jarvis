@@ -224,13 +224,19 @@ export default function App(): React.JSX.Element {
     url: string
     type: 'browser' | 'pdf' | 'preview'
     title?: string
+    filePath?: string
   }): Promise<void> => {
     let dataUrl: string | undefined
+    let resolvedFilePath = params.filePath || params.url
+    let resolvedTitle = params.title || basename(params.url)
+
     if (params.type === 'pdf' || params.url.toLowerCase().endsWith('.pdf')) {
       if (window.jarvisAPI?.readFileData) {
         const fileRes = await window.jarvisAPI.readFileData(params.url)
         if (fileRes.success && fileRes.dataUrl) {
           dataUrl = fileRes.dataUrl
+          if (fileRes.filePath) resolvedFilePath = fileRes.filePath
+          if (fileRes.fileName) resolvedTitle = fileRes.fileName
         }
       }
     }
@@ -238,8 +244,9 @@ export default function App(): React.JSX.Element {
       open: true,
       type: params.type,
       url: params.url,
-      title: params.title || params.url,
-      dataUrl
+      title: resolvedTitle,
+      dataUrl,
+      filePath: resolvedFilePath
     })
   }
 

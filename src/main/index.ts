@@ -183,7 +183,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: true
+      webSecurity: true,
+      plugins: true
     }
   })
 
@@ -1167,26 +1168,95 @@ function registerIpcHandlers(): void {
     return files
   })
 
-  ipcMain.handle('workspace:read-file-data', async (event, relativeOrAbsolutePath: string) => {
+  ipcMain.handle('workspace:read-file-data', async (event, inputPath: string) => {
     if (!isAuthorizedSender(event.sender)) return { success: false, error: 'Unauthorized' }
-    const wsPath = settings.workspacePaths[0] || process.cwd()
-    const targetPath = path.isAbsolute(relativeOrAbsolutePath)
-      ? relativeOrAbsolutePath
-      : path.join(wsPath, relativeOrAbsolutePath)
+    if (!inputPath || typeof inputPath !== 'string') return { success: false, error: 'Invalid path' }
 
-    if (!fs.existsSync(targetPath)) {
-      return { success: false, error: 'File not found' }
+    let cleanPath = inputPath.trim().replace(/^['"`]+|['"`]+$/g, '')
+    if (cleanPath.startsWith('file:///')) {
+      cleanPath = cleanPath.slice(8)
+    } else if (cleanPath.startsWith('file://')) {
+      cleanPath = cleanPath.slice(7)
     }
+
+    const wsPath = settings.workspacePaths[0] || process.cwd()
+    const outDir = settings.outputDirectory || path.join(wsPath, 'output')
+    const desktopDir = app.getPath('desktop')
+    const downloadsDir = app.getPath('downloads')
+    const documentsDir = app.getPath('documents')
+    const baseName = path.basename(cleanPath)
+
+    const candidates = [
+      path.resolve(cleanPath),
+      path.resolve(wsPath, cleanPath),
+      path.resolve(outDir, cleanPath),
+      path.resolve(outDir, baseName),
+      path.resolve(wsPath, 'output', cleanPath),
+      path.resolve(wsPath, 'output', baseName),
+      path.resolve(desktopDir, cleanPath),
+      path.resolve(desktopDir, baseName),
+      path.resolve(downloadsDir, cleanPath),
+      path.resolve(downloadsDir, baseName),
+      path.resolve(documentsDir, cleanPath),
+      path.resolve(documentsDir, baseName),
+      path.resolve(wsPath, baseName)
+    ]
+
+    let resolvedTarget: string | null = null
+    for (const cand of candidates) {
+      try {
+        if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
+          resolvedTarget = cand
+          break
+        }
+      } catch {}
+    }
+
+    if (!resolvedTarget) {
+      return { success: false, error: `File not found: ${baseName}` }
+    }
+
+    const allowedRoots = [
+      ...settings.workspacePaths,
+      outDir,
+      desktopDir,
+      downloadsDir,
+      documentsDir
+    ]
+    const isAllowed = allowedRoots.some(
+      (root) =>
+        policyEngine.isPathInsideWorkspace(resolvedTarget!, root) ||
+        resolvedTarget!.toLowerCase() === path.resolve(root).toLowerCase()
+    )
+
+    if (!isAllowed) {
+      console.warn('[Jarvis Main] workspace:read-file-data blocked path outside boundaries:', resolvedTarget)
+      return { success: false, error: 'Access denied: File outside authorized boundaries' }
+    }
+
     try {
-      const ext = path.extname(targetPath).toLowerCase()
-      const buffer = fs.readFileSync(targetPath)
-      const mimeType = ext === '.pdf' ? 'application/pdf' : ext === '.html' ? 'text/html' : 'application/octet-stream'
+      const ext = path.extname(resolvedTarget).toLowerCase()
+      const buffer = fs.readFileSync(resolvedTarget)
+      const mimeType =
+        ext === '.pdf'
+          ? 'application/pdf'
+          : ext === '.html' || ext === '.htm'
+            ? 'text/html'
+            : ext === '.svg'
+              ? 'image/svg+xml'
+              : ext === '.png'
+                ? 'image/png'
+                : ext === '.jpg' || ext === '.jpeg'
+                  ? 'image/jpeg'
+                  : 'application/octet-stream'
+
       const base64 = buffer.toString('base64')
       return {
         success: true,
         dataUrl: `data:${mimeType};base64,${base64}`,
-        filePath: targetPath,
-        fileName: path.basename(targetPath)
+        filePath: resolvedTarget,
+        fileName: path.basename(resolvedTarget),
+        fileSize: buffer.length
       }
     } catch (err: any) {
       return { success: false, error: err.message || 'Failed to read file' }
@@ -1245,23 +1315,33 @@ function registerIpcHandlers(): void {
     }
   })
 
-  // Safe file / folder opening restricted to workspaces and output directory (SEC-006)
-  ipcMain.handle('system:open-path', async (event, targetPath: string) => {
+  // Safe file / folder opening restricted to workspaces, output, desktop, downloads, documents (SEC-006)
+  const isSafeSystemPath = (resolved: string): boolean => {
+    const allowedRoots = [
+      ...settings.workspacePaths,
+      settings.outputDirectory,
+      app.getPath('desktop'),
+      app.getPath('downloads'),
+      app.getPath('documents')
+    ]
+    return allowedRoots.some(
+      (root) =>
+        policyEngine.isPathInsideWorkspace(resolved, root) ||
+        resolved.toLowerCase() === path.resolve(root).toLowerCase()
+    )
+  }
+
+  ipcMain.handle('system:open-path', async (event, targetPath: string, openWithApp?: boolean) => {
     if (!isAuthorizedSender(event.sender)) return false
     try {
       const resolved = path.resolve(targetPath)
-      const isAllowed =
-        settings.workspacePaths.some((wp) => policyEngine.isPathInsideWorkspace(resolved, wp)) ||
-        policyEngine.isPathInsideWorkspace(resolved, settings.outputDirectory) ||
-        resolved.toLowerCase() === path.resolve(settings.outputDirectory).toLowerCase()
-
-      if (!isAllowed) {
+      if (!isSafeSystemPath(resolved)) {
         console.warn('[Jarvis Main] Blocked unauthorized system:open-path access:', targetPath)
         return false
       }
 
       if (fs.existsSync(resolved)) {
-        if (fs.statSync(resolved).isDirectory()) {
+        if (fs.statSync(resolved).isDirectory() || openWithApp) {
           await shell.openPath(resolved)
         } else {
           shell.showItemInFolder(resolved)
@@ -1270,6 +1350,24 @@ function registerIpcHandlers(): void {
       }
     } catch (err) {
       console.error('[Jarvis Main] Failed to open path:', err)
+    }
+    return false
+  })
+
+  ipcMain.handle('system:show-in-folder', async (event, targetPath: string) => {
+    if (!isAuthorizedSender(event.sender)) return false
+    try {
+      const resolved = path.resolve(targetPath)
+      if (!isSafeSystemPath(resolved)) {
+        console.warn('[Jarvis Main] Blocked unauthorized system:show-in-folder access:', targetPath)
+        return false
+      }
+      if (fs.existsSync(resolved)) {
+        shell.showItemInFolder(resolved)
+        return true
+      }
+    } catch (err) {
+      console.error('[Jarvis Main] Failed to show item in folder:', err)
     }
     return false
   })
