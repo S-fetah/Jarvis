@@ -26,10 +26,13 @@
 | **Support Diagnostics** | ✅ Implemented | SEC-003 sanitized Markdown & JSON diagnostics bundle exporter (`exportDiagnosticBundle`) with zero secret leakage. |
 | **Multimodal Screen Capture** | ✅ Implemented | High-resolution desktop and window screenshot tool (`screen_capture`) with strict path traversal defenses. |
 | **Packaging & Distribution** | ✅ Configured | Production `electron-builder.yml` configuring Windows x64 NSIS installer and portable targets. |
+| **Workspace Canvas (Surface D)** | ✅ Implemented | Claude Artifacts / Cursor style collapsible split-pane for live dev server previews, local PDFs, web inspection, and code artifacts. |
+| **Deliberation & Learning** | ✅ Implemented | Sequential reasoning with diagnostic retry, modular skill discovery (`skills/`), and autonomous convention persistence (`USER.md`). |
+| **Multi-Provider Failover** | ✅ Implemented | Resilient fallback cascade across Claude, Qwen, Mistral, Llama, and Gemini on HTTP 429 cooldowns with ~10k token reserve alerts. |
 
 ## Verified Testing & Environment Status
 
-- **Automated Tests:** **79/79 unit & security regression tests passing** across 13 test suites (`vitest run`).
+- **Automated Tests:** **80/80 unit & security regression tests passing** across 13 test suites (`vitest run`).
 - **TypeScript & Build:** Typecheck clean (`npm run typecheck`), `electron-vite build` passing.
 - **Runtime Environment:** Verified on Node.js `v24.13.0`, Electron `34.2.0`, React `19.0.0`, Vite `6.1.0` on Windows 11.
 - **Full Security Audit:** See [docs/security/SECURITY_AUDIT_v0.0.1.md](./docs/security/SECURITY_AUDIT_v0.0.1.md).

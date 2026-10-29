@@ -44,7 +44,9 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 1. Windows release packaging verified: `npm run build:win` produces installable NSIS (`dist/Jarvis Setup 0.1.0.exe`, 122.5 MB) and portable standalone package (`dist/Jarvis 0.1.0.exe`, 122.3 MB).
 2. Input responsiveness & visual polish complete: zero typing lag, high-contrast #212121 light mode typography, and unclipped floating permission modals across both desktop and QuickChat drawers.
 3. Architecture slide deck regenerated: `docs/architecture-slides.pdf` reflects Phase 0–6 completion and active Phase 7 goals.
-4. Next active checkpoint: End-to-end dogfooding across multi-monitor setups and real-world day-to-day assistant workflows.
+4. Workspace Canvas & Modern Chat UX: Live in-chat split pane for dev servers, PDFs, and web previews; adaptive wide layout; user prompt hover toolbar; @ context mentions.
+5. Deliberation & Learning Engine: Autonomous convention learning into `USER.md` and multi-tier model failover cascade (Claude/Qwen/Mistral/Llama/Gemini) preventing 429 aborts with ~10k token reserve alerts.
+6. Next active checkpoint: End-to-end dogfooding across multi-monitor setups and real-world day-to-day assistant workflows.
 ## Re-running gateway checks (regression)
 
 `scripts/validate-freellmapi.mjs` re-checks the gateway (models, chat, streaming, non-executed tool call); `scripts/list-gateway-models.mjs` lists model ids. Both read the key only from the `FREELLMAPI_API_KEY` process environment — never stored, never printed:
