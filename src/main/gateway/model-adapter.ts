@@ -4,6 +4,7 @@ import initSqlJs from 'sql.js'
 import { PlanStep, ModelCatalog, TalkingStyle, TaskMode, ThinkingDepth } from '../../shared/types'
 import { ToolDefinition } from '../tools/tool-registry'
 import { PromptEngine } from './prompt-engine'
+import type { ModelBalancer } from './model-balancer'
 
 export interface ToolCall {
   id: string
@@ -54,12 +55,22 @@ export interface TaskModelRouting {
 export class ModelGatewayAdapter {
   private config: ModelGatewayConfig
   private cachedApiKey: string | null = null
+  private balancer?: ModelBalancer
 
-  constructor(config: ModelGatewayConfig) {
+  constructor(config: ModelGatewayConfig, balancer?: ModelBalancer) {
     this.config = {
       lightModel: 'gemini-flash-lite',
       ...config
     }
+    this.balancer = balancer
+  }
+
+  public setBalancer(balancer: ModelBalancer): void {
+    this.balancer = balancer
+  }
+
+  public getBalancer(): ModelBalancer | undefined {
+    return this.balancer
   }
 
   public updateConfig(config: Partial<ModelGatewayConfig>): void {
@@ -237,6 +248,15 @@ export class ModelGatewayAdapter {
    * Fetches available models from the gateway and categorizes them into light and standard models.
    */
   public async listModels(): Promise<ModelCatalog> {
+    if (this.balancer) {
+      try {
+        const catalog = await this.balancer.listAllModels()
+        if (catalog.all.length > 1) {
+          return catalog
+        }
+      } catch {}
+    }
+
     const fallbackCatalog: ModelCatalog = {
       all: [
         'auto',
@@ -350,6 +370,13 @@ export class ModelGatewayAdapter {
       thinkingDepth?: ThinkingDepth
     }
   ): Promise<{ reply: string; reasoning: string }> {
+    if (this.balancer) {
+      try {
+        return await this.balancer.chatStream(messages, onChunk, options)
+      } catch (err: any) {
+        console.warn('[ModelGatewayAdapter] Balancer chatStream failed, falling back to legacy gateway:', err?.message)
+      }
+    }
     const apiKey = await this.getEffectiveApiKey()
     let chosenModel = options?.isLightMode
       ? this.config.lightModel || 'gemini-flash-lite'
@@ -523,6 +550,13 @@ export class ModelGatewayAdapter {
       thinkingDepth?: ThinkingDepth
     }
   ): Promise<ChatWithToolsResult> {
+    if (this.balancer) {
+      try {
+        return await this.balancer.chatWithTools(messages, tools, options)
+      } catch (err: any) {
+        console.warn('[ModelGatewayAdapter] Balancer chatWithTools failed, falling back to legacy gateway:', err?.message)
+      }
+    }
     const apiKey = await this.getEffectiveApiKey()
     let chosenModel = options?.isLightMode
       ? this.config.lightModel || 'gemini-flash-lite'

@@ -5,6 +5,10 @@ import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { PolicyEngine } from './policy/policy-engine'
 import { ModelGatewayAdapter } from './gateway/model-adapter'
+import { CredentialVault } from './gateway/credential-vault'
+import { ModelBalancer } from './gateway/model-balancer'
+import { LocalGatewayServer } from './gateway/local-gateway-server'
+import { ProviderId } from '../shared/types'
 import { JarvisDatabase } from './storage/database'
 import { MascotManager } from './windows/mascot-manager'
 import { ToolExecutor } from './tools/tool-executor'
@@ -67,12 +71,18 @@ const settings: JarvisSettings = {
   thinkingDepth: 'standard'
 }
 
-const modelAdapter = new ModelGatewayAdapter({
-  baseUrl: settings.gatewayUrl,
-  apiKey: settings.apiKey,
-  model: settings.defaultModel,
-  lightModel: 'gemini-flash-lite'
-})
+const credentialVault = new CredentialVault(path.join(process.cwd(), 'userData'))
+const modelBalancer = new ModelBalancer(credentialVault)
+const localGatewayServer = new LocalGatewayServer(modelBalancer)
+const modelAdapter = new ModelGatewayAdapter(
+  {
+    baseUrl: settings.gatewayUrl,
+    apiKey: settings.apiKey,
+    model: settings.defaultModel,
+    lightModel: 'gemini-flash-lite'
+  },
+  modelBalancer
+)
 
 const toolExecutor = new ToolExecutor(policyEngine, processManager, (approvalReq) => {
   const taskId = crypto.randomUUID()
@@ -271,6 +281,12 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.jarvis.desktop')
+
+  // Auto-start embedded local gateway server if enabled
+  const hubState = credentialVault.getHubState()
+  if (hubState.localServerEnabled) {
+    void localGatewayServer.start(hubState.localServerPort)
+  }
 
   // Initialize SQLite storage
   try {
@@ -1432,5 +1448,49 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('mascot:toggle-visibility', async () => {
     return mascotManager ? mascotManager.toggleMascotVisibility() : false
+  })
+
+  // --- Providers & Models Hub (Phase 7 Native Routing Engine) ---
+  ipcMain.handle('providers:get-hub-state', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const state = credentialVault.getHubState()
+    return {
+      ...state,
+      localServerRunning: localGatewayServer.isRunning()
+    }
+  })
+
+  ipcMain.handle('providers:update-key', async (event, params: { providerId: ProviderId; apiKey: string; baseUrl?: string }) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    credentialVault.setKey(params.providerId, params.apiKey, params.baseUrl)
+    return true
+  })
+
+  ipcMain.handle('providers:set-enabled', async (event, params: { providerId: ProviderId; enabled: boolean }) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    credentialVault.setEnabled(params.providerId, params.enabled)
+    return true
+  })
+
+  ipcMain.handle('providers:test-connection', async (event, providerId: ProviderId) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const provider = modelBalancer.getProvider(providerId)
+    if (!provider) {
+      return { success: false, error: `Provider ${providerId} not found` }
+    }
+    return await provider.testConnection()
+  })
+
+  ipcMain.handle('providers:toggle-local-server', async (event, params: { enabled: boolean; port?: number }) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const port = params.port || credentialVault.getHubState().localServerPort || 31415
+    credentialVault.updateHubSettings({ localServerEnabled: params.enabled, localServerPort: port })
+    if (params.enabled) {
+      const started = await localGatewayServer.start(port)
+      return { running: started, port, error: started ? undefined : `Failed to bind port ${port}` }
+    } else {
+      await localGatewayServer.stop()
+      return { running: false, port }
+    }
   })
 }

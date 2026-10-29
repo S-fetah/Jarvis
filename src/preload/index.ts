@@ -220,6 +220,27 @@ const api: JarvisAPI = {
 
   readFileData: (filePath: string): Promise<{ success: boolean; dataUrl?: string; filePath?: string; fileName?: string; error?: string }> => {
     return ipcRenderer.invoke('workspace:read-file-data', filePath)
+  },
+
+  // Provider Hub & Multi-Provider Engine
+  getProviderHubState: (): Promise<import('../shared/types').ProviderHubState> => {
+    return ipcRenderer.invoke('providers:get-hub-state')
+  },
+
+  updateProviderKey: (providerId: import('../shared/types').ProviderId, apiKey: string, baseUrl?: string): Promise<boolean> => {
+    return ipcRenderer.invoke('providers:update-key', { providerId, apiKey, baseUrl })
+  },
+
+  setProviderEnabled: (providerId: import('../shared/types').ProviderId, enabled: boolean): Promise<boolean> => {
+    return ipcRenderer.invoke('providers:set-enabled', { providerId, enabled })
+  },
+
+  testProviderConnection: (providerId: import('../shared/types').ProviderId): Promise<{ success: boolean; latencyMs?: number; models?: string[]; error?: string }> => {
+    return ipcRenderer.invoke('providers:test-connection', providerId)
+  },
+
+  toggleLocalGatewayServer: (enabled: boolean, port?: number): Promise<{ running: boolean; port: number; error?: string }> => {
+    return ipcRenderer.invoke('providers:toggle-local-server', { enabled, port })
   }
 }
 

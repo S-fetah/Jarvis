@@ -146,6 +146,41 @@ export interface MascotPosition {
   y: number
 }
 
+export type ProviderId =
+  | 'gemini'
+  | 'groq'
+  | 'deepseek'
+  | 'openai'
+  | 'anthropic'
+  | 'openrouter'
+  | 'ollama'
+  | 'freellmapi'
+  | 'custom'
+
+export interface ProviderConfig {
+  id: ProviderId
+  name: string
+  description: string
+  websiteUrl: string
+  getKeyUrl: string
+  hasKey: boolean
+  previewKey?: string
+  enabled: boolean
+  baseUrl?: string
+  status: 'online' | 'offline' | 'rate_limited' | 'unconfigured' | 'error'
+  lastLatencyMs?: number
+  models: string[]
+  isLocal?: boolean
+}
+
+export interface ProviderHubState {
+  providers: ProviderConfig[]
+  activeProviderId: ProviderId | 'auto'
+  localServerEnabled: boolean
+  localServerPort: number
+  localServerRunning: boolean
+}
+
 export interface ModelCatalog {
   all: string[]
   light: string[]
@@ -221,4 +256,10 @@ export interface JarvisAPI {
   onMascotCursorTracking?: (callback: (offset: { nx: number; ny: number }) => void) => () => void
   listWorkspaceFiles?: (workspacePath?: string) => Promise<string[]>
   readFileData?: (filePath: string) => Promise<{ success: boolean; dataUrl?: string; filePath?: string; fileName?: string; error?: string }>
+  // Provider Hub & Multi-Provider Engine
+  getProviderHubState?: () => Promise<ProviderHubState>
+  updateProviderKey?: (providerId: ProviderId, apiKey: string, baseUrl?: string) => Promise<boolean>
+  setProviderEnabled?: (providerId: ProviderId, enabled: boolean) => Promise<boolean>
+  testProviderConnection?: (providerId: ProviderId) => Promise<{ success: boolean; latencyMs?: number; models?: string[]; error?: string }>
+  toggleLocalGatewayServer?: (enabled: boolean, port?: number) => Promise<{ running: boolean; port: number; error?: string }>
 }
