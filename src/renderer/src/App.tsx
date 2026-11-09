@@ -206,7 +206,7 @@ export default function App(): React.JSX.Element {
       : () => {}
 
     const unsubOpenSettings = window.jarvisAPI?.onOpenSettings
-      ? window.jarvisAPI.onOpenSettings(() => setSettingsOpen(true))
+      ? window.jarvisAPI.onOpenSettings(() => handleOpenSettings('app'))
       : () => {}
 
     return () => {
@@ -452,6 +452,22 @@ export default function App(): React.JSX.Element {
     if (lastUserMessage) void handleSendMessage(lastUserMessage.content)
   }
 
+  const handleOpenSettings = (tab?: string): void => {
+    if (window.jarvisAPI?.openSettingsWindow) {
+      void window.jarvisAPI.openSettingsWindow(tab)
+    } else {
+      setSettingsOpen(true)
+    }
+  }
+
+  const handleOpenHub = (): void => {
+    if (window.jarvisAPI?.openSettingsWindow) {
+      void window.jarvisAPI.openSettingsWindow('providers')
+    } else {
+      setHubOpen(true)
+    }
+  }
+
   const containerMaxWidth =
     chatWidthMode === 'adaptive'
       ? canvasState.open
@@ -470,8 +486,8 @@ export default function App(): React.JSX.Element {
           onToggleTheme={handleToggleTheme}
           mascotEnabled={settings.mascotEnabled !== false}
           onToggleMascot={handleToggleMascot}
-          onOpenHub={() => setHubOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenHub={handleOpenHub}
+          onOpenSettings={() => handleOpenSettings('app')}
         />
 
         <div className="flex min-h-0 flex-1">
@@ -548,7 +564,7 @@ export default function App(): React.JSX.Element {
                         copiedMessageId={copiedMessageId}
                         onCopyMessage={handleCopyMessage}
                         onSwitchLightMode={() => void handleToggleLightMode(true)}
-                        onOpenHub={() => setHubOpen(true)}
+                        onOpenHub={handleOpenHub}
                         onRetry={handleRetryLast}
                         onResubmitPrompt={handleSendMessage}
                         onOpenCanvas={handleOpenCanvas}

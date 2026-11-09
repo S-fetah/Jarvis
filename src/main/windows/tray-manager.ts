@@ -7,15 +7,18 @@ export class TrayManager {
   private mainWindow: BrowserWindow | null = null
   private mascotManager: MascotManager | null = null
   private onExportDiagnostics?: () => Promise<string | null>
+  private onOpenSettings?: () => void
 
   constructor(
     mainWindow: BrowserWindow | null,
     mascotManager: MascotManager | null,
-    onExportDiagnostics?: () => Promise<string | null>
+    onExportDiagnostics?: () => Promise<string | null>,
+    onOpenSettings?: () => void
   ) {
     this.mainWindow = mainWindow
     this.mascotManager = mascotManager
     this.onExportDiagnostics = onExportDiagnostics
+    this.onOpenSettings = onOpenSettings
   }
 
   public setMainWindow(win: BrowserWindow | null): void {
@@ -89,10 +92,14 @@ export class TrayManager {
         }
       },
       {
-        label: 'Settings...',
+        label: 'Settings & AI Configuration...',
         click: () => {
-          this.showMainWindow()
-          this.mainWindow?.webContents.send('ui:open-settings')
+          if (this.onOpenSettings) {
+            this.onOpenSettings()
+          } else {
+            this.showMainWindow()
+            this.mainWindow?.webContents.send('ui:open-settings')
+          }
         }
       },
       { type: 'separator' },

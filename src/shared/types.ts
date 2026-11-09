@@ -262,4 +262,11 @@ export interface JarvisAPI {
   setProviderEnabled?: (providerId: ProviderId, enabled: boolean) => Promise<boolean>
   testProviderConnection?: (providerId: ProviderId) => Promise<{ success: boolean; latencyMs?: number; models?: string[]; error?: string }>
   toggleLocalGatewayServer?: (enabled: boolean, port?: number) => Promise<{ running: boolean; port: number; error?: string }>
+
+  // Dedicated Settings & Config App Window
+  openSettingsWindow?: (tab?: string) => Promise<void>
+  closeSettingsWindow?: () => Promise<void>
+  onNavigateSettingsTab?: (callback: (tab: string) => void) => () => void
+  getUserMemory?: (workspacePath?: string) => Promise<{ filePath: string; rawMarkdown: string; memory: any }>
+  saveUserMemory?: (markdown: string, workspacePath?: string) => Promise<boolean>
 }

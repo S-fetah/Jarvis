@@ -241,6 +241,29 @@ const api: JarvisAPI = {
 
   toggleLocalGatewayServer: (enabled: boolean, port?: number): Promise<{ running: boolean; port: number; error?: string }> => {
     return ipcRenderer.invoke('providers:toggle-local-server', { enabled, port })
+  },
+
+  // Dedicated Standalone Settings & Config Window
+  openSettingsWindow: (tab?: string): Promise<void> => {
+    return ipcRenderer.invoke('settings:open-window', tab)
+  },
+
+  closeSettingsWindow: (): Promise<void> => {
+    return ipcRenderer.invoke('settings:close-window')
+  },
+
+  onNavigateSettingsTab: (callback: (tab: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, tab: string): void => callback(tab)
+    ipcRenderer.on('settings:navigate-tab', handler)
+    return () => ipcRenderer.removeListener('settings:navigate-tab', handler)
+  },
+
+  getUserMemory: (workspacePath?: string): Promise<{ filePath: string; rawMarkdown: string; memory: any }> => {
+    return ipcRenderer.invoke('memory:get', workspacePath)
+  },
+
+  saveUserMemory: (markdown: string, workspacePath?: string): Promise<boolean> => {
+    return ipcRenderer.invoke('memory:save', { markdown, workspacePath })
   }
 }
 

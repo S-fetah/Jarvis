@@ -16,6 +16,8 @@ import { AgentOrchestrator } from './agent/agent-orchestrator'
 import { ProcessManager } from './process/process-manager'
 import { launchBrowser } from './utils/browser'
 import { TrayManager } from './windows/tray-manager'
+import { SettingsWindowManager } from './windows/settings-window-manager'
+import { ensureUserMemoryFile, getUserMemoryFilePath, loadUserMemory } from './memory/user-memory'
 import { exportDiagnosticBundle } from './utils/diagnostics'
 import {
   TaskState,
@@ -27,6 +29,7 @@ import {
 
 let mainWindow: BrowserWindow | null = null
 let mascotManager: MascotManager | null = null
+let settingsWindowManager: SettingsWindowManager | null = null
 let trayManager: TrayManager | null = null
 let isQuitting = false
 const processManager = new ProcessManager()
@@ -44,6 +47,8 @@ function isAuthorizedSender(webContents: Electron.WebContents): boolean {
   if (mascotWin && !mascotWin.isDestroyed() && mascotWin.webContents.id === webContents.id) return true
   const quickWin = mascotManager?.getQuickChatWindow()
   if (quickWin && !quickWin.isDestroyed() && quickWin.webContents.id === webContents.id) return true
+  const settingsWin = settingsWindowManager?.getSettingsWindow()
+  if (settingsWin && !settingsWin.isDestroyed() && settingsWin.webContents.id === webContents.id) return true
   return false
 }
 
@@ -166,6 +171,7 @@ function applyWindowTheme(theme: EffectiveTheme = resolveEffectiveTheme()): void
     }
   }
   mascotManager?.setQuickChatTheme(theme)
+  settingsWindowManager?.setSettingsTheme(theme === 'dark' ? 'dark' : 'light')
 }
 
 function createWindow(): void {
@@ -409,6 +415,14 @@ app.whenReady().then(async () => {
     mascotManager.init()
   }
 
+  // Initialize Dedicated Settings & Config Window Manager
+  settingsWindowManager = new SettingsWindowManager(
+    preloadPath,
+    process.env['ELECTRON_RENDERER_URL'] || null,
+    is.dev,
+    db
+  )
+
   // Phase 6: Initialize Windows System Tray & Shell Integration
   trayManager = new TrayManager(
     mainWindow,
@@ -420,12 +434,19 @@ app.whenReady().then(async () => {
         return res.filePath
       }
       return null
-    }
+    },
+    () => settingsWindowManager?.openSettingsWindow()
   )
   trayManager.init()
 
   registerIpcHandlers()
-  createWindow()
+
+  const isConfigMode = process.argv.includes('--settings') || process.argv.includes('--config')
+  if (isConfigMode) {
+    settingsWindowManager.openSettingsWindow()
+  } else {
+    createWindow()
+  }
   applyWindowTheme()
 
   nativeTheme.on('updated', () => {
@@ -433,7 +454,26 @@ app.whenReady().then(async () => {
   })
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      if (isConfigMode) {
+        settingsWindowManager?.openSettingsWindow()
+      } else {
+        createWindow()
+      }
+    }
+  })
+
+  app.on('second-instance', (_event, commandLine) => {
+    const wantsConfig = commandLine.includes('--settings') || commandLine.includes('--config')
+    if (wantsConfig) {
+      settingsWindowManager?.openSettingsWindow()
+    } else if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    } else {
+      createWindow()
+    }
   })
 })
 
@@ -1463,12 +1503,14 @@ function registerIpcHandlers(): void {
   ipcMain.handle('providers:update-key', async (event, params: { providerId: ProviderId; apiKey: string; baseUrl?: string }) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
     credentialVault.setKey(params.providerId, params.apiKey, params.baseUrl)
+    broadcastToWindows('providers:hub-changed')
     return true
   })
 
   ipcMain.handle('providers:set-enabled', async (event, params: { providerId: ProviderId; enabled: boolean }) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
     credentialVault.setEnabled(params.providerId, params.enabled)
+    broadcastToWindows('providers:hub-changed')
     return true
   })
 
@@ -1485,12 +1527,51 @@ function registerIpcHandlers(): void {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
     const port = params.port || credentialVault.getHubState().localServerPort || 31415
     credentialVault.updateHubSettings({ localServerEnabled: params.enabled, localServerPort: port })
+    let result: { running: boolean; port: number; error?: string }
     if (params.enabled) {
       const started = await localGatewayServer.start(port)
-      return { running: started, port, error: started ? undefined : `Failed to bind port ${port}` }
+      result = { running: started, port, error: started ? undefined : `Failed to bind port ${port}` }
     } else {
       await localGatewayServer.stop()
-      return { running: false, port }
+      result = { running: false, port }
     }
+    broadcastToWindows('providers:hub-changed')
+    return result
+  })
+
+  // --- Dedicated Standalone Settings & Config App IPC Handlers ---
+  ipcMain.handle('settings:open-window', async (event, tab?: string) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    settingsWindowManager?.openSettingsWindow(tab)
+    return true
+  })
+
+  ipcMain.handle('settings:close-window', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    settingsWindowManager?.closeSettingsWindow()
+    return true
+  })
+
+  ipcMain.handle('memory:get', async (event, workspacePath?: string) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const targetWs = workspacePath || settings.workspacePaths[0] || process.cwd()
+    const fp = ensureUserMemoryFile(targetWs)
+    let raw = ''
+    try {
+      raw = fs.readFileSync(fp, 'utf-8')
+    } catch (err) {
+      console.error('[Jarvis Main] Failed to read user memory:', err)
+    }
+    const mem = loadUserMemory(targetWs)
+    return { filePath: fp, rawMarkdown: raw, memory: mem }
+  })
+
+  ipcMain.handle('memory:save', async (event, params: { markdown: string; workspacePath?: string }) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const targetWs = params.workspacePath || settings.workspacePaths[0] || process.cwd()
+    const fp = getUserMemoryFilePath(targetWs)
+    fs.writeFileSync(fp, params.markdown, 'utf-8')
+    broadcastToWindows('memory:updated')
+    return true
   })
 }
