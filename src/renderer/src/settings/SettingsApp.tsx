@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Server,
   Settings2,
+  ShieldAlert,
   ShieldCheck,
   Sliders,
   Sparkles,
@@ -34,6 +35,7 @@ import { JarvisMark } from '../components/brand/JarvisMark'
 import { Badge, Button, Switch } from '../components/ui'
 import { applyTheme, readCachedTheme } from '../lib/theme'
 import { cn } from '../lib/cn'
+import { scanPromptSafety } from '../../../shared/prompt-safety'
 
 type SettingsTab = 'providers' | 'models' | 'prompts' | 'app'
 
@@ -65,6 +67,10 @@ export function SettingsApp(): React.JSX.Element {
   const [diagnosticsMessage, setDiagnosticsMessage] = useState<string | null>(null)
   const [importingFreeApi, setImportingFreeApi] = useState(false)
   const [importMessage, setImportMessage] = useState<string | null>(null)
+  const [customPromptText, setCustomPromptText] = useState<string>('')
+  const [riskAcknowledged, setRiskAcknowledged] = useState<boolean>(false)
+  const [customPromptSaving, setCustomPromptSaving] = useState(false)
+  const [customPromptSaved, setCustomPromptSaved] = useState(false)
 
   // Initialize theme and load all state on mount
   useEffect(() => {
@@ -95,6 +101,8 @@ export function SettingsApp(): React.JSX.Element {
       window.jarvisAPI.getSettings().then((s) => {
         setSettings(s)
         if (s.theme) applyTheme(s.theme)
+        if (s.customPrompt !== undefined) setCustomPromptText(s.customPrompt)
+        if (s.customPromptRiskAcknowledged !== undefined) setRiskAcknowledged(s.customPromptRiskAcknowledged)
       })
     }
 
@@ -204,6 +212,23 @@ export function SettingsApp(): React.JSX.Element {
       await refreshHubState()
     } finally {
       setServerToggling(false)
+    }
+  }
+
+  const promptSafety = scanPromptSafety(customPromptText)
+
+  const handleSaveCustomPrompt = async (): Promise<void> => {
+    if (!promptSafety.isSafe && !riskAcknowledged) return
+    setCustomPromptSaving(true)
+    try {
+      await handleUpdateSetting({
+        customPrompt: customPromptText,
+        customPromptRiskAcknowledged: riskAcknowledged
+      })
+      setCustomPromptSaved(true)
+      setTimeout(() => setCustomPromptSaved(false), 2000)
+    } finally {
+      setCustomPromptSaving(false)
     }
   }
 
@@ -528,60 +553,67 @@ export function SettingsApp(): React.JSX.Element {
 
                         {/* API Key Input */}
                         <div className="mt-3.5 space-y-2">
-                          <div className="flex items-center gap-1.5">
-                            <div className="relative flex-1">
-                              <input
-                                type={isKeyVisible ? 'text' : 'password'}
-                                value={
-                                  keyInputs[provider.id] !== undefined
-                                    ? keyInputs[provider.id]
-                                    : provider.hasKey
-                                      ? provider.previewKey || '••••••••••••••••'
-                                      : ''
-                                }
-                                onChange={(e) =>
-                                  setKeyInputs((prev) => ({
-                                    ...prev,
-                                    [provider.id]: e.target.value
-                                  }))
-                                }
-                                placeholder="Paste API Key…"
-                                className="h-8 w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 pr-8 font-mono text-xs text-jarvis-ivory placeholder:text-jarvis-muted/60 focus:border-jarvis-accent focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setShowKeyMap((prev) => ({
-                                    ...prev,
-                                    [provider.id]: !prev[provider.id]
-                                  }))
-                                }
-                                className="absolute right-2 top-2 text-jarvis-muted hover:text-jarvis-ivory"
-                              >
-                                {isKeyVisible ? (
-                                  <EyeOff className="h-4 w-4" />
-                                ) : (
-                                  <Eye className="h-4 w-4" />
-                                )}
-                              </button>
+                          {provider.id === 'pollinations' || provider.id === 'ovh' ? (
+                            <div className="flex h-8 items-center rounded-md border border-jarvis-border/60 bg-jarvis-base/50 px-3 font-mono text-[11px] text-emerald-400">
+                              <Check className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                              <span>Keyless Free Community Tier (No Key Required)</span>
                             </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <div className="relative flex-1">
+                                <input
+                                  type={isKeyVisible ? 'text' : 'password'}
+                                  value={
+                                    keyInputs[provider.id] !== undefined
+                                      ? keyInputs[provider.id]
+                                      : provider.hasKey
+                                        ? provider.previewKey || '••••••••••••••••'
+                                        : ''
+                                  }
+                                  onChange={(e) =>
+                                    setKeyInputs((prev) => ({
+                                      ...prev,
+                                      [provider.id]: e.target.value
+                                    }))
+                                  }
+                                  placeholder="Paste API Key…"
+                                  className="h-8 w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 pr-8 font-mono text-xs text-jarvis-ivory placeholder:text-jarvis-muted/60 focus:border-jarvis-accent focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setShowKeyMap((prev) => ({
+                                      ...prev,
+                                      [provider.id]: !prev[provider.id]
+                                    }))
+                                  }
+                                  className="absolute right-2 top-2 text-jarvis-muted hover:text-jarvis-ivory"
+                                >
+                                  {isKeyVisible ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
 
-                            <Button
-                              variant={isSaved ? 'primary' : 'secondary'}
-                              size="sm"
-                              disabled={!hasDraftKey}
-                              onClick={() => void handleSaveKey(provider.id)}
-                              className="h-8 px-3 text-xs"
-                            >
-                              {isSaved ? (
-                                <>
-                                  <Check className="h-3.5 w-3.5" /> Saved
-                                </>
-                              ) : (
-                                'Save'
-                              )}
-                            </Button>
-                          </div>
+                              <Button
+                                variant={isSaved ? 'primary' : 'secondary'}
+                                size="sm"
+                                disabled={!hasDraftKey}
+                                onClick={() => void handleSaveKey(provider.id)}
+                                className="h-8 px-3 text-xs"
+                              >
+                                {isSaved ? (
+                                  <>
+                                    <Check className="h-3.5 w-3.5" /> Saved
+                                  </>
+                                ) : (
+                                  'Save'
+                                )}
+                              </Button>
+                            </div>
+                          )}
 
                           {/* Base URL (if custom endpoint) */}
                           {provider.id === 'ollama' && (
@@ -789,35 +821,145 @@ export function SettingsApp(): React.JSX.Element {
           {/* TAB 3: PROMPTS & USER MEMORY */}
           {activeTab === 'prompts' && (
             <div className="max-w-3xl space-y-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h1 className="font-display text-xl font-semibold text-jarvis-ivory">
-                    Persistent Memory & Prompts (USER.md)
-                  </h1>
-                  <p className="mt-1 text-xs text-jarvis-muted leading-relaxed">
-                    Jarvis remembers your preferences, default Chrome profiles, dev ports, and custom
-                    system directives stored in your local `USER.md` file.
-                  </p>
+              <div>
+                <h1 className="font-display text-xl font-semibold text-jarvis-ivory">
+                  Prompt Injection & Persistent Memory
+                </h1>
+                <p className="mt-1 text-xs text-jarvis-muted leading-relaxed">
+                  Configure special system prompt directives and customize your persistent user memory (`USER.md`).
+                  Special prompts are scanned for dangerous bypasses and destructive commands.
+                </p>
+              </div>
+
+              {/* Card 1: Custom Injected Prompts & Directives */}
+              <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-jarvis-accent" />
+                    <span className="text-xs font-semibold text-jarvis-ivory">
+                      Special Injected System Directives
+                    </span>
+                    {customPromptText.trim() ? (
+                      promptSafety.isSafe ? (
+                        <Badge variant="accent" mono className="gap-1 text-3xs">
+                          <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                          Safety Verified
+                        </Badge>
+                      ) : (
+                        <Badge variant="neutral" mono className="gap-1 text-3xs border-rose-500/40 text-rose-300 bg-rose-500/10">
+                          <ShieldAlert className="h-3 w-3 text-rose-400" />
+                          Risk Detected
+                        </Badge>
+                      )
+                    ) : (
+                      <Badge variant="neutral" mono className="text-3xs">
+                        Default
+                      </Badge>
+                    )}
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={customPromptSaving || (!promptSafety.isSafe && !riskAcknowledged)}
+                    onClick={() => void handleSaveCustomPrompt()}
+                    className="h-7 min-w-[80px] text-xs"
+                  >
+                    {customPromptSaved ? (
+                      <>
+                        <Check className="h-3 w-3" /> Saved
+                      </>
+                    ) : customPromptSaving ? (
+                      'Saving…'
+                    ) : (
+                      'Save Prompt'
+                    )}
+                  </Button>
                 </div>
 
-                {userMemoryPath && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleShowInFolder(userMemoryPath)}
-                    className="gap-1.5 text-xs text-jarvis-muted hover:text-jarvis-ivory"
-                  >
-                    <FolderOpen className="h-3.5 w-3.5" />
-                    Reveal in Explorer
-                  </Button>
+                <p className="text-[11px] text-jarvis-muted leading-relaxed">
+                  Inject special behavioral instructions, technical guidelines, or persona rules directly into Jarvis.
+                </p>
+
+                <textarea
+                  value={customPromptText}
+                  onChange={(e) => setCustomPromptText(e.target.value)}
+                  rows={5}
+                  placeholder="e.g. Always respond in bullet points, enforce strict TypeScript typechecking, prioritize security hardening..."
+                  className="w-full rounded-lg border border-jarvis-border bg-jarvis-base p-3 font-mono text-xs text-jarvis-ivory placeholder:text-jarvis-muted/50 focus:border-jarvis-accent focus:outline-none leading-relaxed"
+                />
+
+                {/* Threat / Safety Assessment Feedback */}
+                {customPromptText.trim() && !promptSafety.isSafe && (
+                  <div className="rounded-lg border border-rose-500/35 bg-rose-500/10 p-3.5 space-y-3">
+                    <div className="flex items-start gap-2.5">
+                      <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="font-display text-xs font-semibold text-rose-200">
+                          Security Risk Warning: Potentially Dangerous Directives Detected
+                        </h3>
+                        <p className="mt-1 text-[11px] text-rose-300 leading-relaxed">
+                          {promptSafety.warningNotice}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Detected Findings */}
+                    <div className="space-y-1.5 rounded border border-rose-500/20 bg-rose-950/40 p-2.5">
+                      {promptSafety.findings.map((f, i) => (
+                        <div key={i} className="flex flex-wrap items-center gap-1.5 text-3xs font-mono text-rose-300">
+                          <span className="font-semibold uppercase text-rose-400">[{f.severity}]</span>
+                          <span className="font-medium text-rose-200">{f.title}:</span>
+                          <span className="rounded bg-rose-900/60 px-1 py-0.5 text-jarvis-ivory">
+                            "{f.matchedPatterns.join(', ')}"
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Explicit Risk Acknowledgment Checkbox */}
+                    <label className="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-rose-500/20">
+                      <input
+                        type="checkbox"
+                        checked={riskAcknowledged}
+                        onChange={(e) => setRiskAcknowledged(e.target.checked)}
+                        className="mt-0.5 rounded border-rose-500/50 bg-jarvis-base text-jarvis-accent focus:ring-0"
+                      />
+                      <span className="text-[11px] text-rose-200 leading-normal">
+                        I understand that bypassing permissions or attempting destructive operations is entirely at my own risk.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {customPromptText.trim() && promptSafety.isSafe && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-400">
+                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    <span className="text-[11px]">Prompt Safety Check Passed: No permission bypass or destructive directives detected.</span>
+                  </div>
                 )}
               </div>
 
-              {/* Editor Box */}
+              {/* Card 2: Editor Box for USER.md */}
               <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-jarvis-muted">File: {userMemoryPath || 'USER.md'}</span>
                   <div className="flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-jarvis-accent" />
+                    <span className="text-xs font-semibold text-jarvis-ivory">
+                      Persistent User Memory (USER.md)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {userMemoryPath && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleShowInFolder(userMemoryPath)}
+                        className="h-7 text-xs text-jarvis-muted hover:text-jarvis-ivory"
+                      >
+                        <FolderOpen className="h-3 w-3 mr-1" /> Explorer
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -840,7 +982,7 @@ export function SettingsApp(): React.JSX.Element {
                       ) : memorySaving ? (
                         'Saving…'
                       ) : (
-                        'Save'
+                        'Save Memory'
                       )}
                     </Button>
                   </div>

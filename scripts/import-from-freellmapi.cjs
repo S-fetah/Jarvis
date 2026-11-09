@@ -53,6 +53,11 @@ app.whenReady().then(async () => {
       google: 'gemini',
       groq: 'groq',
       openrouter: 'openrouter',
+      nvidia: 'nvidia',
+      mistral: 'mistral',
+      cohere: 'cohere',
+      cloudflare: 'cloudflare',
+      cerebras: 'cerebras',
       deepseek: 'deepseek',
       openai: 'openai',
       anthropic: 'anthropic'

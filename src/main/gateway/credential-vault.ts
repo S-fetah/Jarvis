@@ -83,6 +83,64 @@ export const PROVIDER_METADATA: Record<
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
     defaultModels: ['anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'meta-llama/llama-3.3-70b-instruct']
   },
+  nvidia: {
+    name: 'NVIDIA NIM',
+    description: 'Frontier AI models hosted on NVIDIA DGX Cloud with free trial inference credits',
+    websiteUrl: 'https://build.nvidia.com',
+    getKeyUrl: 'https://build.nvidia.com',
+    defaultBaseUrl: 'https://integrate.api.nvidia.com/v1',
+    defaultModels: ['meta/llama-3.3-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'deepseek-ai/deepseek-r1']
+  },
+  mistral: {
+    name: 'Mistral AI',
+    description: 'European frontier models, Codestral code generation, and Mistral Large',
+    websiteUrl: 'https://mistral.ai',
+    getKeyUrl: 'https://console.mistral.ai/api-keys',
+    defaultBaseUrl: 'https://api.mistral.ai/v1',
+    defaultModels: ['codestral-latest', 'mistral-small-latest', 'mistral-large-latest']
+  },
+  cohere: {
+    name: 'Cohere Platform',
+    description: 'Enterprise search, multilingual reasoning, Command R, and Aya series with free trial keys',
+    websiteUrl: 'https://cohere.com',
+    getKeyUrl: 'https://dashboard.cohere.com/api-keys',
+    defaultBaseUrl: 'https://api.cohere.com/v2',
+    defaultModels: ['command-r-08-2024', 'command-r-plus-08-2024', 'command-a-03-2025']
+  },
+  cloudflare: {
+    name: 'Cloudflare Workers AI',
+    description: 'Serverless global edge inference with daily free neuron allocation',
+    websiteUrl: 'https://ai.cloudflare.com',
+    getKeyUrl: 'https://dash.cloudflare.com',
+    defaultBaseUrl: 'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1',
+    defaultModels: ['@cf/meta/llama-3.3-70b-instruct', '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/qwen/qwen3-30b-a3b-fp8']
+  },
+  cerebras: {
+    name: 'Cerebras Cloud',
+    description: 'Wafer-scale engine with lightning-fast inference (2000+ tok/s) and free tier',
+    websiteUrl: 'https://cerebras.ai',
+    getKeyUrl: 'https://cloud.cerebras.ai',
+    defaultBaseUrl: 'https://api.cerebras.ai/v1',
+    defaultModels: ['llama3.3-70b', 'llama3.1-8b']
+  },
+  pollinations: {
+    name: 'Pollinations.ai',
+    description: '100% free, community-driven keyless endpoint for text and chat models',
+    websiteUrl: 'https://pollinations.ai',
+    getKeyUrl: '',
+    defaultBaseUrl: 'https://gen.pollinations.ai/v1',
+    defaultModels: ['openai', 'mistral', 'llama'],
+    isLocal: false
+  },
+  ovh: {
+    name: 'OVHcloud AI Endpoints',
+    description: 'Free European cloud AI endpoints with keyless anonymous tier',
+    websiteUrl: 'https://endpoints.ai.cloud.ovh.net',
+    getKeyUrl: '',
+    defaultBaseUrl: 'https://endpoints.ai.cloud.ovh.net/v1',
+    defaultModels: ['Meta-Llama-3_3-70B-Instruct', 'gpt-oss-120b'],
+    isLocal: false
+  },
   ollama: {
     name: 'Local Ollama',
     description: '100% private, local offline execution on your own GPU/CPU without internet',
@@ -130,6 +188,13 @@ export class CredentialVault {
         openai: { enabled: true, baseUrl: PROVIDER_METADATA.openai.defaultBaseUrl },
         anthropic: { enabled: true, baseUrl: PROVIDER_METADATA.anthropic.defaultBaseUrl },
         openrouter: { enabled: false, baseUrl: PROVIDER_METADATA.openrouter.defaultBaseUrl },
+        nvidia: { enabled: true, baseUrl: PROVIDER_METADATA.nvidia.defaultBaseUrl },
+        mistral: { enabled: true, baseUrl: PROVIDER_METADATA.mistral.defaultBaseUrl },
+        cohere: { enabled: true, baseUrl: PROVIDER_METADATA.cohere.defaultBaseUrl },
+        cloudflare: { enabled: true, baseUrl: PROVIDER_METADATA.cloudflare.defaultBaseUrl },
+        cerebras: { enabled: true, baseUrl: PROVIDER_METADATA.cerebras.defaultBaseUrl },
+        pollinations: { enabled: true, baseUrl: PROVIDER_METADATA.pollinations.defaultBaseUrl },
+        ovh: { enabled: true, baseUrl: PROVIDER_METADATA.ovh.defaultBaseUrl },
         ollama: { enabled: true, baseUrl: PROVIDER_METADATA.ollama.defaultBaseUrl },
         freellmapi: { enabled: true, baseUrl: PROVIDER_METADATA.freellmapi.defaultBaseUrl },
         custom: { enabled: false, baseUrl: '' }
@@ -253,7 +318,7 @@ export class CredentialVault {
   }
 
   public hasKey(id: ProviderId): boolean {
-    if (id === 'ollama') return true // Ollama is local, doesn't require cloud API key
+    if (id === 'ollama' || id === 'pollinations' || id === 'ovh') return true // Local or keyless free providers
     if (id === 'freellmapi') return true // FreeLLMAPI can authenticate via default or local DB
     const rec = this.data.providers[id]
     return Boolean(rec?.encryptedKey && rec.encryptedKey.length > 0)
@@ -357,6 +422,11 @@ export class CredentialVault {
         google: 'gemini',
         groq: 'groq',
         openrouter: 'openrouter',
+        nvidia: 'nvidia',
+        mistral: 'mistral',
+        cohere: 'cohere',
+        cloudflare: 'cloudflare',
+        cerebras: 'cerebras',
         deepseek: 'deepseek',
         openai: 'openai',
         anthropic: 'anthropic'

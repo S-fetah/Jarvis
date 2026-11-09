@@ -22,6 +22,8 @@ export interface AgentRunOptions {
   talkingStyle?: TalkingStyle
   taskMode?: TaskMode
   thinkingDepth?: ThinkingDepth
+  customPrompt?: string
+  customPromptRiskAcknowledged?: boolean
   taskId?: string
   onStatusUpdate?: (status: 'thinking' | 'working' | 'synthesizing' | 'completed' | 'error', detail?: string) => void
   onTimelineEvent?: (event: TimelineEvent) => void
@@ -153,7 +155,9 @@ export class AgentOrchestrator {
             isLightMode: options?.isLightMode,
             talkingStyle: options?.talkingStyle,
             taskMode: options?.taskMode,
-            thinkingDepth: options?.thinkingDepth
+            thinkingDepth: options?.thinkingDepth,
+            customPrompt: options?.customPrompt,
+            customPromptRiskAcknowledged: options?.customPromptRiskAcknowledged
           }
         )
       } catch (err: any) {
@@ -353,7 +357,9 @@ export class AgentOrchestrator {
             isLightMode: options?.isLightMode,
             talkingStyle: options?.talkingStyle,
             taskMode: options?.taskMode,
-            thinkingDepth: options?.thinkingDepth
+            thinkingDepth: options?.thinkingDepth,
+            customPrompt: options?.customPrompt,
+            customPromptRiskAcknowledged: options?.customPromptRiskAcknowledged
           }
         )
         finalReply = finalPass.message.content || 'Synthesis completed.'

@@ -23,11 +23,27 @@ describe('CredentialVault (DPAPI Encrypted Provider Vault)', () => {
     const vault = new CredentialVault(testUserData)
     const hubState = vault.getHubState()
 
-    expect(hubState.providers.length).toBeGreaterThanOrEqual(8)
+    expect(hubState.providers.length).toBeGreaterThanOrEqual(15)
     const gemini = hubState.providers.find((p) => p.id === 'gemini')
     expect(gemini).toBeDefined()
     expect(gemini?.name).toBe('Google Gemini')
     expect(gemini?.getKeyUrl).toContain('aistudio.google.com')
+
+    const nvidia = hubState.providers.find((p) => p.id === 'nvidia')
+    expect(nvidia).toBeDefined()
+    expect(nvidia?.name).toBe('NVIDIA NIM')
+
+    const mistral = hubState.providers.find((p) => p.id === 'mistral')
+    expect(mistral).toBeDefined()
+    expect(mistral?.name).toBe('Mistral AI')
+
+    const pollinations = hubState.providers.find((p) => p.id === 'pollinations')
+    expect(pollinations).toBeDefined()
+    expect(vault.hasKey('pollinations')).toBe(true) // Keyless
+
+    const ovh = hubState.providers.find((p) => p.id === 'ovh')
+    expect(ovh).toBeDefined()
+    expect(vault.hasKey('ovh')).toBe(true) // Keyless
   })
 
   it('encrypts and stores provider keys securely with masked previews', () => {

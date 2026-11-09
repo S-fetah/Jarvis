@@ -359,6 +359,12 @@ app.whenReady().then(async () => {
       }
     }
 
+    const savedCustomPrompt = db.getSetting('customPrompt')
+    if (savedCustomPrompt !== null) settings.customPrompt = savedCustomPrompt
+
+    const savedRiskAck = db.getSetting('customPromptRiskAcknowledged')
+    if (savedRiskAck !== null) settings.customPromptRiskAcknowledged = savedRiskAck === 'true'
+
     const savedMinToTray = db.getSetting('minimizeToTray')
     if (savedMinToTray !== null) {
       settings.minimizeToTray = savedMinToTray === 'true'
@@ -801,6 +807,8 @@ function registerIpcHandlers(): void {
           talkingStyle: talkingStyle || settings.talkingStyle || 'balanced',
           taskMode: taskMode || settings.taskMode || 'chat',
           thinkingDepth: thinkingDepth || settings.thinkingDepth || 'standard',
+          customPrompt: settings.customPrompt,
+          customPromptRiskAcknowledged: settings.customPromptRiskAcknowledged,
           onStatusUpdate: (st) => {
             if (st === 'working') mascotManager?.setMascotState('working')
             else if (st === 'thinking' || st === 'synthesizing') mascotManager?.setMascotState('thinking')
@@ -1163,6 +1171,14 @@ function registerIpcHandlers(): void {
     if (newSettings.workspacePaths !== undefined) {
       settings.workspacePaths = newSettings.workspacePaths
       db.setSetting('workspacePaths', JSON.stringify(newSettings.workspacePaths))
+    }
+    if (newSettings.customPrompt !== undefined) {
+      settings.customPrompt = newSettings.customPrompt
+      db.setSetting('customPrompt', newSettings.customPrompt)
+    }
+    if (newSettings.customPromptRiskAcknowledged !== undefined) {
+      settings.customPromptRiskAcknowledged = newSettings.customPromptRiskAcknowledged
+      db.setSetting('customPromptRiskAcknowledged', String(newSettings.customPromptRiskAcknowledged))
     }
 
     modelAdapter.updateConfig({

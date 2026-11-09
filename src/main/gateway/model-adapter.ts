@@ -368,6 +368,8 @@ export class ModelGatewayAdapter {
       talkingStyle?: TalkingStyle
       taskMode?: TaskMode
       thinkingDepth?: ThinkingDepth
+      customPrompt?: string
+      customPromptRiskAcknowledged?: boolean
     }
   ): Promise<{ reply: string; reasoning: string }> {
     if (this.balancer) {
@@ -548,6 +550,8 @@ export class ModelGatewayAdapter {
       talkingStyle?: TalkingStyle
       taskMode?: TaskMode
       thinkingDepth?: ThinkingDepth
+      customPrompt?: string
+      customPromptRiskAcknowledged?: boolean
     }
   ): Promise<ChatWithToolsResult> {
     if (this.balancer) {

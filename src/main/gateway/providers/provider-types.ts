@@ -40,6 +40,8 @@ export interface RequestOptions {
   talkingStyle?: TalkingStyle
   taskMode?: TaskMode
   thinkingDepth?: ThinkingDepth
+  customPrompt?: string
+  customPromptRiskAcknowledged?: boolean
   temperature?: number
   maxTokens?: number
 }

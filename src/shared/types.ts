@@ -128,6 +128,8 @@ export interface JarvisSettings {
   talkingStyle?: TalkingStyle
   taskMode?: TaskMode
   thinkingDepth?: ThinkingDepth
+  customPrompt?: string
+  customPromptRiskAcknowledged?: boolean
 }
 
 export type MascotState =
@@ -153,6 +155,13 @@ export type ProviderId =
   | 'openai'
   | 'anthropic'
   | 'openrouter'
+  | 'nvidia'
+  | 'mistral'
+  | 'cohere'
+  | 'cloudflare'
+  | 'cerebras'
+  | 'pollinations'
+  | 'ovh'
   | 'ollama'
   | 'freellmapi'
   | 'custom'

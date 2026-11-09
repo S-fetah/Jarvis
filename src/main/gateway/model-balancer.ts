@@ -90,13 +90,97 @@ export class ModelBalancer {
       )
     )
 
-    // 7. Local Ollama
+    // 7. NVIDIA NIM
+    this.providers.set(
+      'nvidia',
+      new BaseOpenAICompatibleProvider({
+        id: 'nvidia',
+        name: 'NVIDIA NIM',
+        defaultModel: 'meta/llama-3.3-70b-instruct',
+        getApiKey: () => this.vault.getKey('nvidia'),
+        getBaseUrl: () => this.vault.getBaseUrl('nvidia')
+      })
+    )
+
+    // 8. Mistral AI
+    this.providers.set(
+      'mistral',
+      new BaseOpenAICompatibleProvider({
+        id: 'mistral',
+        name: 'Mistral AI',
+        defaultModel: 'codestral-latest',
+        getApiKey: () => this.vault.getKey('mistral'),
+        getBaseUrl: () => this.vault.getBaseUrl('mistral')
+      })
+    )
+
+    // 9. Cohere Platform
+    this.providers.set(
+      'cohere',
+      new BaseOpenAICompatibleProvider({
+        id: 'cohere',
+        name: 'Cohere Platform',
+        defaultModel: 'command-r-08-2024',
+        getApiKey: () => this.vault.getKey('cohere'),
+        getBaseUrl: () => this.vault.getBaseUrl('cohere')
+      })
+    )
+
+    // 10. Cloudflare Workers AI
+    this.providers.set(
+      'cloudflare',
+      new BaseOpenAICompatibleProvider({
+        id: 'cloudflare',
+        name: 'Cloudflare Workers AI',
+        defaultModel: '@cf/meta/llama-3.3-70b-instruct',
+        getApiKey: () => this.vault.getKey('cloudflare'),
+        getBaseUrl: () => this.vault.getBaseUrl('cloudflare')
+      })
+    )
+
+    // 11. Cerebras Cloud
+    this.providers.set(
+      'cerebras',
+      new BaseOpenAICompatibleProvider({
+        id: 'cerebras',
+        name: 'Cerebras Cloud',
+        defaultModel: 'llama3.3-70b',
+        getApiKey: () => this.vault.getKey('cerebras'),
+        getBaseUrl: () => this.vault.getBaseUrl('cerebras')
+      })
+    )
+
+    // 12. Pollinations.ai (Keyless Free)
+    this.providers.set(
+      'pollinations',
+      new BaseOpenAICompatibleProvider({
+        id: 'pollinations',
+        name: 'Pollinations.ai',
+        defaultModel: 'openai',
+        getApiKey: () => 'pollinations',
+        getBaseUrl: () => this.vault.getBaseUrl('pollinations')
+      })
+    )
+
+    // 13. OVH AI Endpoints (Keyless Free)
+    this.providers.set(
+      'ovh',
+      new BaseOpenAICompatibleProvider({
+        id: 'ovh',
+        name: 'OVHcloud AI Endpoints',
+        defaultModel: 'Meta-Llama-3_3-70B-Instruct',
+        getApiKey: () => 'ovh',
+        getBaseUrl: () => this.vault.getBaseUrl('ovh')
+      })
+    )
+
+    // 14. Local Ollama
     this.providers.set(
       'ollama',
       new OllamaProvider(() => this.vault.getBaseUrl('ollama'))
     )
 
-    // 8. FreeLLMAPI (Legacy)
+    // 15. FreeLLMAPI (Legacy)
     this.providers.set(
       'freellmapi',
       new BaseOpenAICompatibleProvider({
@@ -262,6 +346,24 @@ export class ModelBalancer {
     if (lower.startsWith('claude-') && this.isProviderReady('anthropic')) {
       return { provider: this.providers.get('anthropic')!, model: modelName, providerId: 'anthropic' }
     }
+    if ((lower.startsWith('codestral') || lower.startsWith('ministral') || lower.startsWith('mistral-')) && this.isProviderReady('mistral')) {
+      return { provider: this.providers.get('mistral')!, model: modelName, providerId: 'mistral' }
+    }
+    if ((lower.startsWith('nvidia/') || lower.startsWith('nemotron')) && this.isProviderReady('nvidia')) {
+      return { provider: this.providers.get('nvidia')!, model: modelName, providerId: 'nvidia' }
+    }
+    if ((lower.startsWith('command-') || lower.startsWith('c4ai-')) && this.isProviderReady('cohere')) {
+      return { provider: this.providers.get('cohere')!, model: modelName, providerId: 'cohere' }
+    }
+    if (lower.startsWith('@cf/') && this.isProviderReady('cloudflare')) {
+      return { provider: this.providers.get('cloudflare')!, model: modelName, providerId: 'cloudflare' }
+    }
+    if (lower.startsWith('cerebras/') && this.isProviderReady('cerebras')) {
+      return { provider: this.providers.get('cerebras')!, model: modelName, providerId: 'cerebras' }
+    }
+    if ((lower === 'openai' || lower === 'mistral' || lower === 'llama') && this.isProviderReady('pollinations')) {
+      return { provider: this.providers.get('pollinations')!, model: modelName, providerId: 'pollinations' }
+    }
     if (this.isProviderReady('openrouter') && (lower.includes('/') || lower.startsWith('anthropic/') || lower.startsWith('meta-llama/'))) {
       return { provider: this.providers.get('openrouter')!, model: modelName, providerId: 'openrouter' }
     }
@@ -270,7 +372,24 @@ export class ModelBalancer {
     }
 
     // Check all ready providers in priority order
-    const priorityList: ProviderId[] = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic', 'openrouter', 'ollama', 'custom', 'freellmapi']
+    const priorityList: ProviderId[] = [
+      'gemini',
+      'groq',
+      'cerebras',
+      'nvidia',
+      'mistral',
+      'cohere',
+      'cloudflare',
+      'pollinations',
+      'ovh',
+      'deepseek',
+      'openai',
+      'anthropic',
+      'openrouter',
+      'ollama',
+      'custom',
+      'freellmapi'
+    ]
     for (const pid of priorityList) {
       if (this.isProviderReady(pid)) {
         const p = this.providers.get(pid)!
@@ -294,6 +413,13 @@ export class ModelBalancer {
     const fallbackConfigs: Array<{ providerId: ProviderId; model: string }> = [
       { providerId: 'gemini', model: 'gemini-2.0-flash-lite' },
       { providerId: 'groq', model: 'llama-3.1-8b-instant' },
+      { providerId: 'cerebras', model: 'llama3.3-70b' },
+      { providerId: 'nvidia', model: 'meta/llama-3.3-70b-instruct' },
+      { providerId: 'mistral', model: 'codestral-latest' },
+      { providerId: 'cohere', model: 'command-r-08-2024' },
+      { providerId: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct' },
+      { providerId: 'pollinations', model: 'openai' },
+      { providerId: 'ovh', model: 'Meta-Llama-3_3-70B-Instruct' },
       { providerId: 'deepseek', model: 'deepseek-chat' },
       { providerId: 'openai', model: 'gpt-4o-mini' },
       { providerId: 'anthropic', model: 'claude-3-5-haiku-20241022' },
@@ -409,7 +535,23 @@ export class ModelBalancer {
     const allModels = new Set<string>(['auto'])
     const lightModels = new Set<string>()
 
-    const readyProviders: ProviderId[] = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic', 'openrouter', 'ollama', 'freellmapi']
+    const readyProviders: ProviderId[] = [
+      'gemini',
+      'groq',
+      'cerebras',
+      'nvidia',
+      'mistral',
+      'cohere',
+      'cloudflare',
+      'pollinations',
+      'ovh',
+      'deepseek',
+      'openai',
+      'anthropic',
+      'openrouter',
+      'ollama',
+      'freellmapi'
+    ]
 
     for (const pid of readyProviders) {
       if (this.isProviderReady(pid)) {
