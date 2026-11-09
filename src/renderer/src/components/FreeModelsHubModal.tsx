@@ -7,7 +7,7 @@ import {
   Cpu,
   AlertCircle
 } from 'lucide-react'
-import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogTitle, Switch } from './ui'
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Switch } from './ui'
 import type { ProviderHubState, ProviderId } from '../../../shared/types'
 
 interface FreeModelsHubModalProps {
@@ -117,11 +117,12 @@ export function FreeModelsHubModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
+        size="xl"
         aria-describedby="providers-hub-description"
-        className="max-h-[88vh] w-[92vw] max-w-4xl overflow-hidden p-0"
+        className="max-h-[min(90vh,calc(100vh-2rem))] w-[95vw] max-w-4xl flex flex-col overflow-hidden p-0"
       >
-        {/* Header */}
-        <div className="border-b border-jarvis-border bg-jarvis-surface px-6 py-4">
+        {/* Draggable Header */}
+        <DialogHeader className="flex-col items-stretch gap-3 border-b border-jarvis-border bg-jarvis-surface px-5 sm:px-6 py-4 pr-16 sm:pr-20">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -143,13 +144,13 @@ export function FreeModelsHubModal({
           </div>
 
           {/* Local Gateway Server Banner */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-jarvis-border bg-jarvis-elevated/70 p-3">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-jarvis-border bg-jarvis-elevated/70 p-3">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-jarvis-base text-jarvis-accent">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-jarvis-base text-jarvis-accent shrink-0">
                 <Server className="h-4 w-4" />
               </span>
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-jarvis-ivory">Local OpenAI API Gateway</span>
                   {hubState?.localServerRunning ? (
                     <Badge variant="accent" mono className="gap-1 text-3xs">
@@ -162,13 +163,13 @@ export function FreeModelsHubModal({
                     </Badge>
                   )}
                 </div>
-                <p className="font-mono text-[10px] text-jarvis-muted">
+                <p className="font-mono text-[10px] text-jarvis-muted truncate sm:whitespace-normal">
                   Exposes standard OpenAI `/v1/chat/completions` on localhost for VS Code (Cursor / Continue), terminal, and Open WebUI.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="no-drag flex items-center gap-2 shrink-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-[10px] text-jarvis-muted">Port:</span>
                 <input
@@ -187,11 +188,11 @@ export function FreeModelsHubModal({
               />
             </div>
           </div>
-        </div>
+        </DialogHeader>
 
-        {/* Providers Scroll Area */}
-        <div className="max-h-[56vh] overflow-y-auto p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Dynamic Responsive Providers Scroll Area */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
             {providers.map((provider) => {
               const testRes = testResults[provider.id]
               const isTesting = testingId === provider.id
@@ -338,12 +339,12 @@ export function FreeModelsHubModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-jarvis-border bg-jarvis-base px-6 py-3">
+        {/* Footer (Pinned, always visible) */}
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-t border-jarvis-border bg-jarvis-base px-4 sm:px-6 py-3 no-drag">
           <span className="font-mono text-3xs text-jarvis-muted">
             Keys are encrypted using Windows DPAPI safeStorage. Plaintext keys are never sent to renderer.
           </span>
-          <Button variant="primary" size="sm" onClick={onClose}>
+          <Button variant="primary" size="sm" onClick={onClose} className="min-w-[80px]">
             Done
           </Button>
         </div>

@@ -33,9 +33,19 @@ export function ApprovalDialog({ approval, onResolve }: ApprovalDialogProps): Re
           size="md"
           onEscapeKeyDown={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => event.preventDefault()}
-          className="border-jarvis-signal/35 max-h-[85vh] flex flex-col overflow-hidden p-0 shadow-floating"
+          className="border-jarvis-signal/35 max-h-[min(90vh,calc(100vh-2rem))] flex flex-col overflow-hidden p-0 shadow-floating"
         >
-          <div className="shrink-0 flex items-start gap-3 border-b border-jarvis-border bg-jarvis-signalSoft/55 px-5 py-3.5">
+          <div
+            data-drag-handle="true"
+            className="shrink-0 relative flex items-start gap-3 border-b border-jarvis-border bg-jarvis-signalSoft/55 px-5 py-3.5 cursor-grab active:cursor-grabbing select-none"
+            title="Drag to reposition · Double-click to re-center"
+          >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1.5 left-1/2 -translate-x-1/2 flex items-center justify-center opacity-40"
+            >
+              <div className="h-1 w-10 rounded-full bg-jarvis-signal/40" />
+            </div>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-jarvis-signal/30 bg-jarvis-surface text-jarvis-signal">
               <ShieldAlert className="h-5 w-5" />
             </span>
@@ -135,7 +145,7 @@ export function ApprovalDialog({ approval, onResolve }: ApprovalDialogProps): Re
             )}
           </div>
 
-          <div className="shrink-0 flex flex-col gap-2 border-t border-jarvis-border bg-jarvis-base px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="shrink-0 flex flex-col gap-2 border-t border-jarvis-border bg-jarvis-base px-5 py-3 sm:flex-row sm:items-center sm:justify-between no-drag">
             <p className="flex items-start gap-1.5 text-[10px] leading-snug text-jarvis-muted">
               <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-jarvis-accent" />
               Approving executes this exact action once. It does not create a global allow.

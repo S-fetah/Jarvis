@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import type { JarvisSettings, ThemePreference } from '../../../shared/types'
 import { cn } from '../lib/cn'
-import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogTitle, Field, Switch } from './ui'
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Field, Switch } from './ui'
 
 interface SettingsModalProps {
   settings: JarvisSettings
@@ -113,18 +113,18 @@ export function SettingsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="lg" className="max-h-[88vh]">
-        <div className="flex items-start gap-3 border-b border-jarvis-border px-5 py-4 pr-12">
+      <DialogContent size="lg" className="max-h-[min(90vh,calc(100vh-2rem))] flex flex-col overflow-hidden p-0">
+        <DialogHeader className="items-start gap-3 border-b border-jarvis-border px-5 py-4 pr-16 sm:pr-20">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-jarvis-accent/20 bg-jarvis-accentSoft text-jarvis-accent">
             <Settings2 className="h-[18px] w-[18px]" />
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription>
               Gateway, appearance, workspace, and companion preferences. Changes are stored locally.
             </DialogDescription>
           </div>
-        </div>
+        </DialogHeader>
 
         <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
@@ -245,7 +245,7 @@ export function SettingsModal({
               description="Windows integration, startup auto-launch, and diagnostic reporting."
             >
               <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[11.5px] font-medium text-jarvis-ivory">Launch on startup</p>
                   <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
                     Automatically start Jarvis when logging into Windows.
@@ -259,7 +259,7 @@ export function SettingsModal({
               </div>
 
               <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[11.5px] font-medium text-jarvis-ivory">Minimize to tray</p>
                   <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
                     Keep Jarvis running in the background when the main window is closed.
@@ -273,7 +273,7 @@ export function SettingsModal({
               </div>
 
               <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[11.5px] font-medium text-jarvis-ivory">Support diagnostics</p>
                   <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
                     Export a sanitized diagnostic bundle (JSON/Markdown) for troubleshooting.
@@ -297,7 +297,7 @@ export function SettingsModal({
               description="The floating owl lives above your desktop and opens quick chat on click."
             >
               <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[11.5px] font-medium text-jarvis-ivory">Floating 3D owl</p>
                   <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
                     Show the companion window on the desktop.
@@ -310,7 +310,7 @@ export function SettingsModal({
                 />
               </div>
               <div className="flex items-center justify-between gap-4 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2.5">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[11.5px] font-medium text-jarvis-ivory">Reduce motion</p>
                   <p className="mt-0.5 text-[10.5px] text-jarvis-muted">
                     Keep the owl calm with low-frequency animation.
@@ -325,7 +325,7 @@ export function SettingsModal({
             </Section>
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-jarvis-border bg-jarvis-base px-5 py-3">
+          <div className="shrink-0 flex items-center justify-between gap-3 border-t border-jarvis-border bg-jarvis-base px-5 py-3 no-drag">
             <p className="hidden text-[10px] text-jarvis-muted sm:block">
               Local settings · no cloud sync
             </p>
