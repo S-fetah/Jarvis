@@ -1,6 +1,6 @@
-import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
-import { join } from 'path'
+import { app, BrowserWindow, Menu, Tray } from 'electron'
 import { MascotManager } from './mascot-manager'
+import { getAppIcon } from '../utils/app-icon'
 
 export class TrayManager {
   private tray: Tray | null = null
@@ -28,16 +28,8 @@ export class TrayManager {
   public init(): void {
     if (this.tray) return
 
-    // Resolve tray icon from resources
-    const iconPath = app.isPackaged
-      ? join(process.resourcesPath, 'resources/icon.ico')
-      : join(__dirname, '../../resources/icon.ico')
-
-    let icon = nativeImage.createFromPath(iconPath)
-    if (icon.isEmpty()) {
-      // Fallback empty transparent icon
-      icon = nativeImage.createEmpty()
-    }
+    // Resolve application tray icon (multi-resolution background-less owl)
+    const icon = getAppIcon()
 
     this.tray = new Tray(icon)
     this.tray.setToolTip('Jarvis — Personal Desktop AI Assistant')

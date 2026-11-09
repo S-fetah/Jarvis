@@ -1,6 +1,7 @@
 import { BrowserWindow, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { JarvisDatabase } from '../storage/database'
+import { getAppIcon } from '../utils/app-icon'
 
 export class SettingsWindowManager {
   private settingsWindow: BrowserWindow | null = null
@@ -49,6 +50,7 @@ export class SettingsWindowManager {
       minWidth: 760,
       minHeight: 520,
       frame: false,
+      icon: getAppIcon(),
       title: 'Jarvis — Configuration & Settings',
       titleBarStyle: 'hidden',
       titleBarOverlay: {

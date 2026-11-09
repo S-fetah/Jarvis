@@ -19,6 +19,7 @@ import { TrayManager } from './windows/tray-manager'
 import { SettingsWindowManager } from './windows/settings-window-manager'
 import { ensureUserMemoryFile, getUserMemoryFilePath, loadUserMemory } from './memory/user-memory'
 import { exportDiagnosticBundle } from './utils/diagnostics'
+import { getAppIcon } from './utils/app-icon'
 import {
   TaskState,
   TimelineEvent,
@@ -185,6 +186,7 @@ function createWindow(): void {
     minWidth: 850,
     minHeight: 620,
     show: false,
+    icon: getAppIcon(),
     autoHideMenuBar: true,
     title: 'Jarvis — Personal AI Assistant',
     backgroundColor: windowTheme.background,

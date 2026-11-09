@@ -35,6 +35,10 @@ vi.mock('electron', () => {
     shell: {
       openExternal: vi.fn()
     },
+    nativeImage: {
+      createFromPath: vi.fn().mockReturnValue({ isEmpty: () => false }),
+      createEmpty: vi.fn().mockReturnValue({ isEmpty: () => true })
+    },
     nativeTheme: {
       shouldUseDarkColors: true
     }

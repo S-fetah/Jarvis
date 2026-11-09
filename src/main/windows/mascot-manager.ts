@@ -2,6 +2,7 @@ import { BrowserWindow, nativeTheme, screen, shell } from 'electron'
 import { join } from 'path'
 import { JarvisDatabase } from '../storage/database'
 import { MascotState, MascotPosition } from '../../shared/types'
+import { getAppIcon } from '../utils/app-icon'
 
 export class MascotManager {
   private mascotWindow: BrowserWindow | null = null
@@ -126,6 +127,7 @@ export class MascotManager {
       maxWidth: 900,
       maxHeight: 1000,
       frame: false,
+      icon: getAppIcon(),
       alwaysOnTop: true,
       resizable: true,
       skipTaskbar: true,
