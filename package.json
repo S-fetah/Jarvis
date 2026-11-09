@@ -18,6 +18,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:win": "npm run build && electron-builder --win --config",
     "test": "vitest run",
+    "test:acceptance": "vitest run --config tests/acceptance/vitest.config.ts",
     "security:scan": "node scripts/security-scan.mjs"
   },
   "dependencies": {
