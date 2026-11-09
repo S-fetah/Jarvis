@@ -14,7 +14,9 @@ Build an open-source, local-first Windows desktop “Jarvis” assistant. It wil
 - `docs/decisions/ADR-001-response-latency-and-hedging.md` — Normal/Racing/Multi-agent modes and latency policy.
 - `docs/decisions/ADR-005-ui-design-system-and-window-chrome.md` — "The Quiet Instrument" Parchment & Pine design tokens and native window chrome.
 - `docs/decisions/ADR-006-windows-integration-tray-and-diagnostics.md` — System tray lifecycle, auto-launch, diagnostics bundler, screen capture, and packaging.
-- `docs/architecture-slides.pdf` (+ `.html` source) — 16-slide architecture deck (idea, stack, approach, goals, security, operation, roadmap); regenerate via the `status-deck` skill (`.agents/skills/status-deck/SKILL.md`) with `node scripts/render-architecture-slides.cjs`.
+- `docs/VISION.md` — agreed product vision, decisions and Phase 8–15 roadmap (2026-11-09).
+- `docs/decisions/ADR-007-core-service-architecture.md` and `ADR-008-autonomy-trust-and-learning.md` — target architecture and autonomy/learning model.
+- `docs/architecture-slides.pdf` (+ `.html` source) — 28-slide technical architecture deck (stack, runtime, gateway, tools, safety, storage, quality, gaps, roadmap; with sequence/flow diagrams and charts); regenerate via the `status-deck` skill (`.claude/skills/status-deck/SKILL.md`) with `node scripts/render-architecture-slides.cjs`.
 
 ## Current state
 

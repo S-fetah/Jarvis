@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Jarvis — Architecture Overview</title>
+<title>Jarvis — Technical Architecture</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   @page { size: 1280px 720px; margin: 0; }
@@ -11,6 +11,7 @@
 
   :root {
     --ink: #0f172a;
+    --ink-2: #334155;
     --paper: #f8fafc;
     --card: #ffffff;
     --indigo: #4f46e5;
@@ -20,642 +21,1099 @@
     --muted: #64748b;
     --muted-2: #94a3b8;
     --line: #e2e8f0;
+    --good: #16a34a;
+    --bad: #dc2626;
+    --warn: #b45309;
   }
 
   body { font-family: 'Inter', 'Segoe UI', sans-serif; color: var(--ink); }
   .page {
     width: 1280px; height: 720px; position: relative; overflow: hidden;
     background: var(--paper);
-    padding: 56px 64px 48px 64px;
-    page-break-after: always;
-    break-after: page;
+    padding: 48px 64px 48px 64px;
+    page-break-after: always; break-after: page;
   }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page.dark { background: #0f172a; color: #e2e8f0; }
 
-  .kicker {
-    font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
-    color: var(--indigo); margin-bottom: 10px;
-  }
+  .kicker { font-size: 12px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--indigo); margin-bottom: 8px; }
   .dark .kicker { color: #a5b4fc; }
-  h1.slide-title { font-size: 38px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 6px 0; }
-  .slide-sub { font-size: 16px; color: var(--muted); margin: 0 0 26px 0; font-weight: 400; }
+  h1.slide-title { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 4px 0; }
+  .slide-sub { font-size: 15px; color: var(--muted); margin: 0 0 20px 0; font-weight: 400; }
   .dark .slide-sub { color: #94a3b8; }
 
   .slidefoot {
-    position: absolute; bottom: 24px; left: 64px; right: 64px;
+    position: absolute; bottom: 20px; left: 64px; right: 64px;
     display: flex; justify-content: space-between; align-items: baseline;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; color: var(--muted-2); letter-spacing: 1px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-2); letter-spacing: 1px;
   }
 
-  .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-    padding: 18px 20px;
-  }
-  .card h3 { font-size: 15px; font-weight: 700; margin: 0 0 8px 0; }
-  .card p, .card li { font-size: 13.5px; line-height: 1.55; color: #334155; margin: 0; }
-  .card ul { margin: 0; padding-left: 18px; }
-  .card li { margin-bottom: 5px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; }
+  .card h3 { font-size: 14px; font-weight: 700; margin: 0 0 6px 0; }
+  .card p, .card li { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin: 0; }
+  .card ul { margin: 0; padding-left: 17px; }
+  .card li { margin-bottom: 4px; }
   .card li:last-child { margin-bottom: 0; }
+  .card.accent { border-top: 3px solid var(--indigo); }
+  .card.alert { border-left: 3px solid var(--bad); }
+  .card.note { background: var(--indigo-soft); border-color: var(--indigo-border); }
 
-  .tag {
-    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    background: var(--indigo-soft); color: var(--indigo-deep); border: 1px solid var(--indigo-border);
-    border-radius: 4px; padding: 2px 8px; margin: 0 6px 6px 0; font-weight: 500;
-  }
+  .tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: var(--indigo-soft); color: var(--indigo-deep); border: 1px solid var(--indigo-border); border-radius: 4px; padding: 1px 7px; margin: 0 4px 4px 0; font-weight: 500; }
+  .tag.plain { background: var(--card); color: var(--ink-2); border-color: var(--line); }
   .mono { font-family: 'JetBrains Mono', monospace; }
+  code, .code { font-family: 'JetBrains Mono', monospace; font-size: 0.92em; color: var(--indigo-deep); }
 
   table.tbl { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
-  table.tbl th {
-    font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #ffffff;
-    background: var(--indigo-deep); padding: 9px 14px; text-align: left; font-weight: 600;
-  }
-  table.tbl td { font-size: 13px; padding: 9px 14px; border-top: 1px solid var(--line); color: #334155; line-height: 1.4; vertical-align: top; }
+  table.tbl th { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #fff; background: var(--indigo-deep); padding: 8px 12px; text-align: left; font-weight: 600; }
+  table.tbl td { font-size: 12.5px; padding: 7px 12px; border-top: 1px solid var(--line); color: var(--ink-2); line-height: 1.4; vertical-align: top; }
   table.tbl td b { color: var(--ink); }
-  .ok-badge { color: #16A34A; font-weight: 700; }
-  .ask-badge { color: #B45309; font-weight: 700; }
+  table.tbl.compact td { padding: 5px 12px; font-size: 12px; }
+  .yes { color: var(--good); font-weight: 700; }
+  .no { color: var(--bad); font-weight: 700; }
+  .ask { color: var(--warn); font-weight: 700; }
 
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
-  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .split { display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; }
+  .split-r { display: grid; grid-template-columns: 1fr 1.35fr; gap: 20px; }
 
-  .stat {
-    background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--indigo);
-    border-radius: 10px; padding: 18px 20px 16px 20px;
-  }
-  .stat .num { font-size: 40px; font-weight: 800; letter-spacing: -1px; color: var(--indigo-deep); }
-  .stat .num span { font-size: 20px; font-weight: 600; color: var(--indigo); }
-  .stat .lbl { font-size: 11.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 6px; font-weight: 600; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--indigo); border-radius: 10px; padding: 12px 14px 10px 14px; }
+  .stat .num { font-size: 32px; font-weight: 800; letter-spacing: -1px; color: var(--indigo-deep); line-height: 1.1; }
+  .stat .num span { font-size: 16px; font-weight: 600; color: var(--indigo); }
+  .stat .lbl { font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-top: 4px; font-weight: 600; }
+  .stat.bad { border-top-color: var(--bad); }
+  .stat.bad .num { color: var(--bad); }
 
-  .flow-arrow {
-    width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
-    border-top: 11px solid var(--indigo); margin: 7px auto;
-  }
-  .layer {
-    border-radius: 10px; padding: 14px 22px; display: flex; align-items: center; gap: 22px;
-    border: 1px solid var(--indigo-border); background: var(--indigo-soft);
-  }
+  .layer { border-radius: 10px; padding: 10px 18px; display: flex; align-items: center; gap: 18px; border: 1px solid var(--indigo-border); background: var(--indigo-soft); }
   .layer.trusted { background: var(--card); border: 1px solid var(--line); }
   .layer.os { background: #0f172a; border: 1px solid #1e293b; }
-  .layer .lname { font-size: 14.5px; font-weight: 700; width: 210px; flex-shrink: 0; }
-  .layer .ldesc { font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .layer .lname { font-size: 13.5px; font-weight: 700; width: 220px; flex-shrink: 0; }
+  .layer .ldesc { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
   .layer.os .lname, .layer.os .ldesc { color: #cbd5e1; }
-  .chip {
-    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: var(--card);
-    border: 1px solid var(--indigo-border); color: var(--indigo-deep); border-radius: 4px;
-    padding: 2px 7px; display: inline-block; margin: 2px 3px 2px 0; white-space: nowrap;
-  }
+  .chip { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: var(--card); border: 1px solid var(--indigo-border); color: var(--indigo-deep); border-radius: 4px; padding: 1px 6px; display: inline-block; margin: 2px 3px 2px 0; white-space: nowrap; }
   .layer.os .chip { background: #1e293b; color: #a5b4fc; border-color: #334155; }
+  .down { text-align: center; color: var(--indigo); font-size: 15px; line-height: 1; margin: 3px 0; }
+
+  /* bar charts (single series, value labels in ink) */
+  .chart-title { font-size: 12px; font-weight: 700; color: var(--ink); margin: 0 0 8px 0; }
+  .chart-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .bars { display: flex; flex-direction: column; gap: 3px; }
+  .bar-row { display: grid; grid-template-columns: 210px 1fr 52px; align-items: center; gap: 10px; height: 18px; }
+  .bar-row .bl { font-size: 11.5px; color: var(--ink-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-row .bt { height: 12px; position: relative; border-left: 1px solid #cbd5e1; }
+  .bar-row .b { height: 12px; background: var(--indigo); border-radius: 0 4px 4px 0; }
+  .bar-row .bv { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--ink); }
+  .bars.wide .bar-row { grid-template-columns: 150px 1fr 40px; height: 22px; }
+  .bars.wide .bar-row .b, .bars.wide .bar-row .bt { height: 14px; }
+
+  /* stacked status bars */
+  .sbar-row { display: grid; grid-template-columns: 250px 1fr 120px; align-items: center; gap: 12px; height: 34px; }
+  .sbar-row .bl { font-size: 12.5px; color: var(--ink); font-weight: 600; text-align: right; }
+  .sbar-row .bl small { display: block; font-weight: 400; color: var(--muted); font-size: 10.5px; }
+  .sbar-track { display: flex; gap: 2px; height: 16px; border-left: 1px solid #cbd5e1; }
+  .seg { height: 16px; }
+  .seg:last-child { border-radius: 0 4px 4px 0; }
+  .seg.pass { background: var(--good); }
+  .seg.fail { background: var(--bad); }
+  .sbar-row .bv { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--ink); }
+  .legend { display: flex; gap: 18px; font-size: 11.5px; color: var(--ink-2); align-items: center; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  /* boxes & arrows for CSS diagrams */
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+  .box b { color: var(--ink); display: block; font-size: 12.5px; margin-bottom: 2px; }
+  .box.hl { border-color: var(--indigo); background: var(--indigo-soft); }
+  .box.dark { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+  .box.dark b { color: #fff; }
+  .box.warnb { border-color: #fecaca; background: #fef2f2; }
+  .chain { display: flex; align-items: stretch; gap: 0; }
+  .chain .box { flex: 1; }
+  .chain .arr { display: flex; align-items: center; color: var(--indigo); font-size: 18px; padding: 0 6px; }
 
   .steps { counter-reset: step; }
-  .step { display: flex; gap: 14px; margin-bottom: 11px; align-items: flex-start; }
-  .step .n {
-    counter-increment: step; flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
-    background: var(--indigo); color: #fff; font-size: 13px; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-  }
+  .step { display: flex; gap: 12px; margin-bottom: 9px; align-items: flex-start; }
+  .step .n { counter-increment: step; flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--indigo); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .step .n::before { content: counter(step); }
-  .step .t { font-size: 13.5px; line-height: 1.45; color: #334155; padding-top: 3px; }
+  .step .t { font-size: 12.5px; line-height: 1.45; color: var(--ink-2); padding-top: 2px; }
   .step .t b { color: var(--ink); }
 
-  .phase { display: flex; gap: 14px; align-items: flex-start; padding: 8px 0 8px 0; border-bottom: 1px solid var(--line); }
+  .phase { display: flex; gap: 14px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--line); }
   .phase:last-child { border-bottom: none; }
-  .phase .ph-no {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-2);
-    width: 34px; flex-shrink: 0; padding-top: 3px;
-  }
-  .phase .ph-name { font-size: 14px; font-weight: 700; width: 250px; flex-shrink: 0; }
-  .phase .ph-desc { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
-  .phase.now { background: var(--indigo-soft); border-radius: 8px; padding: 8px 10px; border-bottom: none; margin: 0 -10px; }
+  .phase .ph-no { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-2); width: 30px; flex-shrink: 0; padding-top: 2px; }
+  .phase .ph-name { font-size: 13px; font-weight: 700; width: 230px; flex-shrink: 0; }
+  .phase .ph-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .phase.now { background: var(--indigo-soft); border-radius: 8px; padding: 6px 10px; border-bottom: none; margin: 0 -10px; }
   .phase.now .ph-name { color: var(--indigo-deep); }
-  .now-flag {
-    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #fff; background: var(--indigo);
-    border-radius: 3px; padding: 1px 6px; margin-left: 8px; vertical-align: 2px;
-  }
+  .now-flag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #fff; background: var(--indigo); border-radius: 3px; padding: 1px 6px; margin-left: 8px; vertical-align: 2px; }
 
-  .pull {
-    border-left: 3px solid var(--indigo); padding: 4px 0 4px 18px; font-size: 17px;
-    font-weight: 500; color: var(--indigo-deep); line-height: 1.5; font-style: italic;
-  }
+  .pull { border-left: 3px solid var(--indigo); padding: 4px 0 4px 16px; font-size: 15px; font-weight: 500; color: var(--indigo-deep); line-height: 1.5; font-style: italic; }
 
   .cover-hero { font-size: 108px; font-weight: 900; letter-spacing: -3px; color: #ffffff; line-height: 1; }
-  .cover-sub { font-size: 22px; font-weight: 300; color: #a5b4fc; margin-top: 14px; }
-  .cover-meta {
-    position: absolute; bottom: 56px; left: 64px; right: 64px; display: flex; justify-content: space-between;
-    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #64748b; letter-spacing: 2px;
-  }
+  .cover-sub { font-size: 22px; font-weight: 300; color: #a5b4fc; margin-top: 14px; line-height: 1.4; }
+  .cover-meta { position: absolute; bottom: 56px; left: 64px; right: 64px; display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #64748b; letter-spacing: 2px; }
   .cover-line { width: 72px; height: 4px; background: var(--indigo); margin: 26px 0; }
+
+  .toc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .toc .card h3 { color: var(--indigo-deep); }
+  .toc .row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .toc .row:last-child { border-bottom: none; }
+  .toc .row span:last-child { font-family: 'JetBrains Mono', monospace; color: var(--muted-2); }
+
+  svg text { font-family: 'Inter', 'Segoe UI', sans-serif; }
+  svg .mono { font-family: 'JetBrains Mono', monospace; }
 
   @media screen {
     html { height: auto; display: flex; justify-content: center; background: #0f172a; }
-    body {
-      transform-origin: top center;
-      scale: min(1, calc(100vw / 1280));
-      margin: 0 auto;
-      box-shadow: 0 0 60px rgba(0,0,0,0.4);
-    }
+    body { transform-origin: top center; scale: min(1, calc(100vw / 1280)); margin: 0 auto; box-shadow: 0 0 60px rgba(0,0,0,0.4); }
   }
 </style>
 </head>
 <body>
 
-<!-- ══════════ SLIDE 1 · COVER ══════════ -->
+<!-- ══════════ 01 · COVER ══════════ -->
 <div class="page dark">
-  <div style="margin-top: 150px;">
-    <div class="kicker">Architecture Overview · v0.1.0 · 2026</div>
+  <div style="margin-top: 140px;">
+    <div class="kicker">Technical Architecture · v0.1.0 · 2026-11-09</div>
     <div class="cover-hero">JARVIS</div>
     <div class="cover-line"></div>
-    <div class="cover-sub">A local-first AI assistant for Windows<br>with strict approvals and a replaceable model gateway.</div>
+    <div class="cover-sub">A local-first AI agent for Windows —<br>how it is built today, layer by layer, with what works and what does not yet.</div>
   </div>
   <div class="cover-meta">
-    <span>GITHUB.COM/S-FETAH/MYJARVIS</span>
-    <span>ELECTRON · REACT · TYPESCRIPT</span>
+    <span>SOURCE: MAIN @ D6DF6B1 + WORKING TREE · 28 SLIDES</span>
+    <span>ELECTRON 34 · REACT 19 · TYPESCRIPT 5.7</span>
   </div>
 </div>
 
-<!-- ══════════ SLIDE 2 · THE IDEA ══════════ -->
+<!-- ══════════ 02 · CONTENTS ══════════ -->
 <div class="page">
-  <div class="kicker">01 · The Idea</div>
-  <h1 class="slide-title">One assistant that does real work — safely</h1>
-  <p class="slide-sub">Not a chat toy: an agent that plans, acts with permission, and proves the result.</p>
-  <div class="grid-2">
-    <div class="card">
-      <h3>The experience</h3>
-      <ul>
-        <li>Ask in plain language for <b>multi-step, practical work</b>: research, coding, summaries, PDFs, downloads, dev servers.</li>
-        <li>Jarvis <b>shows its plan and live progress</b>, asks before anything sensitive, and <b>verifies outcomes</b> — a file exists, a server listens, a command exits clean.</li>
-        <li>Report comes back with links to everything it produced.</li>
-      </ul>
+  <div class="kicker">Contents</div>
+  <h1 class="slide-title">Reading map</h1>
+  <p class="slide-sub">From the outside in: context, runtime, intelligence, safety, subsystems, then quality and gaps.</p>
+  <div class="toc">
+    <div class="card"><h3>I · Overview</h3>
+      <div class="row"><span>Jarvis today, at a glance</span><span>03</span></div>
+      <div class="row"><span>Technology stack</span><span>04</span></div>
+      <div class="row"><span>System context</span><span>05</span></div>
     </div>
-    <div class="card">
-      <h3>Why local-first</h3>
-      <ul>
-        <li>Files, credentials, and tool execution <b>stay on your machine</b>.</li>
-        <li>The model gateway runs locally; providers are called through it — never hardcoded, never locked in.</li>
-        <li>Autonomy is a <b>spectrum under your control</b>: every side effect is classified, logged, and gated where it matters.</li>
-      </ul>
+    <div class="card"><h3>II · Runtime</h3>
+      <div class="row"><span>Electron process model</span><span>06</span></div>
+      <div class="row"><span>Source map (lines of code)</span><span>07</span></div>
+      <div class="row"><span>IPC surface</span><span>08</span></div>
+      <div class="row"><span>Request lifecycle (sequence)</span><span>09</span></div>
+      <div class="row"><span>Agent loop internals</span><span>10</span></div>
+      <div class="row"><span>System prompt assembly</span><span>11</span></div>
+    </div>
+    <div class="card"><h3>III · Intelligence</h3>
+      <div class="row"><span>Model gateway architecture</span><span>12</span></div>
+      <div class="row"><span>Providers &amp; routing matrix</span><span>13</span></div>
+      <div class="row"><span>Failover &amp; cooldown</span><span>14</span></div>
+      <div class="row"><span>Tool catalog</span><span>15</span></div>
+    </div>
+    <div class="card"><h3>IV · Safety</h3>
+      <div class="row"><span>Permission model (ADR-004)</span><span>16</span></div>
+      <div class="row"><span>Approval flow</span><span>17</span></div>
+      <div class="row"><span>Gating coverage today</span><span>18</span></div>
+    </div>
+    <div class="card"><h3>V · Subsystems</h3>
+      <div class="row"><span>Storage &amp; state</span><span>19</span></div>
+      <div class="row"><span>Browser automation (CDP)</span><span>20</span></div>
+      <div class="row"><span>Processes &amp; dev servers</span><span>21</span></div>
+      <div class="row"><span>UI: four surfaces</span><span>22</span></div>
+      <div class="row"><span>Skills: runtime vs development</span><span>23</span></div>
+    </div>
+    <div class="card"><h3>VI · Quality &amp; delivery</h3>
+      <div class="row"><span>Unit test suites</span><span>24</span></div>
+      <div class="row"><span>MVP acceptance scoreboard</span><span>25</span></div>
+      <div class="row"><span>Build, packaging, launch</span><span>26</span></div>
+      <div class="row"><span>Known gaps &amp; risks</span><span>27</span></div>
+      <div class="row"><span>Phases &amp; what comes next</span><span>28</span></div>
     </div>
   </div>
-  <div style="margin-top:18px;" class="pull">
-    "Reason about a task, show progress, use approved tools, verify the outcome, report clearly."
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>02 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>02 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 3 · GOALS & GUARDRAILS ══════════ -->
+<!-- ══════════ 03 · AT A GLANCE ══════════ -->
 <div class="page">
-  <div class="kicker">02 · Goals</div>
-  <h1 class="slide-title">First-release scope — and hard non-goals</h1>
-  <p class="slide-sub">Balanced coverage across browsers, code, and documents; never unrestricted control.</p>
-  <div class="grid-2">
-    <div class="card" style="border-top:3px solid var(--indigo);">
-      <h3>Deliverables</h3>
-      <ul>
-        <li>Chat UI with streaming, task progress, approvals, and history</li>
-        <li>Browser search + structured automation (Playwright-class, not mouse simulation)</li>
-        <li>Approved-folder file read/write + summarisation</li>
-        <li>PDF creation <b>with output verification</b></li>
-        <li>Project tooling: tests, dev servers, process inspection + approved stops</li>
-        <li>Image generation via a supported provider</li>
-      </ul>
-    </div>
-    <div class="card" style="border-top:3px solid #0f172a;">
-      <h3>Non-goals / guardrails</h3>
-      <ul>
-        <li>No cloud-hosted agent — sensitive actions stay local</li>
-        <li>No unrestricted shell or computer control</li>
-        <li>No extracting or pooling subscription quotas (Codex plans are not API quota)</li>
-        <li>Web content is <b>untrusted input</b>, never authority over the user's request</li>
-        <li>General desktop UI automation deferred — too fragile for v1</li>
-      </ul>
-    </div>
+  <div class="kicker">I · Overview</div>
+  <h1 class="slide-title">Jarvis today, at a glance</h1>
+  <p class="slide-sub">A desktop agent: chat in, plan, call local tools through a policy layer, report back.</p>
+  <div class="grid-6">
+    <div class="stat"><div class="num">26</div><div class="lbl">Agent tools</div></div>
+    <div class="stat"><div class="num">16</div><div class="lbl">Provider IDs</div></div>
+    <div class="stat"><div class="num">45</div><div class="lbl">IPC handlers</div></div>
+    <div class="stat"><div class="num">≈20<span>k</span></div><div class="lbl">Lines TS / TSX</div></div>
+    <div class="stat"><div class="num">124<span>/124</span></div><div class="lbl">Unit tests pass</div></div>
+    <div class="stat bad"><div class="num">12<span>/20</span></div><div class="lbl">Acceptance pass</div></div>
   </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>03 / 16</span></div>
+  <div class="grid-3" style="margin-top:18px;">
+    <div class="card accent"><h3>What it does</h3><ul>
+      <li>Chat → model picks tools → Jarvis executes → model writes the answer.</li>
+      <li>Files, PDFs, web search, downloads, dev servers, Chrome control, email, screen capture, memory.</li>
+      <li>Shows a live timeline; risky steps should wait for approval.</li>
+    </ul></div>
+    <div class="card accent"><h3>Where it runs</h3><ul>
+      <li>One Windows PC, one Electron app, four windows + tray icon.</li>
+      <li>Models: cloud APIs (13 keyed/keyless) or local Ollama.</li>
+      <li>State on disk: SQLite (sql.js), DPAPI key vault, <code>USER.md</code> memory.</li>
+    </ul></div>
+    <div class="card alert"><h3>Not there yet</h3><ul>
+      <li>Approval covers 1 of 6 risky actions (slide 18).</li>
+      <li>No task cancellation; agent loop capped at 5 turns.</li>
+      <li>Replies arrive whole, not streamed, in the agent path.</li>
+    </ul></div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>03 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 4 · APPROACH ══════════ -->
+<!-- ══════════ 04 · TECH STACK ══════════ -->
 <div class="page">
-  <div class="kicker">03 · Approach</div>
-  <h1 class="slide-title">Evidence-driven, policy-first, incremental</h1>
-  <p class="slide-sub">Every layer of the design was validated by a spike before it was committed to.</p>
-  <div class="grid-3">
-    <div class="card">
-      <h3>Prove, then expand</h3>
-      <p>One model, one well-bounded tool, one verified loop first. Toolset and model routing grow in small, verifiable steps — never all at once.</p>
-    </div>
-    <div class="card">
-      <h3>Policy before features</h3>
-      <p>The permission engine and approval binding were designed and unit-tested <b>before</b> the agent loop that needs them (ADR-004).</p>
-    </div>
-    <div class="card">
-      <h3>Benchmark, don't assume</h3>
-      <p>T-001 validated the gateway's real latency and failure modes; T-002 benchmarked an existing agent to decide build-vs-embed with evidence.</p>
-    </div>
-  </div>
-  <div style="margin-top:20px;" class="grid-2">
-    <div class="card" style="border-left:3px solid var(--indigo);">
-      <h3>Build custom, embed nothing</h3>
-      <p>T-002 showed Open Interpreter was not embeddable and its default gates too weak — so Jarvis runs a <b>thin purpose-built orchestrator</b> in its trusted process (ADR-002).</p>
-    </div>
-    <div class="card" style="border-left:3px solid var(--indigo);">
-      <h3>Replaceable gateway</h3>
-      <p>All model traffic flows through one <span class="mono">IModelGateway</span> adapter. FreeLLMAPI is the first backend; Ollama, LM Studio, or direct APIs can replace it without touching agent logic (ADR-003).</p>
-    </div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>04 / 16</span></div>
-</div>
-
-<!-- ══════════ SLIDE 5 · STACK ══════════ -->
-<div class="page">
-  <div class="kicker">04 · Stack</div>
-  <h1 class="slide-title">Proven desktop stack, zero exotic dependencies</h1>
-  <p class="slide-sub">Verified on Node 24 · Electron 34 · React 19 · Windows — typecheck clean, build passing.</p>
-  <div class="grid-3" style="margin-bottom:18px;">
-    <div class="card">
-      <h3>Application</h3>
-      <div>
-        <span class="tag">Electron 34</span><span class="tag">React 19</span><span class="tag">Vite 6</span><span class="tag">TypeScript 5.7</span><span class="tag">Tailwind 3</span><span class="tag">electron-vite</span>
-      </div>
-      <p style="margin-top:10px;">Three-window shell: main UI, quick-chat drawer, 3D mascot.</p>
-    </div>
-    <div class="card">
-      <h3>Agent &amp; state</h3>
-      <div>
-        <span class="tag">Custom TS orchestrator</span><span class="tag">Zod schemas</span><span class="tag">sql.js (SQLite)</span><span class="tag">safeStorage/DPAPI</span>
-      </div>
-      <p style="margin-top:10px;">Task state is model-independent — a fallback model can continue a task.</p>
-    </div>
-    <div class="card">
-      <h3>Model gateway</h3>
-      <div>
-        <span class="tag">FreeLLMAPI v0.16.7</span><span class="tag">OpenAI-compatible API</span><span class="tag">127.0.0.1:31415</span>
-      </div>
-      <p style="margin-top:10px;">279 models behind one local endpoint; streaming + tool calls validated.</p>
-    </div>
-  </div>
-  <div class="grid-3">
-    <div class="card">
-      <h3>Visual &amp; UX</h3>
-      <div><span class="tag">Three.js (mascot)</span><span class="tag">lucide-react</span><span class="tag">react-markdown</span></div>
-    </div>
-    <div class="card">
-      <h3>Quality</h3>
-      <div><span class="tag">Vitest (73/73)</span><span class="tag">tsc --noEmit</span><span class="tag">eslint + prettier</span><span class="tag">security-scan script</span></div>
-    </div>
-    <div class="card">
-      <h3>Planned tools</h3>
-      <div><span class="tag">Playwright (browser)</span><span class="tag">PDF pipeline</span><span class="tag">image provider</span></div>
-    </div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>05 / 16</span></div>
-</div>
-
-<!-- ══════════ SLIDE 6 · PROCESS MODEL DIAGRAM ══════════ -->
-<div class="page">
-  <div class="kicker">05 · Architecture</div>
-  <h1 class="slide-title">Process model — privilege stops at one boundary</h1>
-  <p class="slide-sub">The renderer can never touch Node, the disk, or the network directly (ADR-002).</p>
-
-  <div class="layer" style="border-color:#fca5a5; background:#fef2f2;">
-    <div class="lname">Renderer — unprivileged</div>
-    <div class="ldesc" style="color:#7f1d1d;">React UI: chat, plan, timeline, approval modal, mascot.
-      <br><span class="chip">contextIsolation: ON</span><span class="chip">nodeIntegration: OFF</span><span class="chip">sandbox: ON</span><span class="chip">strict CSP</span>
-    </div>
-  </div>
-  <div class="flow-arrow"></div>
-
-  <div class="layer" style="background:#ffffff;">
-    <div class="lname">Preload bridge — typed, allowlisted</div>
-    <div class="ldesc">Only declared request/response and event contracts cross. No raw streams, file handles, or spawn.
-      <br><span class="chip">contextBridge.exposeInMainWorld</span><span class="chip">zod-validated messages</span><span class="chip">sender verified</span>
-    </div>
-  </div>
-  <div class="flow-arrow"></div>
-
-  <div class="layer trusted">
-    <div class="lname">Main — the only trusted process</div>
-    <div class="ldesc">Agent orchestrator · policy engine (HMAC approvals) · tool executors · gateway client · SQLite history.
-      <br><span class="chip">powershell -NoProfile</span><span class="chip">spawn(shell:false)</span><span class="chip">minimal env</span><span class="chip">owned-process tracking</span>
-    </div>
-  </div>
-  <div class="flow-arrow"></div>
-
-  <div class="layer os">
-    <div class="lname">Windows PC — approved scope only</div>
-    <div class="ldesc">Approved workspaces, selected projects, local gateway. Reads outside scope require approval; writes outside scope always do.
-      <br><span class="chip">C:\… approved folders</span><span class="chip">127.0.0.1:31415 gateway</span><span class="chip">DPAPI credential store</span>
-    </div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>06 / 16</span></div>
-</div>
-
-<!-- ══════════ SLIDE 7 · SECURITY MODEL ══════════ -->
-<div class="page">
-  <div class="kicker">06 · Security Model</div>
-  <h1 class="slide-title">Audited, remediated, regression-tested</h1>
-  <p class="slide-sub">2026-10-23 audit found 11 issues (SEC-001…011) — all P0/P1 findings remediated with 22 automated tests.</p>
-  <div class="grid-2">
-    <div class="card">
-      <h3>Hardened boundaries</h3>
-      <ul>
-        <li><b>Command injection eliminated</b> — parameterized <span class="mono">spawn(shell:false)</span>, strict URL protocol checks (SEC-001)</li>
-        <li><b>HMAC approval verification wired</b> into the runtime resolver, anti-tamper tested (SEC-002)</li>
-        <li><b>Credentials encrypted</b> via Electron safeStorage (DPAPI) in SQLite; renderer only sees a <span class="mono">hasApiKey</span> flag (SEC-003)</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3>Window &amp; filesystem defense</h3>
-      <ul>
-        <li><b>Sandbox + context isolation</b> enforced; navigation guards and window-open handler (SEC-004/005/011)</li>
-        <li><b>Symlink traversal blocked</b> — realpath resolution on every tool path (SEC-006)</li>
-        <li><b>Extension gating</b> — <span class="mono">.bat .cmd .ps1 .exe</span> treated as high-risk (SEC-007)</li>
-        <li><b>Atomic persistence</b> — no torn writes on crash (SEC-010)</li>
-      </ul>
-    </div>
-  </div>
-  <div style="margin-top:18px;" class="grid-4">
-    <div class="stat"><div class="num">11</div><div class="lbl">Findings remediated</div></div>
-    <div class="stat"><div class="num">80<span>/80</span></div><div class="lbl">Tests passing</div></div>
-    <div class="stat"><div class="num">6</div><div class="lbl">ADRs governing design</div></div>
-    <div class="stat"><div class="num">0</div><div class="lbl">Secrets in repo or renderer</div></div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>07 / 16</span></div>
-</div>
-
-<!-- ══════════ SLIDE 8 · PERMISSION MODEL ══════════ -->
-<div class="page">
-  <div class="kicker">07 · Permission Model · ADR-004</div>
-  <h1 class="slide-title">Six categories, cryptographically bound approvals</h1>
-  <p class="slide-sub">Stricter than the benchmarked competitor default: outside reads are gated too, not just writes.</p>
-  <table class="tbl">
-    <tr><th style="width:14%;">Category</th><th style="width:44%;">Scope</th><th style="width:20%;">Default</th><th style="width:22%;">UI</th></tr>
-    <tr><td class="mono"><b>read_in</b></td><td>Files inside an approved workspace</td><td class="ok-badge">Allowed</td><td>Live timeline</td></tr>
-    <tr><td class="mono"><b>read_out</b></td><td>Anything outside workspaces (Desktop, profile)</td><td class="ask-badge">Approval</td><td>Modal + full path</td></tr>
-    <tr><td class="mono"><b>write_in</b></td><td>Create/modify inside workspace</td><td class="ok-badge">New files OK</td><td>Timeline + diff</td></tr>
-    <tr><td class="mono"><b>write_out</b></td><td>Create/modify outside workspaces</td><td class="ask-badge">Approval</td><td>Modal + content preview</td></tr>
-    <tr><td class="mono"><b>process</b></td><td>Child processes, dev servers, scripts</td><td class="ask-badge">Approval</td><td>Modal: exe + args + cwd</td></tr>
-    <tr><td class="mono"><b>network</b></td><td>Search, navigation, downloads</td><td class="ok-badge">Read-only OK</td><td>Timeline + URLs + bytes</td></tr>
+  <div class="kicker">I · Overview</div>
+  <h1 class="slide-title">Technology stack</h1>
+  <p class="slide-sub">Mainstream desktop web stack. No agent framework and no provider SDKs — integrations are hand-written.</p>
+  <table class="tbl compact">
+    <tr><th style="width:150px;">Layer</th><th style="width:360px;">Technology</th><th>Role in Jarvis</th></tr>
+    <tr><td><b>Runtime</b></td><td>Electron 34.2 · Node.js 24.13 · Chromium</td><td>Desktop shell; main process runs agent, tools, gateway</td></tr>
+    <tr><td><b>Language</b></td><td>TypeScript 5.7 (strict) · ES modules</td><td>Everything: main, preload, renderer, shared types</td></tr>
+    <tr><td><b>Build</b></td><td>electron-vite 3 (Vite 6 + esbuild) · electron-builder 25</td><td>Three bundles → <code>out/</code>; NSIS + portable x64 installers</td></tr>
+    <tr><td><b>UI</b></td><td>React 19 · Tailwind CSS 3.4 · Radix UI · lucide-react</td><td>Chat window, quick chat, settings app, dialogs</td></tr>
+    <tr><td><b>Content</b></td><td>react-markdown 10 + remark-gfm</td><td>Renders model answers (tables, code, lists)</td></tr>
+    <tr><td><b>3D</b></td><td>three.js 0.186 · GLB owl rig</td><td>Floating mascot with state animations</td></tr>
+    <tr><td><b>Data</b></td><td>sql.js 1.15 (SQLite in WASM) · Electron safeStorage (DPAPI)</td><td>Chats, tasks, events, settings · encrypted API keys</td></tr>
+    <tr><td><b>Validation</b></td><td>zod 3</td><td>Schema for every tool's arguments</td></tr>
+    <tr><td><b>Integrations</b></td><td>native <code>fetch</code> · WebSocket · <code>node:tls</code> · <code>child_process</code> · PowerShell</td><td>LLM APIs · Chrome CDP · SMTP · dev servers · SendKeys</td></tr>
+    <tr><td><b>Testing</b></td><td>Vitest 3 · Playwright 1.64 · axe-core</td><td>Unit + acceptance suites · UI screenshots + a11y</td></tr>
+    <tr><td><b>Typography</b></td><td>Fraunces · Instrument Sans · JetBrains Mono (bundled)</td><td>"Parchment &amp; Pine" design system, no CDN (ADR-005)</td></tr>
   </table>
-  <div style="margin-top:16px;" class="grid-2">
-    <div class="card" style="border-left:3px solid var(--indigo);">
-      <h3>Approval binding</h3>
-      <p>Every approval = <span class="mono">HMAC-SHA256(action ∥ workspace ∥ args-hash, session-secret)</span>. <b>Single-use, expires in 5 minutes.</b> Change one argument — the token fails.</p>
-    </div>
-    <div class="card" style="border-left:3px solid var(--indigo);">
-      <h3>Denial semantics</h3>
-      <p><b>Deny</b> permanently invalidates the token. The runtime <b>never silently retries</b> a denied action — it halts the branch and asks for new guidance.</p>
-    </div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>08 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>04 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 9 · GATEWAY BOUNDARY ══════════ -->
+<!-- ══════════ 05 · SYSTEM CONTEXT ══════════ -->
 <div class="page">
-  <div class="kicker">08 · Gateway Boundary · ADR-003</div>
-  <h1 class="slide-title">One adapter, deterministic models, honest failures</h1>
-  <p class="slide-sub">Designed directly from measured gateway behavior (T-001), not vendor claims.</p>
-  <div class="grid-2" style="margin-bottom:18px;">
-    <div class="card">
-      <h3>Deterministic routing</h3>
-      <ul>
-        <li>Profiles pin <b>concrete model IDs</b> (fast / reasoning / coding / vision) fetched live from <span class="mono">GET /v1/models</span></li>
-        <li>Gateway <span class="mono">"auto"</span> routing measured <b>non-deterministic</b> — reserved as fallback only</li>
-      </ul>
+  <div class="kicker">I · Overview</div>
+  <h1 class="slide-title">System context</h1>
+  <p class="slide-sub">Everything trusted lives in one Node process. Everything else is reached over a narrow, named channel.</p>
+  <div style="display:grid; grid-template-columns: 230px 40px 1fr 40px 300px; align-items:stretch;">
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div class="box hl"><b>User</b>keyboard · voice later</div>
+      <div class="box"><b>Main window</b>chat, timeline, canvas</div>
+      <div class="box"><b>Quick chat</b>400×560 drawer</div>
+      <div class="box"><b>3D mascot</b>click-through overlay</div>
+      <div class="box"><b>Settings app</b>keys, models, memory</div>
+      <div class="box"><b>Tray icon</b>quick actions, status</div>
     </div>
-    <div class="card">
-      <h3>Failure semantics</h3>
-      <ul>
-        <li>Local gateway down (<span class="mono">ECONNREFUSED</span>) vs upstream error (<span class="mono">502/503/504</span>) are <b>distinct signals</b></li>
-        <li>Transient 5xx → <b>exactly one retry</b> after 3 s, exponential backoff</li>
-        <li>Never auto-retries side effects; inference requests only</li>
-      </ul>
+    <div style="display:flex; align-items:center; justify-content:center; color:var(--indigo); font-size:22px;">⇄</div>
+    <div class="box dark" style="padding:14px 16px;">
+      <b style="font-size:15px;">Main process (Node, trusted)</b>
+      <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;">src/main · single process · owns all side effects</div>
+      <div class="grid-2" style="gap:8px;">
+        <div class="box"><b>AgentOrchestrator</b>tool-calling loop</div>
+        <div class="box"><b>ToolExecutor</b>26 tools · zod</div>
+        <div class="box"><b>PolicyEngine</b>ADR-004 · HMAC</div>
+        <div class="box"><b>Model gateway</b>adapter · balancer</div>
+        <div class="box"><b>ProcessManager</b>owned child procs</div>
+        <div class="box"><b>Storage</b>sql.js · vault · USER.md</div>
+        <div class="box"><b>SkillManager</b>SKILL.md loader</div>
+        <div class="box"><b>Window managers</b>tray · mascot · settings</div>
+      </div>
+      <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Renderers reach it only through <span class="mono" style="color:#a5b4fc;">window.jarvisAPI</span> (preload) → 45 IPC handlers</div>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:center; color:var(--indigo); font-size:22px;">⇄</div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div class="box"><b>Cloud LLM APIs</b>Gemini, Groq, DeepSeek, OpenAI, Anthropic, OpenRouter, NVIDIA, Mistral, Cohere, Cloudflare, Cerebras · keyless: Pollinations, OVH</div>
+      <div class="box"><b>Local models</b>Ollama · FreeLLMAPI <span class="mono">:31415</span> (legacy)</div>
+      <div class="box"><b>Chrome</b>launch with profile · CDP <span class="mono">127.0.0.1:9222</span></div>
+      <div class="box"><b>Windows</b>files · child processes · PowerShell SendKeys · Explorer</div>
+      <div class="box"><b>Internet</b>DuckDuckGo HTML search · downloads · SMTP <span class="mono">:465</span></div>
+      <div class="box warnb"><b>Optional inbound</b>Local OpenAI-compatible server <span class="mono">127.0.0.1:31415</span> for IDEs (off by default)</div>
     </div>
   </div>
-  <div class="grid-2">
-    <div class="card">
-      <h3>Latency instrumentation</h3>
-      <p>TTFT clock starts at <span class="mono">fetch()</span> dispatch — capturing connect + queue (measured gap: ~3.3 s hidden in connection). Telemetry logs pinned model, routed model, TTFT, total, tokens.</p>
-    </div>
-    <div class="card">
-      <h3>Credential boundary</h3>
-      <p>Keys live only in env vars or DPAPI-encrypted storage — never in SQLite plaintext, never in Git, never in the renderer, never in event streams shown to the model.</p>
-    </div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>09 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>05 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 10 · SPIKE EVIDENCE ══════════ -->
+<!-- ══════════ 06 · PROCESS MODEL ══════════ -->
 <div class="page">
-  <div class="kicker">09 · Evidence</div>
-  <h1 class="slide-title">The spikes behind every design choice</h1>
-  <p class="slide-sub">T-001 validated the gateway; T-002 benchmarked Open Interpreter 0.0.56 in a disposable sandbox.</p>
-  <div class="grid-4" style="margin-bottom:18px;">
-    <div class="stat"><div class="num">278</div><div class="lbl">Models listed · 78 ms</div></div>
-    <div class="stat"><div class="num">1.4<span>s</span></div><div class="lbl">Best chat latency</div></div>
-    <div class="stat"><div class="num">64<span>s</span></div><div class="lbl">Worst turn (tool call)</div></div>
-    <div class="stat"><div class="num">502</div><div class="lbl">Transient upstream flake</div></div>
-  </div>
-  <div class="grid-2">
-    <div class="card">
-      <h3>T-001 — gateway validation</h3>
-      <ul>
-        <li>Authenticated model list, chat, streaming, and a <b>non-executed tool call</b> all passed</li>
-        <li>Streaming TTFT must be measured from dispatch, not body-open</li>
-        <li>→ became ADR-003 (pin models, one bounded retry, honest 5xx)</li>
-      </ul>
+  <div class="kicker">II · Runtime</div>
+  <h1 class="slide-title">Electron process model</h1>
+  <p class="slide-sub">Privilege stops at one boundary: renderers are sandboxed web pages; only the main process touches the OS.</p>
+  <div class="split">
+    <div>
+      <div class="layer">
+        <div class="lname">Renderer × 4<div style="font-size:11px; font-weight:400; color:var(--muted);">one Vite bundle, surface chosen at boot</div></div>
+        <div class="ldesc"><span class="chip">sandbox: true</span><span class="chip">contextIsolation</span><span class="chip">no nodeIntegration</span><span class="chip">strict CSP</span><br>React UI only. No file system, no network to providers, no process control.</div>
+      </div>
+      <div class="down">▼ ▲</div>
+      <div class="layer">
+        <div class="lname">Preload bridge<div style="font-size:11px; font-weight:400; color:var(--muted);">src/preload · 285 lines</div></div>
+        <div class="ldesc"><span class="chip">contextBridge</span><span class="chip">window.jarvisAPI</span><br>Typed allow-list of calls. Renderer cannot reach <code>ipcRenderer</code> directly.</div>
+      </div>
+      <div class="down">▼ ▲</div>
+      <div class="layer trusted">
+        <div class="lname">IPC<div style="font-size:11px; font-weight:400; color:var(--muted);">invoke / handle · push events</div></div>
+        <div class="ldesc"><span class="chip">45 ipcMain.handle</span><span class="chip">isAuthorizedSender()</span><br>Push: <code>chat:stream</code>, <code>task:updated</code>, <code>timeline:event</code>, <code>process:updated</code></div>
+      </div>
+      <div class="down">▼ ▲</div>
+      <div class="layer os">
+        <div class="lname">Main process<div style="font-size:11px; font-weight:400; color:#94a3b8;">src/main · Node 24</div></div>
+        <div class="ldesc"><span class="chip">agent</span><span class="chip">tools</span><span class="chip">policy</span><span class="chip">gateway</span><span class="chip">storage</span><span class="chip">windows</span><br>Navigation guards: <code>will-navigate</code>, <code>setWindowOpenHandler</code>.</div>
+      </div>
     </div>
-    <div class="card">
-      <h3>T-002 — competitor benchmark</h3>
-      <ul>
-        <li>Outside reads and inside writes executed with <b>zero approval</b>; denial of outside writes was honored</li>
-        <li>Shells inherited the host profile (errors every turn); model picker silently bypassed the gateway</li>
-        <li>→ became ADR-002/004: custom orchestrator, stricter gates, clean shells</li>
-      </ul>
+    <div>
+      <table class="tbl compact">
+        <tr><th>Window</th><th>Spec</th></tr>
+        <tr><td><b>Main</b></td><td>1200×800 · native Win11 titlebar overlay · minimize-to-tray</td></tr>
+        <tr><td><b>Quick chat</b></td><td>400×560 · resizable 340×440 → 900×1000</td></tr>
+        <tr><td><b>Mascot</b></td><td>transparent · click-through · always on top · draggable</td></tr>
+        <tr><td><b>Settings</b></td><td>940×700 · own window · opened by tray, header, <code>--settings</code></td></tr>
+        <tr><td><b>Tray</b></td><td>not a window: <code>TrayManager</code> menu + gateway status</td></tr>
+      </table>
+      <div class="card note" style="margin-top:12px;"><p><b>Wiring hub:</b> <code>src/main/index.ts</code> (1,602 lines) creates every singleton, every window and all 45 IPC handlers. It is the one file every feature touches.</p></div>
     </div>
   </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>10 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>06 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 11 · OPERATING MODES ══════════ -->
+<!-- ══════════ 07 · SOURCE MAP ══════════ -->
 <div class="page">
-  <div class="kicker">10 · Operating Modes · ADR-001</div>
-  <h1 class="slide-title">Three modes — latency without recklessness</h1>
-  <p class="slide-sub">Racing is a hedge against slow routes; it never applies to side effects.</p>
+  <div class="kicker">II · Runtime</div>
+  <h1 class="slide-title">Source map — where the code lives</h1>
+  <p class="slide-sub">≈20,100 lines of TypeScript/TSX in <code>src/</code>, by module.</p>
+  <div class="split">
+    <div>
+      <div class="chart-title">Lines of code by module</div>
+      <div class="bars">
+        <div class="bar-row"><div class="bl">renderer · components</div><div class="bt"><div class="b" style="width:100%"></div></div><div class="bv">4,623</div></div>
+        <div class="bar-row"><div class="bl">main · tools</div><div class="bt"><div class="b" style="width:66.3%"></div></div><div class="bv">3,065</div></div>
+        <div class="bar-row"><div class="bl">main · gateway</div><div class="bt"><div class="b" style="width:66.0%"></div></div><div class="bv">3,050</div></div>
+        <div class="bar-row"><div class="bl">main · index.ts (wiring)</div><div class="bt"><div class="b" style="width:34.7%"></div></div><div class="bv">1,602</div></div>
+        <div class="bar-row"><div class="bl">main · utils (CDP, SMTP…)</div><div class="bt"><div class="b" style="width:25.8%"></div></div><div class="bv">1,194</div></div>
+        <div class="bar-row"><div class="bl">renderer · settings app</div><div class="bt"><div class="b" style="width:24.7%"></div></div><div class="bv">1,142</div></div>
+        <div class="bar-row"><div class="bl">renderer · mascot (3D)</div><div class="bt"><div class="b" style="width:24.6%"></div></div><div class="bv">1,138</div></div>
+        <div class="bar-row"><div class="bl">main · windows</div><div class="bt"><div class="b" style="width:14.6%"></div></div><div class="bv">675</div></div>
+        <div class="bar-row"><div class="bl">renderer · App.tsx</div><div class="bt"><div class="b" style="width:13.8%"></div></div><div class="bv">636</div></div>
+        <div class="bar-row"><div class="bl">renderer · quick chat</div><div class="bt"><div class="b" style="width:11.6%"></div></div><div class="bv">535</div></div>
+        <div class="bar-row"><div class="bl">main · agent</div><div class="bt"><div class="b" style="width:10.2%"></div></div><div class="bv">472</div></div>
+        <div class="bar-row"><div class="bl">shared (types, safety)</div><div class="bt"><div class="b" style="width:9.2%"></div></div><div class="bv">426</div></div>
+        <div class="bar-row"><div class="bl">main · memory</div><div class="bt"><div class="b" style="width:7.2%"></div></div><div class="bv">331</div></div>
+        <div class="bar-row"><div class="bl">preload</div><div class="bt"><div class="b" style="width:6.2%"></div></div><div class="bv">285</div></div>
+        <div class="bar-row"><div class="bl">main · policy</div><div class="bt"><div class="b" style="width:5.9%"></div></div><div class="bv">274</div></div>
+        <div class="bar-row"><div class="bl">main · process</div><div class="bt"><div class="b" style="width:5.3%"></div></div><div class="bv">246</div></div>
+        <div class="bar-row"><div class="bl">main · storage</div><div class="bt"><div class="b" style="width:5.1%"></div></div><div class="bv">235</div></div>
+        <div class="bar-row"><div class="bl">main · skills</div><div class="bt"><div class="b" style="width:3.8%"></div></div><div class="bv">174</div></div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>Concentration</h3><p>Three files hold 22% of all code: <code>tool-executor.ts</code> 1,755 · <code>index.ts</code> 1,602 · <code>SettingsApp.tsx</code> 1,142. Next: <code>tool-registry.ts</code> 1,036, <code>model-adapter.ts</code> 844.</p></div>
+      <div class="card"><h3>Shape</h3><p>The agent core is small (agent 472 + policy 274 + process 246). Bulk sits in the UI, the tool switchboard and the gateway — the parts that grow with each new provider or tool.</p></div>
+      <div class="card"><h3>Layout</h3><p class="mono" style="font-size:11px; line-height:1.6;">src/main/{agent,gateway,tools,policy,<br>&nbsp;process,memory,skills,storage,utils,windows}<br>src/preload · src/shared<br>src/renderer/src/{components,mascot,<br>&nbsp;quickchat,settings,lib}</p></div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>07 / 28</span></div>
+</div>
+
+<!-- ══════════ 08 · IPC SURFACE ══════════ -->
+<div class="page">
+  <div class="kicker">II · Runtime</div>
+  <h1 class="slide-title">IPC surface</h1>
+  <p class="slide-sub">45 request/response handlers, named <code>namespace:verb</code>, plus four main → renderer push channels.</p>
+  <div class="split">
+    <div>
+      <div class="chart-title">Handlers per namespace</div>
+      <div class="bars wide">
+        <div class="bar-row"><div class="bl">mascot</div><div class="bt"><div class="b" style="width:100%"></div></div><div class="bv">10</div></div>
+        <div class="bar-row"><div class="bl">system</div><div class="bt"><div class="b" style="width:70%"></div></div><div class="bv">7</div></div>
+        <div class="bar-row"><div class="bl">providers</div><div class="bt"><div class="b" style="width:60%"></div></div><div class="bv">6</div></div>
+        <div class="bar-row"><div class="bl">conversation</div><div class="bt"><div class="b" style="width:40%"></div></div><div class="bv">4</div></div>
+        <div class="bar-row"><div class="bl">settings</div><div class="bt"><div class="b" style="width:40%"></div></div><div class="bv">4</div></div>
+        <div class="bar-row"><div class="bl">task</div><div class="bt"><div class="b" style="width:30%"></div></div><div class="bv">3</div></div>
+        <div class="bar-row"><div class="bl">workspace</div><div class="bt"><div class="b" style="width:30%"></div></div><div class="bv">3</div></div>
+        <div class="bar-row"><div class="bl">memory</div><div class="bt"><div class="b" style="width:20%"></div></div><div class="bv">2</div></div>
+        <div class="bar-row"><div class="bl">process</div><div class="bt"><div class="b" style="width:20%"></div></div><div class="bv">2</div></div>
+        <div class="bar-row"><div class="bl">chat</div><div class="bt"><div class="b" style="width:10%"></div></div><div class="bv">1</div></div>
+        <div class="bar-row"><div class="bl">approval</div><div class="bt"><div class="b" style="width:10%"></div></div><div class="bv">1</div></div>
+        <div class="bar-row"><div class="bl">models</div><div class="bt"><div class="b" style="width:10%"></div></div><div class="bv">1</div></div>
+        <div class="bar-row"><div class="bl">ui</div><div class="bt"><div class="b" style="width:10%"></div></div><div class="bv">1</div></div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>The calls that matter</h3><ul>
+        <li><code>chat:send</code> — runs the whole agent loop for one message.</li>
+        <li><code>task:submit-goal</code> — older plan-then-steps pipeline (second execution path).</li>
+        <li><code>approval:resolve</code> — user grants/denies a gated action.</li>
+        <li><code>task:cancel</code> — sets a status flag only; does not stop the loop.</li>
+      </ul></div>
+      <div class="card"><h3>Push channels (main → renderer)</h3><p><code>chat:stream</code> · <code>task:updated</code> · <code>timeline:event</code> · <code>process:updated</code></p></div>
+      <div class="card"><h3>Guard</h3><p>Sensitive handlers check <code>isAuthorizedSender(event.sender)</code> so only Jarvis's own windows can call them (SEC-005/011).</p></div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>08 / 28</span></div>
+</div>
+
+<!-- ══════════ 09 · REQUEST LIFECYCLE ══════════ -->
+<div class="page">
+  <div class="kicker">II · Runtime</div>
+  <h1 class="slide-title">Request lifecycle — one chat message, end to end</h1>
+  <p class="slide-sub">Context is the last 8 stored messages. The reply is sent whole at the end; tool steps stream as timeline events.</p>
+  <svg width="1152" height="480" viewBox="0 0 1152 480">
+    <defs>
+      <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4f46e5"/></marker>
+      <marker id="ahg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker>
+    </defs>
+    <!-- participants -->
+    <g font-size="12" font-weight="700" text-anchor="middle">
+      <rect x="10" y="4" width="120" height="32" rx="6" fill="#eef2ff" stroke="#c7d2fe"/><text x="70" y="25" fill="#3730a3">Renderer</text>
+      <rect x="145" y="4" width="120" height="32" rx="6" fill="#eef2ff" stroke="#c7d2fe"/><text x="205" y="25" fill="#3730a3">Preload / IPC</text>
+      <rect x="285" y="4" width="120" height="32" rx="6" fill="#0f172a"/><text x="345" y="25" fill="#ffffff">index.ts</text>
+      <rect x="420" y="4" width="120" height="32" rx="6" fill="#ffffff" stroke="#e2e8f0"/><text x="480" y="25" fill="#0f172a">SQLite</text>
+      <rect x="560" y="4" width="120" height="32" rx="6" fill="#0f172a"/><text x="620" y="25" fill="#ffffff">Orchestrator</text>
+      <rect x="705" y="4" width="120" height="32" rx="6" fill="#0f172a"/><text x="765" y="25" fill="#ffffff">Gateway</text>
+      <rect x="845" y="4" width="120" height="32" rx="6" fill="#ffffff" stroke="#e2e8f0"/><text x="905" y="25" fill="#0f172a">Provider API</text>
+      <rect x="1005" y="4" width="140" height="32" rx="6" fill="#0f172a"/><text x="1075" y="25" fill="#ffffff">Tools + Policy</text>
+    </g>
+    <g stroke="#cbd5e1" stroke-dasharray="4 4">
+      <line x1="70" y1="36" x2="70" y2="475"/><line x1="205" y1="36" x2="205" y2="475"/><line x1="345" y1="36" x2="345" y2="475"/>
+      <line x1="480" y1="36" x2="480" y2="475"/><line x1="620" y1="36" x2="620" y2="475"/><line x1="765" y1="36" x2="765" y2="475"/>
+      <line x1="905" y1="36" x2="905" y2="475"/><line x1="1075" y1="36" x2="1075" y2="475"/>
+    </g>
+    <!-- loop frame -->
+    <rect x="585" y="212" width="555" height="160" rx="6" fill="#eef2ff" fill-opacity="0.55" stroke="#4f46e5" stroke-dasharray="5 3"/>
+    <rect x="585" y="212" width="132" height="20" rx="4" fill="#4f46e5"/>
+    <text x="592" y="226" font-size="11" fill="#ffffff" font-weight="700">loop · ≤ 5 turns</text>
+    <g font-size="11.5" fill="#334155">
+      <!-- 1 -->
+      <line x1="70" y1="62" x2="203" y2="62" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="76" y="56">1 jarvisAPI.sendMessage()</text>
+      <!-- 2 -->
+      <line x1="205" y1="90" x2="343" y2="90" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="211" y="84" class="mono">2 invoke chat:send</text>
+      <!-- 3 -->
+      <line x1="345" y1="118" x2="478" y2="118" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="351" y="112">3 addMessage(user)</text>
+      <!-- 4 -->
+      <line x1="345" y1="146" x2="618" y2="146" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="380" y="140">4 runLoop(last 8 messages, settings)</text>
+      <!-- 5 self -->
+      <path d="M620,166 h40 v22 h-38" fill="none" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="666" y="182">5 route model (regex) · match skills</text>
+      <!-- 6 -->
+      <line x1="620" y1="252" x2="763" y2="252" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="626" y="246">6 chatWithTools(26 tools)</text>
+      <!-- 7 -->
+      <line x1="765" y1="276" x2="903" y2="276" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="771" y="270" class="mono">7 POST /chat/completions</text>
+      <!-- 8 -->
+      <line x1="905" y1="300" x2="622" y2="300" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahg)"/>
+      <text x="700" y="294">8 tool_calls  (or final text)</text>
+      <!-- 9 -->
+      <line x1="620" y1="326" x2="1073" y2="326" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="840" y="320">9 executeTool → zod → policy → OS</text>
+      <!-- 10 -->
+      <line x1="1075" y1="352" x2="622" y2="352" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahg)"/>
+      <text x="800" y="346">10 result appended as role:tool</text>
+      <!-- 11 -->
+      <line x1="620" y1="398" x2="347" y2="398" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahg)"/>
+      <text x="380" y="392">11 AgentRunResult (reply, toolsUsed)</text>
+      <!-- 12 -->
+      <line x1="345" y1="424" x2="478" y2="424" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="351" y="418">12 addMessage(assistant)</text>
+      <!-- 13 -->
+      <line x1="345" y1="456" x2="72" y2="456" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahg)"/>
+      <text x="90" y="450" class="mono">13 chat:stream (whole reply)</text>
+    </g>
+    <text x="1145" y="470" font-size="10.5" fill="#64748b" text-anchor="end">every tool call also emits timeline:event → renderer</text>
+  </svg>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>09 / 28</span></div>
+</div>
+
+<!-- ══════════ 10 · AGENT LOOP ══════════ -->
+<div class="page">
+  <div class="kicker">II · Runtime</div>
+  <h1 class="slide-title">Agent loop internals</h1>
+  <p class="slide-sub"><code>AgentOrchestrator.runLoop()</code> — a single-model, sequential tool-calling loop (472 lines).</p>
+  <svg width="1152" height="470" viewBox="0 0 1152 470">
+    <defs>
+      <marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4f46e5"/></marker>
+    </defs>
+    <g font-size="12" fill="#334155">
+      <!-- row 1 -->
+      <rect x="10" y="10" width="200" height="50" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="22" y="31" font-weight="700" fill="#0f172a">User message</text><text x="22" y="49">+ last 8 from SQLite</text>
+      <rect x="240" y="10" width="200" height="50" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="252" y="31" font-weight="700" fill="#0f172a">Auto-route model</text><text x="252" y="49">regex classifier → category</text>
+      <rect x="470" y="10" width="200" height="50" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="482" y="31" font-weight="700" fill="#0f172a">Skill Advisor</text><text x="482" y="49">keyword match → system hint</text>
+      <rect x="700" y="10" width="200" height="50" rx="8" fill="#eef2ff" stroke="#4f46e5"/>
+      <text x="712" y="31" font-weight="700" fill="#3730a3">turn++</text><text x="712" y="49">stop when turn &gt; maxTurns (5)</text>
+      <rect x="930" y="10" width="212" height="50" rx="8" fill="#0f172a"/>
+      <text x="942" y="31" font-weight="700" fill="#ffffff">chatWithTools()</text><text x="942" y="49" fill="#cbd5e1">messages + 26 tool schemas</text>
+      <line x1="210" y1="35" x2="238" y2="35" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <line x1="440" y1="35" x2="468" y2="35" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <line x1="670" y1="35" x2="698" y2="35" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <line x1="900" y1="35" x2="928" y2="35" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <!-- row 2 decisions -->
+      <polygon points="1036,105 1126,145 1036,185 946,145" fill="#ffffff" stroke="#4f46e5"/>
+      <text x="1036" y="149" text-anchor="middle" font-weight="700" fill="#0f172a">tool_calls?</text>
+      <line x1="1036" y1="60" x2="1036" y2="103" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <polygon points="800,105 900,145 800,185 700,145" fill="#ffffff" stroke="#4f46e5"/>
+      <text x="800" y="141" text-anchor="middle" font-weight="700" fill="#0f172a">turn 1 and a</text><text x="800" y="157" text-anchor="middle" font-weight="700" fill="#0f172a">false refusal?</text>
+      <line x1="946" y1="145" x2="902" y2="145" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <text x="912" y="137" font-size="11" fill="#64748b">no</text>
+      <line x1="800" y1="105" x2="800" y2="62" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <text x="808" y="88" font-size="11" fill="#64748b">yes → inject "Action Verification" prompt</text>
+      <rect x="470" y="120" width="200" height="50" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+      <text x="482" y="141" font-weight="700" fill="#3730a3">Final reply</text><text x="482" y="159">assistant text → done</text>
+      <line x1="700" y1="145" x2="672" y2="145" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <text x="678" y="137" font-size="11" fill="#64748b">no</text>
+      <!-- row 3 tools -->
+      <line x1="1036" y1="185" x2="1036" y2="243" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <text x="1044" y="218" font-size="11" fill="#64748b">yes</text>
+      <rect x="930" y="245" width="212" height="56" rx="8" fill="#0f172a"/>
+      <text x="942" y="267" font-weight="700" fill="#ffffff">Execute tools</text><text x="942" y="285" fill="#cbd5e1">sequentially · ToolExecutor</text>
+      <rect x="640" y="245" width="262" height="56" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="652" y="267" fill="#0f172a"><tspan font-weight="700">ok</tspan> → output as role:tool</text>
+      <text x="652" y="287" fill="#0f172a"><tspan font-weight="700">fail</tspan> → "Tool failed" + self-correction</text>
+      <line x1="930" y1="273" x2="904" y2="273" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <rect x="380" y="245" width="220" height="56" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="392" y="267" font-weight="700" fill="#0f172a">turn = maxTurns − 1 ?</text><text x="392" y="287">inject "synthesize now"</text>
+      <line x1="640" y1="273" x2="602" y2="273" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <path d="M380,273 H350 V88 H760 V62" fill="none" stroke="#4f46e5" stroke-width="1.6" stroke-dasharray="6 3" marker-end="url(#a2)"/>
+      <text x="358" y="200" font-size="11" fill="#64748b">next turn</text>
+      <!-- row 4 exit -->
+      <rect x="10" y="360" width="250" height="56" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="22" y="382" font-weight="700" fill="#0f172a">Loop exhausted, no reply</text><text x="22" y="400">one synthesis pass, tools disabled</text>
+      <rect x="470" y="360" width="330" height="56" rx="8" fill="#eef2ff" stroke="#4f46e5"/>
+      <text x="482" y="382" font-weight="700" fill="#3730a3">Post-processing → AgentRunResult</text><text x="482" y="400">LearningEngine suggestion · low-quota footer</text>
+      <line x1="260" y1="388" x2="468" y2="388" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+      <line x1="620" y1="170" x2="620" y2="358" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#a2)"/>
+    </g>
+    <g font-size="11.5" fill="#334155">
+      <rect x="830" y="330" width="312" height="130" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+      <text x="842" y="352" font-weight="700" fill="#991b1b">Limits today</text>
+      <text x="842" y="374">• one model per turn, tools run one at a time</text>
+      <text x="842" y="394">• no AbortSignal: cancel cannot stop it</text>
+      <text x="842" y="414">• model error mid-task → exception, run lost</text>
+      <text x="842" y="434">• 5 turns: too few for search→read→write→verify</text>
+      <text x="842" y="454">• no plan / memory of past attempts across runs</text>
+    </g>
+  </svg>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>10 / 28</span></div>
+</div>
+
+<!-- ══════════ 11 · PROMPT ASSEMBLY ══════════ -->
+<div class="page">
+  <div class="kicker">II · Runtime</div>
+  <h1 class="slide-title">System prompt assembly</h1>
+  <p class="slide-sub"><code>PromptEngine.buildSystemPrompt()</code> composes one system message per model call from fixed and user-controlled layers.</p>
+  <div class="split">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <div class="layer os"><div class="lname">1 · Identity &amp; safety anchors</div><div class="ldesc">Who Jarvis is; immutable rules that later layers cannot override.</div></div>
+      <div class="layer os"><div class="lname">2 · Privacy statement</div><div class="ldesc">Data stays local; no technical leakage in replies.</div></div>
+      <div class="layer"><div class="lname">3 · Tool usage guide</div><div class="ldesc">Per-tool rules: Chrome profile must be asked, Gmail flow, shortcuts, intent classification (question vs task).</div></div>
+      <div class="layer"><div class="lname">4 · Style · mode · depth</div><div class="ldesc"><span class="chip">direct | balanced | detailed</span><span class="chip">chat | debug | build | plan</span><span class="chip">quick | standard | deep</span></div></div>
+      <div class="layer trusted"><div class="lname">5 · USER.md memory</div><div class="ldesc">Profile, dev defaults, standing notes — injected every call.</div></div>
+      <div class="layer trusted" style="border-color:#fecaca;"><div class="lname">6 · Custom prompt</div><div class="ldesc">User text from Settings, scanned by <code>scanPromptSafety()</code>; risky text needs an explicit acknowledgement.</div></div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>Plus, per run</h3><ul>
+        <li><b>Skill Advisor</b> system hint when a skill matches the goal.</li>
+        <li><b>Action Verification</b> user message when the model falsely refuses on turn 1.</li>
+        <li><b>Synthesis nudge</b> at turn 4 of 5.</li>
+      </ul></div>
+      <div class="card"><h3>Prompt-safety scanner</h3><p><code>src/shared/prompt-safety.ts</code> flags bypass phrases, jailbreak patterns, destructive commands (<code>rmdir /s</code>, <code>format c:</code>, <code>drop database</code>) and credential exfiltration in the <b>user's own</b> custom prompt.</p></div>
+      <div class="card alert"><h3>Gap</h3><p>Text coming back from tools (web pages, files) is <b>not</b> scanned or labelled as untrusted before the model reads it (acceptance F).</p></div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>11 / 28</span></div>
+</div>
+
+<!-- ══════════ 12 · GATEWAY ══════════ -->
+<div class="page">
+  <div class="kicker">III · Intelligence</div>
+  <h1 class="slide-title">Model gateway architecture</h1>
+  <p class="slide-sub">Embedded multi-provider engine (Phase 7). FreeLLMAPI is now a legacy fallback, not a requirement.</p>
+  <div class="split">
+    <div>
+      <div class="box dark"><b>AgentOrchestrator</b>calls <span class="mono">chatWithTools(messages, tools, options)</span></div>
+      <div class="down">▼</div>
+      <div class="box hl"><b>ModelGatewayAdapter · model-adapter.ts (844)</b>adds system prompt · if the balancer throws → legacy FreeLLMAPI <span class="mono">127.0.0.1:31415/v1</span></div>
+      <div class="down">▼</div>
+      <div class="box hl"><b>ModelBalancer · model-balancer.ts (583)</b>
+        <span class="chip">resolveModelForTask()</span><span class="chip">cooldown map</span><span class="chip">getFailoverQueue()</span><span class="chip">listAllModels()</span></div>
+      <div class="down">▼</div>
+      <div class="box"><b>Provider adapters · providers/</b>
+        Dedicated: <span class="chip">Gemini</span><span class="chip">Groq</span><span class="chip">DeepSeek</span><span class="chip">OpenAI</span><span class="chip">Anthropic</span><span class="chip">OpenRouter</span><span class="chip">Ollama</span><br>
+        Via <code>BaseOpenAICompatibleProvider</code>: <span class="chip">NVIDIA</span><span class="chip">Mistral</span><span class="chip">Cohere</span><span class="chip">Cloudflare</span><span class="chip">Cerebras</span><span class="chip">Pollinations</span><span class="chip">OVH</span><span class="chip">custom</span></div>
+      <div class="down">▼</div>
+      <div class="box"><b>HTTPS</b>native fetch · OpenAI-style <span class="mono">/chat/completions</span> or provider dialect</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>CredentialVault · credential-vault.ts (476)</h3><p>Keys encrypted with Electron <code>safeStorage</code> (Windows DPAPI) in <code>userData/provider_vault.json</code>. Renderer only sees <code>hasApiKey</code> + masked values. Importer migrated 7 keys from FreeLLMAPI's AES-256-GCM database.</p></div>
+      <div class="card"><h3>LocalGatewayServer · local-gateway-server.ts (185)</h3><p><code>node:http</code> on <code>127.0.0.1:31415</code> exposing <code>/v1/models</code> and <code>/v1/chat/completions</code> so IDEs can reuse Jarvis's keys. Off by default.</p></div>
+      <div class="card alert"><h3>Watch</h3><p>When on: <b>no auth</b> and <code>Access-Control-Allow-Origin: *</code> — any web page can spend the keys. Same port as legacy FreeLLMAPI, so only one can run.</p></div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>12 / 28</span></div>
+</div>
+
+<!-- ══════════ 13 · ROUTING MATRIX ══════════ -->
+<div class="page">
+  <div class="kicker">III · Intelligence</div>
+  <h1 class="slide-title">Providers &amp; routing matrix</h1>
+  <p class="slide-sub">A regex classifier puts each prompt in one of four categories; the first ready provider in that row wins.</p>
+  <table class="tbl compact">
+    <tr><th style="width:120px;">Category</th><th style="width:250px;">Triggered by</th><th>Preference order (first provider with a key and no cooldown)</th></tr>
+    <tr><td><b>coding</b></td><td>code fences, braces, code/bug/refactor/npm/git…</td><td><span class="tag">deepseek-chat</span><span class="tag">claude-3-5-sonnet-20241022</span><span class="tag">gpt-4o</span><span class="tag">gemini-2.0-flash</span><span class="tag">llama-3.3-70b (Groq)</span></td></tr>
+    <tr><td><b>reasoning</b></td><td>why, compare, analyze, strategy, decide…</td><td><span class="tag">deepseek-reasoner</span><span class="tag">claude-3-7-sonnet-20250219</span><span class="tag">gemini-1.5-pro</span><span class="tag">o3-mini</span></td></tr>
+    <tr><td><b>fast_chat</b></td><td>short (&lt; 40 chars) + hi/thanks/status/ping…</td><td><span class="tag">llama-3.1-8b-instant (Groq)</span><span class="tag">gemini-2.0-flash-lite</span><span class="tag">gpt-4o-mini</span></td></tr>
+    <tr><td><b>general</b></td><td>everything else</td><td><span class="tag">gemini-2.0-flash</span><span class="tag">llama-3.3-70b</span><span class="tag">deepseek-chat</span><span class="tag">gpt-4o</span><span class="tag">claude-3-5-sonnet</span><span class="tag">llama3.2 (Ollama)</span><span class="tag plain">gemini-flash-lite via FreeLLMAPI</span></td></tr>
+  </table>
+  <div class="grid-4" style="margin-top:16px;">
+    <div class="card accent"><h3>Keyed · 11</h3><p>Gemini, Groq, DeepSeek, OpenAI, Anthropic, OpenRouter, NVIDIA NIM, Mistral, Cohere, Cloudflare, Cerebras</p></div>
+    <div class="card accent"><h3>Keyless · 2</h3><p>Pollinations, OVHcloud anonymous tier — prompts go to third parties with no account.</p></div>
+    <div class="card accent"><h3>Local · 1 (+1 legacy)</h3><p>Ollama (<code>llama3.2</code>) · FreeLLMAPI gateway as last resort.</p></div>
+    <div class="card alert"><h3>Aging risk</h3><p>Model IDs are hard-coded 2024–25 snapshots. Retired IDs will fail until the table is edited.</p></div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>13 / 28</span></div>
+</div>
+
+<!-- ══════════ 14 · FAILOVER ══════════ -->
+<div class="page">
+  <div class="kicker">III · Intelligence</div>
+  <h1 class="slide-title">Failover &amp; cooldown</h1>
+  <p class="slide-sub">Inside one <code>chatWithTools</code> call — tools are never re-run by a failover, only the model request is retried elsewhere.</p>
+  <div class="chain" style="margin-top:6px;">
+    <div class="box hl"><b>1 · Build queue</b><span class="mono">getFailoverQueue(primary)</span> — primary first, then ready providers</div>
+    <div class="arr">→</div>
+    <div class="box"><b>2 · Try entry i</b>provider.chatWithTools(…)</div>
+    <div class="arr">→</div>
+    <div class="box warnb"><b>3 · 429 / rate_limit?</b><span class="mono">recordCooldown(provider, 75 s)</span>, move to i+1</div>
+    <div class="arr">→</div>
+    <div class="box"><b>4 · Success</b>returns <span class="mono">activeModel</span>, <span class="mono">isLowQuota</span></div>
+  </div>
+  <div class="grid-3" style="margin-top:18px;">
+    <div class="card accent"><h3>What the user sees</h3><ul>
+      <li>Timeline: <i>"Seamless Failover → model"</i> when the active model differs.</li>
+      <li>Reply footer: <i>"Low Token Quota Alert"</i> when <code>isLowQuota</code>.</li>
+      <li>All providers exhausted → <code>RateLimitCard</code> with a retry timer.</li>
+    </ul></div>
+    <div class="card"><h3>How "low quota" is decided</h3><p><code>isLowQuota = i ≥ queue.length − 2</code> — a position heuristic (running on one of the last two fallbacks). The "~10k tokens left" text is not measured.</p></div>
+    <div class="card"><h3>Second safety net</h3><p>If the balancer throws, the adapter retries through the legacy FreeLLMAPI endpoint with its own bounded retry and thinking-block extraction.</p></div>
+  </div>
+  <div class="card note" style="margin-top:16px;"><p><b>ADR-003 rule kept:</b> a model is pinned per profile; <code>auto</code> routing and failover are resilience, and every switch is shown — Jarvis never changes provider silently.</p></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>14 / 28</span></div>
+</div>
+
+<!-- ══════════ 15 · TOOL CATALOG ══════════ -->
+<div class="page">
+  <div class="kicker">III · Intelligence</div>
+  <h1 class="slide-title">Tool catalog — 26 tools</h1>
+  <p class="slide-sub">Declared in <code>tool-registry.ts</code> (zod schema + JSON schema for the model), executed by one switch in <code>tool-executor.ts</code>.</p>
+  <div class="split-r">
+    <div>
+      <div class="chart-title">Tools per domain</div>
+      <div class="bars wide">
+        <div class="bar-row"><div class="bl">Workspace &amp; files</div><div class="bt"><div class="b" style="width:100%"></div></div><div class="bv">6</div></div>
+        <div class="bar-row"><div class="bl">Browser · CDP</div><div class="bt"><div class="b" style="width:83.3%"></div></div><div class="bv">5</div></div>
+        <div class="bar-row"><div class="bl">Browser · launch/keys</div><div class="bt"><div class="b" style="width:66.7%"></div></div><div class="bv">4</div></div>
+        <div class="bar-row"><div class="bl">Memory &amp; skills</div><div class="bt"><div class="b" style="width:66.7%"></div></div><div class="bv">4</div></div>
+        <div class="bar-row"><div class="bl">Network</div><div class="bt"><div class="b" style="width:33.3%"></div></div><div class="bv">2</div></div>
+        <div class="bar-row"><div class="bl">Process</div><div class="bt"><div class="b" style="width:33.3%"></div></div><div class="bv">2</div></div>
+        <div class="bar-row"><div class="bl">Email</div><div class="bt"><div class="b" style="width:33.3%"></div></div><div class="bv">2</div></div>
+        <div class="bar-row"><div class="bl">Desktop</div><div class="bt"><div class="b" style="width:16.7%"></div></div><div class="bv">1</div></div>
+      </div>
+      <div class="card note" style="margin-top:14px;"><p>No generic shell tool. No mouse/keyboard control of arbitrary apps. Desktop vision is screenshot-only.</p></div>
+    </div>
+    <table class="tbl compact">
+      <tr><th style="width:150px;">Domain</th><th>Tools</th></tr>
+      <tr><td><b>Workspace &amp; files</b></td><td><code>workspace_list</code> <code>file_read</code> <code>project_inspect</code> <code>file_write_new</code> <code>file_patch</code> <code>create_pdf</code></td></tr>
+      <tr><td><b>Browser · CDP</b></td><td><code>browser_list_tabs</code> <code>browser_inspect_page</code> <code>browser_click_element</code> <code>browser_close_tab</code> <code>browser_scroll</code></td></tr>
+      <tr><td><b>Browser · launch</b></td><td><code>open_browser</code> <code>browser_shortcut</code> <code>browse_github</code> <code>list_chrome_profiles</code></td></tr>
+      <tr><td><b>Memory &amp; skills</b></td><td><code>manage_user_memory</code> <code>list_skills</code> <code>load_skill</code> <code>suggest_skills</code></td></tr>
+      <tr><td><b>Network</b></td><td><code>web_search</code> (DuckDuckGo HTML) <code>download_file</code> (50 MB cap)</td></tr>
+      <tr><td><b>Process</b></td><td><code>start_dev_server</code> <code>stop_process</code></td></tr>
+      <tr><td><b>Email</b></td><td><code>send_email_direct</code> (SMTP TLS) <code>send_gmail</code> (Chrome)</td></tr>
+      <tr><td><b>Desktop</b></td><td><code>screen_capture</code></td></tr>
+    </table>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>15 / 28</span></div>
+</div>
+
+<!-- ══════════ 16 · PERMISSION MODEL ══════════ -->
+<div class="page">
+  <div class="kicker">IV · Safety</div>
+  <h1 class="slide-title">Permission model — ADR-004</h1>
+  <p class="slide-sub">Six categories decide whether an action runs, asks, or is refused. Approvals are bound to the exact arguments.</p>
+  <div class="split">
+    <table class="tbl compact">
+      <tr><th style="width:110px;">Category</th><th>Definition</th><th style="width:150px;">Default</th></tr>
+      <tr><td><b>read_in</b></td><td>Read inside the selected workspace</td><td class="yes">Allowed</td></tr>
+      <tr><td><b>read_out</b></td><td>Read outside the workspace</td><td class="ask">Approval (today: denied)</td></tr>
+      <tr><td><b>write_in</b></td><td>Create/modify inside workspace</td><td class="ask">New: allowed · overwrite/delete: approval</td></tr>
+      <tr><td><b>write_out</b></td><td>Write outside workspace</td><td class="ask">Approval</td></tr>
+      <tr><td><b>process</b></td><td>Spawn processes, dev servers, scripts</td><td class="ask">Approval</td></tr>
+      <tr><td><b>network</b></td><td>Search, navigation, downloads</td><td class="yes">Allowed (downloads to staging)</td></tr>
+    </table>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>Approval token</h3>
+        <p class="mono" style="font-size:11.5px; color:var(--indigo-deep); margin:6px 0;">hash = HMAC-SHA256(sortedJSON(args), sessionSecret)</p>
+        <ul><li>32-byte secret, new every launch.</li><li>Expires after 5 minutes; single use.</li><li>Any argument change → hash mismatch → refused.</li><li>Deny evicts the request; no silent retry.</li></ul></div>
+      <div class="card"><h3>Also enforced</h3><p>Real-path resolution against symlink/junction escape (SEC-006); executable and hidden-file creation needs approval (SEC-007); child processes spawn with <code>shell: false</code> (SEC-001).</p></div>
+      <div class="card alert"><h3>Spec vs code</h3><p>ADR-004 binds action type + workspace + args. Code hashes args only.</p></div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>16 / 28</span></div>
+</div>
+
+<!-- ══════════ 17 · APPROVAL FLOW ══════════ -->
+<div class="page">
+  <div class="kicker">IV · Safety</div>
+  <h1 class="slide-title">Approval flow</h1>
+  <p class="slide-sub">From a gated tool call to execution. The approved action runs outside the agent loop.</p>
+  <div class="chain">
+    <div class="box dark"><b>1 · ToolExecutor</b>e.g. <span class="mono">start_dev_server</span></div>
+    <div class="arr">→</div>
+    <div class="box hl"><b>2 · evaluateAction()</b>category → requiresApproval · request stored in pending map</div>
+    <div class="arr">→</div>
+    <div class="box"><b>3 · onRequestApproval</b>index.ts builds a TaskState <span class="mono">waiting_for_approval</span></div>
+    <div class="arr">→</div>
+    <div class="box"><b>4 · Renderer</b><span class="mono">ApprovalDialog</span>: exact command, cwd, impact; mascot shows "needs approval"</div>
+  </div>
+  <div class="down" style="text-align:right; padding-right:120px;">▼</div>
+  <div class="chain">
+    <div class="box"><b>8 · Report</b>timeline event + chat message "Action Approved &amp; Executed"</div>
+    <div class="arr">←</div>
+    <div class="box dark"><b>7 · executeApprovedAction()</b>browser launch · dev server · shell command</div>
+    <div class="arr">←</div>
+    <div class="box hl"><b>6 · verifyApprovedAction()</b>hash match · not expired · consume token</div>
+    <div class="arr">←</div>
+    <div class="box"><b>5 · approval:resolve</b>sender check · granted / denied</div>
+  </div>
+  <div class="grid-3" style="margin-top:18px;">
+    <div class="card"><h3>Meanwhile, the model…</h3><p>gets <i>"gated — tell the user you are waiting"</i> as the tool result and the run ends. It never learns whether the action ran or what it produced.</p></div>
+    <div class="card"><h3>Denied</h3><p>Request evicted, task marked <code>cancelled</code>, chat records "Action Cancelled". The model cannot retry the same token.</p></div>
+    <div class="card alert"><h3>Fail-open edge</h3><p>If no approval handler is wired, <code>start_dev_server</code> skips the gate and runs (acceptance C).</p></div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>17 / 28</span></div>
+</div>
+
+<!-- ══════════ 18 · GATING COVERAGE ══════════ -->
+<div class="page">
+  <div class="kicker">IV · Safety</div>
+  <h1 class="slide-title">Gating coverage today</h1>
+  <p class="slide-sub">What the spec (ADR-004 + README) expects for side-effecting tools, versus what the code does.</p>
+  <div style="display:grid; grid-template-columns: 220px 1fr; gap:18px;">
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="stat"><div class="num">6</div><div class="lbl">Risky paths spec says must ask</div></div>
+      <div class="stat bad"><div class="num">1</div><div class="lbl">Actually ask today</div></div>
+      <div class="card alert"><p>Only <code>file_write_new</code> and <code>start_dev_server</code> call the policy engine at all. Email tools are classed <code>network</code> (allowed).</p></div>
+    </div>
+    <table class="tbl compact">
+      <tr><th style="width:200px;">Tool / path</th><th>Side effect</th><th style="width:140px;">Spec</th><th style="width:220px;">Today</th></tr>
+      <tr><td><b>file_write_new</b> (new)</td><td>create file in workspace/output</td><td class="yes">allow + timeline</td><td><span class="yes">✓</span> allowed; exec/hidden blocked</td></tr>
+      <tr><td><b>file_write_new</b> overwrite</td><td>replace existing file</td><td class="ask">approval</td><td><span class="no">✗</span> silent overwrite</td></tr>
+      <tr><td><b>file_patch</b></td><td>modify project file</td><td class="ask">approval</td><td><span class="no">✗</span> no policy call (.bak kept)</td></tr>
+      <tr><td><b>start_dev_server</b></td><td>spawn process</td><td class="ask">approval</td><td><span class="yes">✓</span> asks · <span class="no">✗</span> fails open w/o handler</td></tr>
+      <tr><td><b>stop_process</b></td><td>kill process</td><td class="yes">own only</td><td><span class="yes">✓</span> Jarvis-owned ids only</td></tr>
+      <tr><td><b>download_file</b></td><td>write to disk</td><td class="yes">staging folder</td><td><span class="yes">✓</span> output dir, 50 MB cap</td></tr>
+      <tr><td><b>send_email_direct</b></td><td>publish externally</td><td class="ask">approval</td><td><span class="no">✗</span> sends immediately</td></tr>
+      <tr><td><b>send_gmail</b> autoSend</td><td>publish externally</td><td class="ask">approval</td><td><span class="no">✗</span> opens + clicks Send</td></tr>
+      <tr><td><b>browser_click / shortcut</b></td><td>act in logged-in browser</td><td class="ask">unclassified</td><td><span class="no">✗</span> no policy call</td></tr>
+    </table>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>18 / 28</span></div>
+</div>
+
+<!-- ══════════ 19 · STORAGE ══════════ -->
+<div class="page">
+  <div class="kicker">V · Subsystems</div>
+  <h1 class="slide-title">Storage &amp; state</h1>
+  <p class="slide-sub">Four stores, all local. Only provider keys are encrypted at rest.</p>
+  <div class="grid-4">
+    <div class="card accent"><h3>SQLite · sql.js</h3>
+      <p class="mono" style="font-size:11px;">userData/jarvis.sqlite</p>
+      <p style="margin-top:6px;">WASM SQLite held in memory, exported to disk via temp file + rename (SEC-010).</p>
+      <p style="margin-top:6px;"><span class="tag">conversations</span><span class="tag">messages</span><span class="tag">tasks</span><span class="tag">approvals</span><span class="tag">events</span><span class="tag">settings</span></p></div>
+    <div class="card accent"><h3>Provider vault</h3>
+      <p class="mono" style="font-size:11px;">userData/provider_vault.json</p>
+      <p style="margin-top:6px;">API keys encrypted with DPAPI (<code>safeStorage</code>), bound to the Windows user. Also holds hub state: enabled providers, local-server flag/port.</p></div>
+    <div class="card accent"><h3>USER.md</h3>
+      <p class="mono" style="font-size:11px;">&lt;workspace&gt;/USER.md</p>
+      <p style="margin-top:6px;">Plain Markdown: profile, dev defaults, standing rules. Injected into every system prompt; edited by <code>manage_user_memory</code>, the Settings app, and accepted LearningEngine suggestions.</p></div>
+    <div class="card accent"><h3>Artifacts</h3>
+      <p class="mono" style="font-size:11px;">output/ · output/diagnostics/</p>
+      <p style="margin-top:6px;">PDFs, downloads, screenshots, sanitized diagnostics bundles (Markdown + JSON, secrets redacted).</p></div>
+  </div>
+  <div class="grid-3" style="margin-top:16px;">
+    <div class="card"><h3>Agent memory, honestly</h3><p>Long-term memory = one Markdown file. No embeddings, no search over past runs, no record of which strategies worked.</p></div>
+    <div class="card alert"><h3>Path risk</h3><p><code>dbPath = process.cwd()/userData</code>. A packaged app started from autostart or another folder gets a different, empty database.</p></div>
+    <div class="card alert"><h3>Privacy</h3><p><code>USER.md</code> is tracked in git and holds personal contact data. Chats and memory are not encrypted at rest.</p></div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>19 / 28</span></div>
+</div>
+
+<!-- ══════════ 20 · BROWSER AUTOMATION ══════════ -->
+<div class="page">
+  <div class="kicker">V · Subsystems</div>
+  <h1 class="slide-title">Browser automation — three channels</h1>
+  <p class="slide-sub">Zero-dependency Chrome DevTools Protocol driver (<code>utils/cdp.ts</code>, 489 lines) plus launch and keystroke fallbacks.</p>
   <div class="grid-3">
-    <div class="card" style="border-top:3px solid var(--indigo);">
-      <h3>Normal</h3>
-      <p>One pinned model per profile. The default for everything. Predictable routing, clean telemetry, lowest cost.</p>
-    </div>
-    <div class="card" style="border-top:3px solid var(--indigo);">
-      <h3>Racing</h3>
-      <p>For <b>eligible read-only requests only</b>: fire a bounded race across profiles, take the first valid response, cancel the losers. Never for tools, downloads, mutations, or sensitive prompts.</p>
-    </div>
-    <div class="card" style="border-top:3px solid var(--indigo);">
-      <h3>Multi-agent</h3>
-      <p>Separate <b>visible model roles</b> (researcher, coder, reviewer) — each policy-bound. Not unrestricted parallel tool control; one shared approval timeline.</p>
-    </div>
+    <div class="card accent"><h3>1 · Launch</h3><p><code>launchBrowser()</code> runs <code>chrome.exe</code> with a chosen <code>--profile-directory</code>, optionally minimized/off-screen. Profiles discovered from Chrome's <code>Local State</code>. Rule: always ask which profile.</p></div>
+    <div class="card accent"><h3>2 · CDP (deterministic)</h3><p>Needs Chrome started with <code>--remote-debugging-port=9222</code>.</p>
+      <p style="margin-top:6px;"><span class="tag">GET /json/list</span><span class="tag">/json/new</span><span class="tag">/json/close</span><span class="tag">WebSocket Runtime.evaluate</span></p>
+      <p style="margin-top:4px;">Read page text, click by selector/text, scroll, close tabs, wait for Gmail compose DOM then click Send.</p></div>
+    <div class="card accent"><h3>3 · Keystrokes (blind)</h3><p>PowerShell <code>WScript.Shell.SendKeys</code> into the focused window: <code>Ctrl+Enter</code>, <code>Ctrl+W</code>, <code>Ctrl+Shift+T</code>. Used when CDP is not available. No verification of what received the keys.</p></div>
   </div>
-  <div style="margin-top:20px;" class="card">
-    <h3>Why this exists</h3>
-    <p>Measured spread on the same gateway: <b>1.4 s to 64 s</b> for equivalent work. Hedging read-only turns with a cancel-losers race turns worst-case waits into typical-case ones — without ever racing an action that touches the system.</p>
+  <div class="chain" style="margin-top:18px;">
+    <div class="box hl"><b>send_gmail (autoSend)</b>compose URL with to/subject/body</div>
+    <div class="arr">→</div>
+    <div class="box"><b>CDP up?</b>yes: wait for compose DOM (15 s), DOM-click Send, close tab</div>
+    <div class="arr">→</div>
+    <div class="box warnb"><b>CDP down</b>sleep 5.5 s → SendKeys Ctrl+Enter → sleep 2 s → Ctrl+W</div>
   </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>11 / 16</span></div>
+  <div class="grid-2" style="margin-top:16px;">
+    <div class="card"><h3>Not there yet</h3><p>No HTML-to-data extraction fallback, no crawler, no headless browser of its own (<code>playwright-research</code> is only a skill text).</p></div>
+    <div class="card alert"><h3>Exposure</h3><p>Port 9222 gives any local process full control of the signed-in browser while it is open.</p></div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>20 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 12 · REQUEST LIFECYCLE ══════════ -->
+<!-- ══════════ 21 · PROCESSES ══════════ -->
 <div class="page">
-  <div class="kicker">11 · How It Works</div>
-  <h1 class="slide-title">Request lifecycle — one turn, end to end</h1>
-  <p class="slide-sub">Every turn walks the same policy-checked path; the user sees each step live.</p>
-  <div class="grid-2">
-    <div class="steps">
-      <div class="step"><div class="n"></div><div class="t"><b>Prompt</b> arrives in the renderer; the typed bridge forwards it to main.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Plan</b> — the orchestrator drafts steps and required tool categories.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Policy classify</b> — each intended action is mapped to read/write/process/network tiers.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Gateway call</b> — pinned model, streaming deltas; TTFT + total recorded.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Approval gate</b> — gated actions raise an HMAC-bound modal; deny halts the branch.</div></div>
-    </div>
-    <div class="steps">
-      <div class="step"><div class="n"></div><div class="t"><b>Execute sanitized</b> — <span class="mono">-NoProfile</span>, minimal env, parameterized spawn, scoped paths.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Verify outcome</b> — file exists, server listens, exit code checks. Claims are not enough.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Feed results back</b> — verified outputs return to the model for the next step.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Timeline + history</b> — every event lands in the activity timeline and SQLite audit store.</div></div>
-      <div class="step"><div class="n"></div><div class="t"><b>Report</b> — summary with links to produced artifacts; failures surface honestly.</div></div>
+  <div class="kicker">V · Subsystems</div>
+  <h1 class="slide-title">Processes &amp; dev servers</h1>
+  <p class="slide-sub"><code>ProcessManager</code> (246 lines) owns every child process Jarvis starts — and only those.</p>
+  <div class="steps" style="margin-top:4px;">
+    <div class="split">
+      <div>
+        <div class="step"><div class="n"></div><div class="t"><b>Spawn</b> — <code>child_process.spawn</code>, <code>shell: false</code>, hidden window, working dir = selected project. No admin rights.</div></div>
+        <div class="step"><div class="n"></div><div class="t"><b>Register</b> — <code>Map&lt;id, {proc, state}&gt;</code> with command, PID, cwd, status <code>starting | running | stopped | failed</code>.</div></div>
+        <div class="step"><div class="n"></div><div class="t"><b>Observe</b> — rolling <code>recentLogs</code> buffer from stdout/stderr; port detection by log parsing + polling.</div></div>
+        <div class="step"><div class="n"></div><div class="t"><b>Broadcast</b> — <code>onUpdate</code> → <code>process:updated</code> → <code>ProcessStrip</code> in the UI and preview in the Workspace Canvas.</div></div>
+        <div class="step"><div class="n"></div><div class="t"><b>Stop</b> — by Jarvis id only: <code>taskkill /pid N /t /f</code> kills the whole tree. <code>stopAll()</code> on app exit.</div></div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="card accent"><h3>Verified</h3><ul>
+          <li>Unknown ids and foreign PIDs are refused (acceptance C).</li>
+          <li>Dev-server start asks first with exact command + cwd.</li>
+        </ul></div>
+        <div class="card"><h3>Workspace Canvas</h3><p>Split pane showing the running server (iframe), local PDFs (blob URL in <code>&lt;object&gt;</code>), web pages and code, with desktop/mobile emulation.</p></div>
+        <div class="card alert"><h3>Missing</h3><p>No general "run this command" tool, no test runner tool, no long-running job queue. Process state is lost on restart.</p></div>
+      </div>
     </div>
   </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>12 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>21 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 13 · STATUS TODAY ══════════ -->
+<!-- ══════════ 22 · UI ══════════ -->
 <div class="page">
-  <div class="kicker">12 · Status Today</div>
-  <h1 class="slide-title">v0.1.0 — a production-ready, verified baseline</h1>
-  <p class="slide-sub">Phase 0–6 complete; Phase 7 release validation and dogfooding active on GitHub.</p>
-  <div class="grid-3" style="margin-bottom:18px;">
-    <div class="card">
-      <h3>Surface A — mascot</h3>
-      <p>Transparent 3D owl (Three.js) with procedural idle/thinking/speaking states; click-through, 60 fps tracking.</p>
-    </div>
-    <div class="card">
-      <h3>Surface B — quick chat</h3>
-      <p>Compact drawer from the mascot or hotkey for fast questions without the full window.</p>
-    </div>
-    <div class="card">
-      <h3>Surface C — main UI</h3>
-      <p>Full shell: persistent chat history, new chat, Free Models Hub, chain-of-thought cards, rate-limit recovery.</p>
-    </div>
+  <div class="kicker">V · Subsystems</div>
+  <h1 class="slide-title">UI architecture — four surfaces</h1>
+  <p class="slide-sub">One React 19 renderer bundle; "The Quiet Instrument" / Parchment &amp; Pine design system (ADR-005).</p>
+  <table class="tbl compact">
+    <tr><th style="width:150px;">Surface</th><th style="width:260px;">Entry</th><th>Composition</th></tr>
+    <tr><td><b>A · Mascot</b></td><td><code>mascot/MascotApp.tsx</code> (450)</td><td>three.js scene, GLB owl rig, <code>MascotAnimationController</code> states: loading, idle, attention, thinking, working, needsApproval, completed, error, hidden; 60 fps cursor tracking</td></tr>
+    <tr><td><b>B · Quick chat</b></td><td><code>quickchat/QuickChatApp.tsx</code> (535)</td><td>Compact drawer toggled from the mascot or tray; same chat IPC</td></tr>
+    <tr><td><b>C · Main window</b></td><td><code>App.tsx</code> (636)</td><td><code>TitleBar</code> · <code>Sidebar</code> · <code>ChatHeader</code> · <code>MessageList</code> · <code>Composer</code> (@ mentions) · <code>PlanCard</code> · <code>EvidenceRail</code> · <code>ApprovalDialog</code> · <code>ProcessStrip</code> · <code>WorkspaceCanvas</code></td></tr>
+    <tr><td><b>D · Settings app</b></td><td><code>settings/SettingsApp.tsx</code> (1,142)</td><td>Panels: Providers &amp; keys (ping test, local server) · Models &amp; balancer · Prompts &amp; USER.md · Windows &amp; behaviour</td></tr>
+  </table>
+  <div class="grid-3" style="margin-top:16px;">
+    <div class="card accent"><h3>Design tokens</h3><p>Light default + dark; text contrast ≥ 14:1 (WCAG AAA); fonts bundled locally; Windows 11 titlebar overlay recoloured with the theme.</p></div>
+    <div class="card accent"><h3>Shared UI kit</h3><p><code>components/ui</code>: Button, Badge, Dialog (draggable, clamped to viewport), Field, Switch, Tooltip — on Radix primitives.</p></div>
+    <div class="card"><h3>Performance</h3><p>Composer keeps local state; message list memoized; static markdown plugins — fixed a 1 s typing lag.</p></div>
   </div>
-  <div class="grid-2">
-    <div class="card" style="border-left:3px solid #16A34A;">
-      <h3>Working now</h3>
-      <ul>
-        <li>21 native tools: CDP browser automation, dev server, PDF engine, screen capture</li>
-        <li>Windows Tray (`TrayManager`), minimize-to-tray &amp; auto-launch on startup</li>
-        <li>HMAC-SHA256 bound approvals, DPAPI encryption &amp; SEC-003 diagnostics bundle</li>
-        <li>79/79 tests · 8/8 security scan checks · NSIS + portable packages verified</li>
-      </ul>
-    </div>
-    <div class="card" style="border-left:3px solid var(--indigo);">
-      <h3>Next up (Phase 7)</h3>
-      <ul>
-        <li>Real-world desktop dogfooding across multi-monitor workflows</li>
-        <li>Code signing certificate integration &amp; auto-updater feed</li>
-        <li>MCP (Model Context Protocol) external client expander</li>
-        <li>Optional vision &amp; local multimodal model routing</li>
-      </ul>
-    </div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>13 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>22 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 14 · ROADMAP ══════════ -->
+<!-- ══════════ 23 · SKILLS ══════════ -->
 <div class="page">
-  <div class="kicker">13 · Roadmap</div>
-  <h1 class="slide-title">Seven phases, one verifiable step at a time</h1>
-  <p class="slide-sub">A phase closes only when its plan's exit criteria are met — no exceptions.</p>
-  <div class="card" style="padding: 14px 20px;">
-    <div class="phase">
-      <div class="ph-no">P0</div><div class="ph-name">Discovery &amp; spike</div>
-      <div class="ph-desc">Gateway validated · agent benchmarked · ADR-001…004 recorded — <b>complete 2026-10-22</b></div>
+  <div class="kicker">V · Subsystems</div>
+  <h1 class="slide-title">Skills — runtime vs development</h1>
+  <p class="slide-sub">Two audiences, two folders. Runtime skills feed Jarvis's own small models; development skills feed coding agents.</p>
+  <div class="split-r">
+    <div>
+      <div class="chart-title">Runtime skills in <code>skills/</code> — lines per SKILL.md</div>
+      <div class="bars">
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">skill-creator</div><div class="bt"><div class="b" style="width:100%"></div></div><div class="bv">485</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">pdf</div><div class="bt"><div class="b" style="width:64.7%"></div></div><div class="bv">314</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">pptx</div><div class="bt"><div class="b" style="width:49.1%"></div></div><div class="bv">238</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">canvas-design</div><div class="bt"><div class="b" style="width:26.6%"></div></div><div class="bv">129</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">xlsx</div><div class="bt"><div class="b" style="width:20.4%"></div></div><div class="bv">99</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">webapp-testing</div><div class="bt"><div class="b" style="width:19.6%"></div></div><div class="bv">95</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">docx</div><div class="bt"><div class="b" style="width:18.8%"></div></div><div class="bv">91</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">web-artifacts-builder</div><div class="bt"><div class="b" style="width:15.1%"></div></div><div class="bv">73</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">frontend-design</div><div class="bt"><div class="b" style="width:14.6%"></div></div><div class="bv">71</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">theme-factory</div><div class="bt"><div class="b" style="width:12.2%"></div></div><div class="bv">59</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">sequential-thinking</div><div class="bt"><div class="b" style="width:3.5%"></div></div><div class="bv">17</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">playwright-research</div><div class="bt"><div class="b" style="width:2.7%"></div></div><div class="bv">13</div></div>
+        <div class="bar-row" style="grid-template-columns:150px 1fr 40px;"><div class="bl">documentation-lookup</div><div class="bt"><div class="b" style="width:2.7%"></div></div><div class="bv">13</div></div>
+      </div>
+      <div class="chart-note">Decision (2026-11-09): replace long imported skills with short, purpose-built ones.</div>
     </div>
-    <div class="phase">
-      <div class="ph-no">P1</div><div class="ph-name">Secure foundation</div>
-      <div class="ph-desc">Electron shell, secure IPC, policy engine, persistence — <b>complete 2026-10-22</b></div>
-    </div>
-    <div class="phase">
-      <div class="ph-no">P2</div><div class="ph-name">Read-only agent loop</div>
-      <div class="ph-desc">Bounded research and workspace tools — <b>complete 2026-10-23</b></div>
-    </div>
-    <div class="phase">
-      <div class="ph-no">P3</div><div class="ph-name">Documents &amp; files</div>
-      <div class="ph-desc">Vector PDF engine (`create_pdf`), safe writes &amp; downloads — <b>complete 2026-10-26</b></div>
-    </div>
-    <div class="phase">
-      <div class="ph-no">P4</div><div class="ph-name">Coding workflow</div>
-      <div class="ph-desc">Dev server management, process tracking, code patcher, Chrome profile discovery — <b>complete 2026-10-26</b></div>
-    </div>
-    <div class="phase">
-      <div class="ph-no">P5</div><div class="ph-name">Browser, Memory &amp; UI v2</div>
-      <div class="ph-desc">CDP automation, USER.md memory, "Parchment &amp; Pine" design tokens — <b>complete 2026-10-27</b></div>
-    </div>
-    <div class="phase">
-      <div class="ph-no">P6</div><div class="ph-name">Windows integration</div>
-      <div class="ph-desc">System tray, startup auto-launch, diagnostics bundle, packaging — <b>complete 2026-10-28</b></div>
-    </div>
-    <div class="phase now">
-      <div class="ph-no">P7</div><div class="ph-name">Release &amp; Dogfooding<span class="now-flag">NOW</span></div>
-      <div class="ph-desc">Installer distribution, multi-monitor dogfooding, MCP expander — <b>in flight</b></div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>Runtime path</h3><p><code>SkillManager</code> scans <code>skills/</code> + <code>.agents/skills/</code> → keyword match → "Skill Advisor" hint → model calls <code>load_skill</code> → the full SKILL.md enters the context window.</p></div>
+      <div class="card accent"><h3>Development path</h3><p><code>.claude/skills/</code> (<code>api-from-docs</code>, <code>security-audit</code>, <code>status-deck</code>) — read by Claude Code directly and by Antigravity via <code>.agents/skills.json</code>, which also pulls 8 global engineering skills.</p></div>
+      <div class="card note"><p>Kept apart on purpose: dev skills never load into Jarvis's runtime context.</p></div>
     </div>
   </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>14 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>23 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 15 · TARGET EXPERIENCE ══════════ -->
+<!-- ══════════ 24 · UNIT TESTS ══════════ -->
 <div class="page">
-  <div class="kicker">14 · How It Will Work</div>
-  <h1 class="slide-title">The target experience</h1>
-  <p class="slide-sub">What "done" looks like when the phases land.</p>
-  <div class="grid-2" style="margin-bottom:18px;">
-    <div class="card">
-      <h3>"Research this and make me a PDF"</h3>
-      <p>Jarvis searches the web with structured automation, cross-checks sources, drafts the document, generates the PDF through an approved write, <b>opens it to verify it renders</b>, and hands you the link — with every step visible in the timeline.</p>
+  <div class="kicker">VI · Quality</div>
+  <h1 class="slide-title">Unit test suites</h1>
+  <p class="slide-sub"><code>npm test</code> — Vitest, 20 files, 124 tests, ≈10 s. All passing (verified 2026-11-09).</p>
+  <div class="split">
+    <div>
+      <div class="chart-title">Tests per area</div>
+      <div class="bars wide">
+        <div class="bar-row" style="grid-template-columns:170px 1fr 40px;"><div class="bl">Agent &amp; tools</div><div class="bt"><div class="b" style="width:100%"></div></div><div class="bv">41</div></div>
+        <div class="bar-row" style="grid-template-columns:170px 1fr 40px;"><div class="bl">Windows &amp; UI</div><div class="bt"><div class="b" style="width:85.4%"></div></div><div class="bv">35</div></div>
+        <div class="bar-row" style="grid-template-columns:170px 1fr 40px;"><div class="bl">Security &amp; policy</div><div class="bt"><div class="b" style="width:68.3%"></div></div><div class="bv">28</div></div>
+        <div class="bar-row" style="grid-template-columns:170px 1fr 40px;"><div class="bl">Gateway &amp; prompts</div><div class="bt"><div class="b" style="width:48.8%"></div></div><div class="bv">20</div></div>
+      </div>
+      <table class="tbl compact" style="margin-top:16px;">
+        <tr><th>Area</th><th>Files (tests)</th></tr>
+        <tr><td><b>Agent &amp; tools</b></td><td>tool-executor 13 · phase4-process 11 · cdp-browser 7 · agent-orchestrator 4 · pdf-generator 3 · user-memory 3</td></tr>
+        <tr><td><b>Windows &amp; UI</b></td><td>canvas-document-resolver 9 · phase6-windows 6 · settings-window 6 · draggable-dialog 6 · mascot-animation 4 · owl-motion 4</td></tr>
+        <tr><td><b>Security &amp; policy</b></td><td>policy-engine 8 · prompt-safety 7 · credential-vault 7 · security-remediation 6</td></tr>
+        <tr><td><b>Gateway &amp; prompts</b></td><td>model-balancer 6 · prompt-engine 6 · model-adapter 5 · local-gateway-server 3</td></tr>
+      </table>
     </div>
-    <div class="card">
-      <h3>"Get this project running"</h3>
-      <p>It inspects the codebase, runs the test suite, and starts the dev server — each process launch approved once and tracked. It reports the listening port and only ever stops <b>processes it started</b>, after asking.</p>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>Other gates</h3><ul>
+        <li><code>npm run typecheck</code> — node + web projects, clean.</li>
+        <li><code>npm run security:scan</code> — 8/8 static checks.</li>
+        <li>Playwright screenshot matrix + axe-core for UI v2.</li>
+      </ul></div>
+      <div class="card"><h3>What unit tests prove</h3><p>Each module behaves at its seam with neighbours mocked. They do not prove the assembled agent is safe or useful — that is the acceptance suite's job.</p></div>
+      <div class="card alert"><h3>Blind spot</h3><p>Tests live outside <code>tsconfig</code> includes, so they are not typechecked. A real-model ("live") tier does not exist yet.</p></div>
     </div>
   </div>
-  <div class="grid-2">
-    <div class="card">
-      <h3>Always-on, low-friction</h3>
-      <p>Tray-resident with the mascot and quick-chat drawer; the main window for real work. Model profiles switch per task; Racing mode keeps read-only answers fast; rate limits recover gracefully with your guidance.</p>
-    </div>
-    <div class="card">
-      <h3>Trustworthy by construction</h3>
-      <p>Every outside-scope action stops at a modal bound to the exact arguments. Denials are final. The full audit trail — plans, commands, outputs, approvals — lives locally in SQLite, exportable and inspectable.</p>
-    </div>
-  </div>
-  <div class="slidefoot"><span>JARVIS · ARCHITECTURE</span><span>15 / 16</span></div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>24 / 28</span></div>
 </div>
 
-<!-- ══════════ SLIDE 16 · CLOSING ══════════ -->
-<div class="page dark">
-  <div style="margin-top:90px;">
-    <div class="kicker">In Summary</div>
-    <div style="font-size:44px; font-weight:800; letter-spacing:-1px; color:#ffffff; line-height:1.2; max-width:1000px;">
-      Local-first. Policy-first.<br>Evidence-driven. Replaceable at every boundary.
+<!-- ══════════ 25 · ACCEPTANCE ══════════ -->
+<div class="page">
+  <div class="kicker">VI · Quality</div>
+  <h1 class="slide-title">MVP acceptance scoreboard — 12 / 20</h1>
+  <p class="slide-sub"><code>npm run test:acceptance</code> — plan §8 Tests A–G. Scripted (possibly hijacked) model; real orchestrator, executor, policy, PDF engine, files.</p>
+  <div class="split">
+    <div>
+      <div class="legend" style="margin-bottom:10px;"><span><i style="background:var(--good)"></i>✓ pass</span><span><i style="background:var(--bad)"></i>✗ fail</span><span style="color:var(--muted)">one block = one test</span></div>
+      <div class="sbar-row"><div class="bl">A · Research to PDF<small>real PDF, failed source reported</small></div><div class="sbar-track"><div class="seg pass" style="width:20%"></div><div class="seg pass" style="width:20%"></div></div><div class="bv">✓2</div></div>
+      <div class="sbar-row"><div class="bl">B · Repository understanding<small>manifest read, no outside reads</small></div><div class="sbar-track"><div class="seg pass" style="width:20%"></div><div class="seg pass" style="width:20%"></div></div><div class="bv">✓2</div></div>
+      <div class="sbar-row"><div class="bl">C · Approved dev server<small>asks · fails open w/o handler</small></div><div class="sbar-track"><div class="seg pass" style="width:20%"></div><div class="seg pass" style="width:20%"></div><div class="seg fail" style="width:20%"></div></div><div class="bv">✓2 ✗1</div></div>
+      <div class="sbar-row"><div class="bl">D · File safety<small>overwrite + patch don't ask</small></div><div class="sbar-track"><div class="seg pass" style="width:20%"></div><div class="seg pass" style="width:20%"></div><div class="seg pass" style="width:20%"></div><div class="seg fail" style="width:20%"></div><div class="seg fail" style="width:20%"></div></div><div class="bv">✓3 ✗2</div></div>
+      <div class="sbar-row"><div class="bl">E · Model failure<small>429 mid-task, no repeat</small></div><div class="sbar-track"><div class="seg pass" style="width:20%"></div></div><div class="bv">✓1</div></div>
+      <div class="sbar-row"><div class="bl">F · Prompt injection<small>email, Gmail, patch, no label</small></div><div class="sbar-track"><div class="seg pass" style="width:20%"></div><div class="seg fail" style="width:20%"></div><div class="seg fail" style="width:20%"></div><div class="seg fail" style="width:20%"></div><div class="seg fail" style="width:20%"></div></div><div class="bv">✓1 ✗4</div></div>
+      <div class="sbar-row"><div class="bl">G · Cancel and restart<small>no cancel · no replay</small></div><div class="sbar-track"><div class="seg fail" style="width:20%"></div><div class="seg pass" style="width:20%"></div></div><div class="bv">✓1 ✗1</div></div>
     </div>
-    <div class="cover-line"></div>
-    <div style="font-size:16px; color:#a5b4fc; line-height:1.7; max-width:900px;">
-      A custom Electron orchestrator over a validated local gateway, with cryptographic approvals,
-      sanitized execution, and verified outcomes — built one proven loop at a time.
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card alert"><h3>The 8 failures, by risk</h3><ul>
+        <li>Hijacked model emails data out — SMTP and Gmail (F ×2).</li>
+        <li>Hijacked model edits project files (F, D).</li>
+        <li>Overwrite with <code>overwrite: true</code> needs no approval (D).</li>
+        <li><code>start_dev_server</code> runs if no approval handler (C).</li>
+        <li>Tool output not marked untrusted (F).</li>
+        <li>Cancel cannot stop the loop (G).</li>
+      </ul></div>
+      <div class="card"><h3>Design of the suite</h3><p>Excluded from <code>npm test</code> on purpose: red here means "not MVP yet". SMTP, Chrome, CDP and keystrokes are mocked, so nothing leaves the machine.</p></div>
     </div>
   </div>
-  <div class="cover-meta">
-    <span>README · PLAN · DOCS/DECISIONS/ADR-001…006 · DOCS/SPIKE-RESULTS · SECURITY AUDIT v0.0.1</span>
-    <span>GITHUB.COM/S-FETAH/MYJARVIS</span>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>25 / 28</span></div>
+</div>
+
+<!-- ══════════ 26 · BUILD ══════════ -->
+<div class="page">
+  <div class="kicker">VI · Delivery</div>
+  <h1 class="slide-title">Build, packaging, launch</h1>
+  <p class="slide-sub">electron-vite builds three bundles; electron-builder wraps them into Windows installers.</p>
+  <div class="chain">
+    <div class="box"><b>src/main</b>index.ts → Vite (SSR) + externalized deps</div>
+    <div class="arr">→</div>
+    <div class="box hl"><b>out/main/index.js</b>ESM</div>
+    <div class="arr">→</div>
+    <div class="box dark" style="flex:1.3;"><b>electron-builder 25</b>Windows x64 targets</div>
+    <div class="arr">→</div>
+    <div class="box hl"><b>dist/Jarvis Setup 0.1.0.exe</b>NSIS · 122.5 MB</div>
   </div>
+  <div class="chain" style="margin-top:8px;">
+    <div class="box"><b>src/preload</b>index.ts → CJS</div>
+    <div class="arr">→</div>
+    <div class="box hl"><b>out/preload/index.cjs</b>contextBridge</div>
+    <div class="arr">→</div>
+    <div class="box" style="flex:1.3; visibility:hidden;"><b>.</b>.</div>
+    <div class="arr" style="visibility:hidden;">→</div>
+    <div class="box hl"><b>dist/Jarvis 0.1.0.exe</b>portable · 122.3 MB</div>
+  </div>
+  <div class="chain" style="margin-top:8px;">
+    <div class="box"><b>src/renderer</b>React + Tailwind (PostCSS) · assets, GLB</div>
+    <div class="arr">→</div>
+    <div class="box hl"><b>out/renderer</b>index.html + chunks</div>
+    <div class="arr" style="visibility:hidden;">→</div>
+    <div class="box" style="flex:1.3; visibility:hidden;"><b>.</b>.</div>
+    <div class="arr" style="visibility:hidden;">→</div>
+    <div class="box" style="visibility:hidden;"><b>.</b>.</div>
+  </div>
+  <div class="grid-3" style="margin-top:18px;">
+    <div class="card accent"><h3>npm scripts</h3><p class="mono" style="font-size:11px; line-height:1.7;">dev · build · build:win<br>test · test:acceptance<br>typecheck · security:scan<br>config / settings (open settings app)</p></div>
+    <div class="card accent"><h3>Launch paths</h3><p><code>jarvis.bat</code> / <code>jarvis.sh</code> (start + auto-restart, PID file) · <code>Jarvis.lnk</code> desktop shortcut · tray icon · login item via <code>app.setLoginItemSettings</code> · CLI <code>--settings</code>.</p></div>
+    <div class="card"><h3>Not yet</h3><p>No code signing, no auto-updater, no CI pipeline (commits stay local by choice).</p></div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>26 / 28</span></div>
+</div>
+
+<!-- ══════════ 27 · GAPS ══════════ -->
+<div class="page">
+  <div class="kicker">VI · Quality</div>
+  <h1 class="slide-title">Known gaps &amp; risks</h1>
+  <p class="slide-sub">Ranked by what they could cost. Every item is checked against the code, not taken from docs.</p>
+  <table class="tbl compact">
+    <tr><th style="width:90px;">Severity</th><th style="width:330px;">Gap</th><th>Where / why it matters</th></tr>
+    <tr><td class="no">Critical</td><td><b>Email and file edits skip approval</b></td><td><code>tool-executor.ts</code>, <code>policy-engine.ts:127</code> — a prompt-injected page can make Jarvis send data out or rewrite code</td></tr>
+    <tr><td class="no">High</td><td><b>Gate fails open</b></td><td><code>start_dev_server</code> runs when no approval handler is set (<code>tool-executor.ts:976</code>)</td></tr>
+    <tr><td class="no">High</td><td><b>Local gateway: no auth, CORS *</b></td><td>When enabled, any web page can use the stored API keys</td></tr>
+    <tr><td class="no">High</td><td><b>No cancellation</b></td><td>Orchestrator has no abort signal; <code>task:cancel</code> only flips a flag</td></tr>
+    <tr><td class="ask">Medium</td><td><b>Shallow agent</b></td><td>5 turns, one model, no plan, no retry strategies, no memory of what worked</td></tr>
+    <tr><td class="ask">Medium</td><td><b>Two execution paths</b></td><td><code>chat:send</code> (agent loop) and <code>task:submit-goal</code> (plan/steps) duplicate logic</td></tr>
+    <tr><td class="ask">Medium</td><td><b>cwd-relative data paths</b></td><td><code>process.cwd()/userData</code> breaks for the packaged app</td></tr>
+    <tr><td class="ask">Medium</td><td><b>Hard-coded model IDs · keyless providers</b></td><td>Dated IDs will 404; anonymous endpoints receive prompts</td></tr>
+    <tr><td class="ask">Medium</td><td><b>Concentrated code</b></td><td>tool-executor / index.ts / SettingsApp ≈ 22% of all code</td></tr>
+    <tr><td style="color:var(--muted); font-weight:700;">Low</td><td><b>Tracker drift · personal data in git</b></td><td>Ticket table stale; <code>USER.md</code> tracked; reply not streamed</td></tr>
+  </table>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>27 / 28</span></div>
+</div>
+
+<!-- ══════════ 28 · NEXT ══════════ -->
+<div class="page">
+  <div class="kicker">VI · Delivery</div>
+  <h1 class="slide-title">Phases &amp; what comes next</h1>
+  <p class="slide-sub">Phases 0–6 shipped. Phase 7 is active; the acceptance suite is the gate before expanding further.</p>
+  <div class="split">
+    <div class="card" style="padding:10px 18px;">
+      <div class="phase"><div class="ph-no">P0</div><div class="ph-name">Discovery &amp; spikes</div><div class="ph-desc">Gateway validated; agent benchmarked; ADR-001…004</div></div>
+      <div class="phase"><div class="ph-no">P1</div><div class="ph-name">Secure foundation</div><div class="ph-desc">Electron shell, IPC, policy engine, DPAPI, SEC-001…011</div></div>
+      <div class="phase"><div class="ph-no">P2</div><div class="ph-name">Read-only agent loop</div><div class="ph-desc">Tools, function calling, PromptEngine</div></div>
+      <div class="phase"><div class="ph-no">P3</div><div class="ph-name">Documents &amp; files</div><div class="ph-desc">PDF engine, safe writes, downloads</div></div>
+      <div class="phase"><div class="ph-no">P4</div><div class="ph-name">Coding workflow</div><div class="ph-desc">Dev servers, patcher, browser launch</div></div>
+      <div class="phase"><div class="ph-no">P5</div><div class="ph-name">Robustness &amp; UI v2</div><div class="ph-desc">CDP driver, SMTP, USER.md, redesign</div></div>
+      <div class="phase"><div class="ph-no">P6</div><div class="ph-name">Windows &amp; packaging</div><div class="ph-desc">Tray, autostart, diagnostics, installers</div></div>
+      <div class="phase now"><div class="ph-no">P7</div><div class="ph-name">Native gateway &amp; dogfooding<span class="now-flag">NOW</span></div><div class="ph-desc">Multi-provider engine, settings app, canvas, acceptance harness</div></div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card accent"><h3>Next mission</h3>
+        <div class="steps">
+          <div class="step"><div class="n"></div><div class="t"><b>Close the 8 acceptance failures</b> — route every risky tool through the policy engine, fail closed, label untrusted content, add cancellation.</div></div>
+          <div class="step"><div class="n"></div><div class="t"><b>Settle the vision</b> — autonomy level, learning loop, local model, multi-PC, Jarvis-hub (interview in progress).</div></div>
+          <div class="step"><div class="n"></div><div class="t"><b>Reshape for scale</b> — architecture that survives those goals without a rewrite.</div></div>
+        </div>
+      </div>
+      <div class="pull">"Prove that one model can use one well-bounded tool reliably, then expand in small, verifiable steps."</div>
+    </div>
+  </div>
+  <div class="slidefoot"><span>JARVIS · TECHNICAL ARCHITECTURE</span><span>28 / 28</span></div>
 </div>
 
 </body>
