@@ -347,7 +347,7 @@ export const ListSkillsSchema = z.object({
 export type ListSkillsArgs = z.infer<typeof ListSkillsSchema>
 
 export const LoadSkillSchema = z.object({
-  skillName: z.string().describe('Exact name of the skill to load (e.g. "sequential-thinking", "security-audit", "docx", "pptx", "playwright-research").')
+  skillName: z.string().describe('Exact name of the skill to load (e.g. "sequential-thinking", "docx", "pptx", "playwright-research").')
 })
 export type LoadSkillArgs = z.infer<typeof LoadSkillSchema>
 
@@ -985,7 +985,7 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
     function: {
       name: 'list_skills',
       description:
-        'Discovers and lists all modular assistant skills available in the workspace and repository (e.g. sequential-thinking, security-audit, docx, pptx, xlsx, playwright-research, frontend-design). Use this to inspect available domain capabilities.',
+        'Discovers and lists all modular assistant skills available in the workspace and repository (e.g. sequential-thinking, docx, pptx, xlsx, playwright-research, frontend-design). Use this to inspect available domain capabilities.',
       parameters: {
         type: 'object',
         properties: {
@@ -1008,7 +1008,7 @@ export const JARVIS_TOOLS: ToolDefinition[] = [
         properties: {
           skillName: {
             type: 'string',
-            description: 'Name of the skill to load (e.g. "sequential-thinking", "docx", "pptx", "security-audit", "status-deck").'
+            description: 'Name of the skill to load (e.g. "sequential-thinking", "docx", "pptx").'
           }
         },
         required: ['skillName']

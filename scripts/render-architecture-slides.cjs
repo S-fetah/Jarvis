@@ -4,7 +4,7 @@
  *
  * Self-contained: resolves a playwright package and a Chromium executable
  * without any global install. Used by the status-deck skill
- * (.agents/skills/status-deck/SKILL.md).
+ * (.claude/skills/status-deck/SKILL.md).
  *
  * Usage:  node scripts/render-architecture-slides.cjs [input.html] [output.pdf]
  *
