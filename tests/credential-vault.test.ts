@@ -73,4 +73,20 @@ describe('CredentialVault (DPAPI Encrypted Provider Vault)', () => {
     expect(hubState.localServerPort).toBe(8080)
     expect(hubState.activeProviderId).toBe('groq')
   })
+
+  it('detects FreeLLMAPI availability safely', () => {
+    const vault = new CredentialVault(testUserData)
+    const exists = vault.hasFreeLLMAPIDatabase()
+    expect(typeof exists).toBe('boolean')
+    const hubState = vault.getHubState()
+    expect(hubState.hasFreeLLMAPI).toBe(exists)
+  })
+
+  it('handles FreeLLMAPI import gracefully', async () => {
+    const vault = new CredentialVault(testUserData)
+    const res = await vault.importFromFreeLLMAPI()
+    expect(res).toBeDefined()
+    expect(typeof res.success).toBe('boolean')
+    expect(Array.isArray(res.imported)).toBe(true)
+  })
 })

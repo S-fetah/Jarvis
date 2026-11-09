@@ -243,6 +243,10 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('providers:toggle-local-server', { enabled, port })
   },
 
+  importFromFreeLLMAPI: (): Promise<{ success: boolean; imported: string[]; error?: string }> => {
+    return ipcRenderer.invoke('providers:import-freellmapi')
+  },
+
   // Dedicated Standalone Settings & Config Window
   openSettingsWindow: (tab?: string): Promise<void> => {
     return ipcRenderer.invoke('settings:open-window', tab)

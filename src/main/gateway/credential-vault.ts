@@ -1,5 +1,7 @@
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
+import initSqlJs from 'sql.js'
 import { safeStorage } from 'electron'
 import { ProviderConfig, ProviderHubState, ProviderId } from '../../shared/types'
 
@@ -313,7 +315,75 @@ export class CredentialVault {
       activeProviderId: this.data.activeProviderId,
       localServerEnabled: this.data.localServerEnabled,
       localServerPort: this.data.localServerPort,
-      localServerRunning: false // Will be set by LocalGatewayServer instance
+      localServerRunning: false, // Will be set by LocalGatewayServer instance
+      hasFreeLLMAPI: this.hasFreeLLMAPIDatabase()
+    }
+  }
+
+  public hasFreeLLMAPIDatabase(): boolean {
+    const appData = process.env.APPDATA || ''
+    const encKeyFile = path.join(appData, 'FreeLLMAPI', '.encryption-key')
+    const dbFile = path.join(appData, 'FreeLLMAPI', 'freeapi.db')
+    return fs.existsSync(encKeyFile) && fs.existsSync(dbFile)
+  }
+
+  public async importFromFreeLLMAPI(): Promise<{ success: boolean; imported: string[]; error?: string }> {
+    try {
+      const appData = process.env.APPDATA || ''
+      const freeApiDir = path.join(appData, 'FreeLLMAPI')
+      const encKeyFile = path.join(freeApiDir, '.encryption-key')
+      const dbFile = path.join(freeApiDir, 'freeapi.db')
+
+      if (!fs.existsSync(encKeyFile) || !fs.existsSync(dbFile)) {
+        return { success: false, imported: [], error: 'No FreeLLMAPI database found on this computer.' }
+      }
+
+      const encKeyHex = fs.readFileSync(encKeyFile, 'utf8').trim()
+      const encKey = Buffer.from(encKeyHex, 'hex')
+
+      const SQL = await initSqlJs()
+      const dbBuffer = fs.readFileSync(dbFile)
+      const db = new SQL.Database(dbBuffer)
+
+      const res = db.exec('SELECT id, platform, encrypted_key, iv, auth_tag, enabled, base_url FROM api_keys')
+      if (!res || !res.length) {
+        return { success: false, imported: [], error: 'No API keys found in FreeLLMAPI.' }
+      }
+
+      const rows = res[0].values
+      const imported: string[] = []
+
+      const platformMap: Record<string, ProviderId> = {
+        google: 'gemini',
+        groq: 'groq',
+        openrouter: 'openrouter',
+        deepseek: 'deepseek',
+        openai: 'openai',
+        anthropic: 'anthropic'
+      }
+
+      for (const row of rows) {
+        const [, platform, enc, iv, tag, , baseUrl] = row as [number, string, string, string, string, number, string?]
+        const targetId = platformMap[platform.toLowerCase()]
+        if (!targetId) continue
+
+        try {
+          const decipher = crypto.createDecipheriv('aes-256-gcm', encKey, Buffer.from(iv, 'hex'))
+          decipher.setAuthTag(Buffer.from(tag, 'hex'))
+          const decryptedKey = decipher.update(enc, 'hex', 'utf8') + decipher.final('utf8')
+
+          if (decryptedKey && decryptedKey.trim()) {
+            this.setKey(targetId, decryptedKey.trim(), baseUrl || undefined)
+            imported.push(targetId)
+          }
+        } catch (e: any) {
+          console.warn(`[CredentialVault] Decryption failed for ${platform}:`, e.message)
+        }
+      }
+
+      return { success: imported.length > 0, imported }
+    } catch (err: any) {
+      return { success: false, imported: [], error: err.message }
     }
   }
 

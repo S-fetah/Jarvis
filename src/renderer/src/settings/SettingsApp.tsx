@@ -4,10 +4,12 @@ import {
   Brain,
   Check,
   Cpu,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
   FolderOpen,
+  Loader2,
   Monitor,
   Moon,
   RotateCcw,
@@ -16,7 +18,8 @@ import {
   ShieldCheck,
   Sliders,
   Sparkles,
-  Sun
+  Sun,
+  Zap
 } from 'lucide-react'
 import type {
   JarvisSettings,
@@ -60,6 +63,8 @@ export function SettingsApp(): React.JSX.Element {
   const [memorySaved, setMemorySaved] = useState(false)
   const [diagnosticsRunning, setDiagnosticsRunning] = useState(false)
   const [diagnosticsMessage, setDiagnosticsMessage] = useState<string | null>(null)
+  const [importingFreeApi, setImportingFreeApi] = useState(false)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
 
   // Initialize theme and load all state on mount
   useEffect(() => {
@@ -233,6 +238,29 @@ export function SettingsApp(): React.JSX.Element {
     }
   }
 
+  const handleImportFreeLLMAPI = async (): Promise<void> => {
+    if (!window.jarvisAPI?.importFromFreeLLMAPI) return
+    setImportingFreeApi(true)
+    setImportMessage(null)
+    try {
+      const res = await window.jarvisAPI.importFromFreeLLMAPI()
+      if (res.success) {
+        setImportMessage(`Imported ${res.imported.join(', ')}!`)
+        await refreshHubState()
+        if (window.jarvisAPI.getAvailableModels) {
+          const updatedCat = await window.jarvisAPI.getAvailableModels()
+          setCatalog(updatedCat)
+        }
+      } else {
+        setImportMessage(res.error || 'Import failed.')
+      }
+    } catch (err: any) {
+      setImportMessage(err.message)
+    } finally {
+      setImportingFreeApi(false)
+    }
+  }
+
   const handleOpenExternal = (url: string): void => {
     if (url && window.jarvisAPI?.openExternalUrl) {
       window.jarvisAPI.openExternalUrl(url)
@@ -353,6 +381,56 @@ export function SettingsApp(): React.JSX.Element {
                   automatically on 429 rate limits, and stores credentials using Windows DPAPI safeStorage.
                 </p>
               </div>
+
+              {/* FreeLLMAPI Auto-Detected Migration Banner */}
+              {hubState?.hasFreeLLMAPI && (
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-jarvis-accent/30 bg-jarvis-accent/5 p-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-jarvis-accent/20 text-jarvis-accent">
+                      <Zap className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-jarvis-ivory">
+                          FreeLLMAPI Database Detected
+                        </span>
+                        <Badge variant="accent" mono className="text-3xs">
+                          Auto-Migration Ready
+                        </Badge>
+                      </div>
+                      <p className="font-mono text-[10.5px] text-jarvis-muted mt-0.5">
+                        Found local FreeLLMAPI credentials on this computer. You can decrypt and import your provider keys into Jarvis's DPAPI-encrypted vault with 1 click.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {importMessage && (
+                      <span className="text-xs font-mono text-jarvis-accent">
+                        {importMessage}
+                      </span>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={importingFreeApi}
+                      onClick={() => void handleImportFreeLLMAPI()}
+                    >
+                      {importingFreeApi ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Importing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3.5 w-3.5" />
+                          <span>Import FreeLLMAPI Keys</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Local Gateway Server Card */}
               <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-jarvis-border bg-jarvis-surface p-4 shadow-sm">

@@ -1539,6 +1539,13 @@ function registerIpcHandlers(): void {
     return result
   })
 
+  ipcMain.handle('providers:import-freellmapi', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const result = await credentialVault.importFromFreeLLMAPI()
+    broadcastToWindows('providers:hub-changed')
+    return result
+  })
+
   // --- Dedicated Standalone Settings & Config App IPC Handlers ---
   ipcMain.handle('settings:open-window', async (event, tab?: string) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')

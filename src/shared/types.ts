@@ -179,6 +179,7 @@ export interface ProviderHubState {
   localServerEnabled: boolean
   localServerPort: number
   localServerRunning: boolean
+  hasFreeLLMAPI?: boolean
 }
 
 export interface ModelCatalog {
@@ -262,6 +263,7 @@ export interface JarvisAPI {
   setProviderEnabled?: (providerId: ProviderId, enabled: boolean) => Promise<boolean>
   testProviderConnection?: (providerId: ProviderId) => Promise<{ success: boolean; latencyMs?: number; models?: string[]; error?: string }>
   toggleLocalGatewayServer?: (enabled: boolean, port?: number) => Promise<{ running: boolean; port: number; error?: string }>
+  importFromFreeLLMAPI?: () => Promise<{ success: boolean; imported: string[]; error?: string }>
 
   // Dedicated Settings & Config App Window
   openSettingsWindow?: (tab?: string) => Promise<void>
