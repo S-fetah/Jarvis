@@ -1,4 +1,5 @@
 import http from 'http'
+import crypto from 'crypto'
 import { ModelBalancer } from './model-balancer'
 
 export class LocalGatewayServer {
@@ -7,8 +8,32 @@ export class LocalGatewayServer {
   private port = 31415
   private running = false
 
-  constructor(balancer: ModelBalancer) {
+  private getToken: () => string
+
+  constructor(balancer: ModelBalancer, getToken: () => string) {
     this.balancer = balancer
+    this.getToken = getToken
+  }
+
+  /**
+   * ADR-007 "one locked door": refuse browsers (any Origin header), DNS-rebinding hosts,
+   * and requests without the bearer token. Returns an error status, or null when allowed.
+   */
+  private rejectReason(req: http.IncomingMessage): { status: number; message: string } | null {
+    if (req.headers.origin) {
+      return { status: 403, message: 'Requests from web pages are not allowed.' }
+    }
+    const host = String(req.headers.host || '').toLowerCase()
+    if (host !== `127.0.0.1:${this.port}` && host !== `localhost:${this.port}`) {
+      return { status: 403, message: 'Invalid Host header.' }
+    }
+    const auth = String(req.headers.authorization || '')
+    const presented = Buffer.from(auth.startsWith('Bearer ') ? auth.slice(7).trim() : '')
+    const expected = Buffer.from(this.getToken())
+    if (presented.length !== expected.length || !crypto.timingSafeEqual(presented, expected)) {
+      return { status: 401, message: 'Missing or invalid API key. Copy the token from Jarvis Settings.' }
+    }
+    return null
   }
 
   public isRunning(): boolean {
@@ -29,14 +54,11 @@ export class LocalGatewayServer {
 
     return new Promise((resolve) => {
       this.server = http.createServer(async (req, res) => {
-        // Enable CORS for external tools (Cursor, Continue, Open WebUI, Web browsers)
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, *')
-
-        if (req.method === 'OPTIONS') {
-          res.writeHead(204)
-          res.end()
+        // No CORS headers on purpose: browsers must never reach this server.
+        const rejection = this.rejectReason(req)
+        if (rejection) {
+          res.writeHead(rejection.status, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: { message: rejection.message, type: 'auth_error' } }))
           return
         }
 

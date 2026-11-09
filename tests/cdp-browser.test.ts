@@ -3,6 +3,8 @@ import fs from 'fs'
 import path from 'path'
 import { ToolExecutor } from '../src/main/tools/tool-executor'
 import { ProcessManager } from '../src/main/process/process-manager'
+import { PolicyEngine } from '../src/main/policy/policy-engine'
+import type { ApprovalRequest } from '../src/shared/types'
 import { isCdpAvailable } from '../src/main/utils/cdp'
 
 describe('CDP Browser Automation & Memory Tools', () => {
@@ -98,11 +100,15 @@ describe('CDP Browser Automation & Memory Tools', () => {
   })
 
   it('browser_click_element returns structured error when CDP port is not listening', async () => {
-    const result = await toolExecutor.executeTool(
-      'browser_click_element',
-      { selector: 'button.submit-btn', port: 19226 },
-      testWorkspace
-    )
+    // Clicking in the logged-in browser is gated; approve it, then hit the dead port.
+    const policy = new PolicyEngine()
+    const requests: ApprovalRequest[] = []
+    const gated = new ToolExecutor(policy, processManager, (req) => requests.push(req))
+    const args = { selector: 'button.submit-btn', port: 19226 }
+    await gated.executeTool('browser_click_element', args, testWorkspace)
+    expect(requests).toHaveLength(1)
+    policy.resolveApproval(requests[0].id, 'granted')
+    const result = await gated.executeTool('browser_click_element', args, testWorkspace, undefined, requests[0].id)
 
     expect(result.toolName).toBe('browser_click_element')
     expect(result.success).toBe(false)

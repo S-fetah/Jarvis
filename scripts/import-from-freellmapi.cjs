@@ -35,10 +35,13 @@ app.whenReady().then(async () => {
     const imported = [];
 
     // Load or initialize Jarvis provider vault
-    const vaultPath = path.join(process.cwd(), 'userData', 'provider_vault.json');
+    // Same data folder as the app (ADR-007): %APPDATA%/Jarvis
+    const vaultDir = path.join(app.getPath('appData'), 'Jarvis');
+    fs.mkdirSync(vaultDir, { recursive: true });
+    const vaultPath = path.join(vaultDir, 'provider_vault.json');
     let vaultData = {
       providers: {},
-      localServerEnabled: true,
+      localServerEnabled: false,
       localServerPort: 31415,
       activeProviderId: 'auto'
     };

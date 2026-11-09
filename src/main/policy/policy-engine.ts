@@ -121,17 +121,23 @@ export class PolicyEngine {
         reason = 'Process execution and development server starts require explicit approval.'
         break
 
-      case 'web_search':
-      case 'browser_navigate':
-      case 'browser_extract':
+      // Acts as the user outside Jarvis: sends messages or drives the logged-in browser (ADR-008 red lines)
       case 'send_gmail':
       case 'send_email_direct':
       case 'browser_shortcut':
+      case 'browser_click_element':
+        category = 'network'
+        requiresApproval = true
+        reason = 'Sending messages or acting in your logged-in browser requires explicit approval.'
+        break
+
+      case 'web_search':
+      case 'browser_navigate':
+      case 'browser_extract':
       case 'browse_github':
       case 'list_chrome_profiles':
       case 'browser_list_tabs':
       case 'browser_inspect_page':
-      case 'browser_click_element':
       case 'browser_close_tab':
       case 'browser_scroll':
       case 'manage_user_memory':
@@ -141,7 +147,7 @@ export class PolicyEngine {
       case 'suggest_skills':
         category = 'network'
         requiresApproval = false
-        reason = 'Read-only web research, desktop navigation, browser actions, profile discovery, verified direct email, CDP inspection, skills discovery, and user memory allowed without mutation.'
+        reason = 'Read-only web research, navigation, profile discovery, CDP inspection, skills discovery, and user memory allowed without approval.'
         break
 
       default:

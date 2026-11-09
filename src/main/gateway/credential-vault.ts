@@ -15,6 +15,7 @@ interface StoredVaultData {
   providers: Record<string, StoredProviderRecord>
   localServerEnabled: boolean
   localServerPort: number
+  localServerToken?: string
   activeProviderId: ProviderId | 'auto'
 }
 
@@ -212,6 +213,7 @@ export class CredentialVault {
           providers: { ...defaultData.providers, ...(parsed.providers || {}) },
           localServerEnabled: parsed.localServerEnabled ?? defaultData.localServerEnabled,
           localServerPort: parsed.localServerPort ?? defaultData.localServerPort,
+          localServerToken: parsed.localServerToken,
           activeProviderId: parsed.activeProviderId ?? defaultData.activeProviderId
         }
       }
@@ -381,8 +383,21 @@ export class CredentialVault {
       localServerEnabled: this.data.localServerEnabled,
       localServerPort: this.data.localServerPort,
       localServerRunning: false, // Will be set by LocalGatewayServer instance
+      localServerToken: this.getLocalServerToken(),
       hasFreeLLMAPI: this.hasFreeLLMAPIDatabase()
     }
+  }
+
+  /**
+   * Bearer token for the local gateway server (ADR-007: no unauthenticated endpoint).
+   * Generated once and persisted; the vault file is protected by the Windows user profile.
+   */
+  public getLocalServerToken(): string {
+    if (!this.data.localServerToken) {
+      this.data.localServerToken = `jarvis-${crypto.randomBytes(24).toString('hex')}`
+      this.saveToDisk()
+    }
+    return this.data.localServerToken
   }
 
   public hasFreeLLMAPIDatabase(): boolean {

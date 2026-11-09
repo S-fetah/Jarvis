@@ -188,6 +188,8 @@ export interface ProviderHubState {
   localServerEnabled: boolean
   localServerPort: number
   localServerRunning: boolean
+  /** Bearer token IDE clients must send to the local gateway server. */
+  localServerToken?: string
   hasFreeLLMAPI?: boolean
 }
 
@@ -200,6 +202,7 @@ export interface JarvisAPI {
   // Task Control
   submitGoal: (goal: string, workspacePath?: string) => Promise<TaskState>
   cancelTask: (taskId: string) => Promise<void>
+  cancelChat: (conversationId: string) => Promise<boolean>
   getTaskState: (taskId: string) => Promise<TaskState | null>
 
   // Conversation & Chat History

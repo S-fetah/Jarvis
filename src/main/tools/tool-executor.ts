@@ -117,15 +117,21 @@ export class ToolExecutor {
 
   /**
    * Executes a registered tool with strict schema validation and workspace sandboxing.
+   * Side-effecting tools pass the approval gate first (ADR-004/ADR-008). Pass `approvalId`
+   * only when re-running a call the user already approved; the token is verified and consumed.
    */
   public async executeTool(
     name: string,
     rawArgs: unknown,
     workspacePath: string,
-    outputDirectory?: string
+    outputDirectory?: string,
+    approvalId?: string
   ): Promise<ToolExecutionResult> {
     const resolvedOutputDir = outputDirectory || path.join(workspacePath, 'output')
     try {
+      const blocked = this.checkApprovalGate(name, rawArgs, workspacePath, approvalId)
+      if (blocked) return blocked
+
       switch (name) {
         case 'workspace_list': {
           const args = WorkspaceListSchema.parse(rawArgs || {})
@@ -245,6 +251,140 @@ export class ToolExecutor {
         output: '',
         error: `Tool execution error: ${err.message || String(err)}`
       }
+    }
+  }
+
+  /**
+   * Describes the approval a tool call needs, or null when it may run directly.
+   * Single source of truth for which tool calls are gated.
+   */
+  private describeGatedAction(
+    name: string,
+    args: Record<string, any>,
+    workspacePath: string
+  ): { actionType: string; title: string; explanation: string; safetyImpact: string; targetPath?: string; command?: string } | null {
+    const resolveInWorkspace = (p: unknown): string => {
+      const raw = String(p ?? '').trim()
+      return path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(workspacePath, raw)
+    }
+
+    switch (name) {
+      case 'send_email_direct':
+        return {
+          actionType: name,
+          title: `Send email to ${args.to}`,
+          explanation: `Subject: ${args.subject ?? ''}`,
+          safetyImpact: 'Sends an email from your account over SMTP. Cannot be undone.'
+        }
+      case 'send_gmail':
+        if (!args.autoSend) return null // opening a draft for review is not sending
+        return {
+          actionType: name,
+          title: `Send Gmail to ${args.to}`,
+          explanation: `Subject: ${args.subject ?? ''}`,
+          safetyImpact: 'Opens Gmail in your Chrome profile and clicks Send. Cannot be undone.'
+        }
+      case 'browser_click_element':
+        return {
+          actionType: name,
+          title: `Click in your browser: ${args.selector ?? args.text ?? 'element'}`,
+          explanation: 'Clicks an element in your logged-in Chrome session.',
+          safetyImpact: 'May submit forms or trigger actions on websites as you.'
+        }
+      case 'browser_shortcut':
+        return {
+          actionType: name,
+          title: `Send browser shortcut: ${args.action}`,
+          explanation: 'Sends keystrokes to the focused browser window.',
+          safetyImpact: 'Keystrokes go to whatever window has focus (e.g. Ctrl+Enter sends a draft).'
+        }
+      case 'file_patch':
+        return {
+          actionType: 'file_modify',
+          targetPath: resolveInWorkspace(args.path),
+          title: `Modify file ${args.path}`,
+          explanation: 'Replaces a snippet in an existing file (a .bak backup is kept).',
+          safetyImpact: 'Changes existing project code.'
+        }
+      case 'file_write_new': {
+        const target = resolveInWorkspace(args.path)
+        if (!args.overwrite || !fs.existsSync(target)) return null
+        return {
+          actionType: 'file_modify',
+          targetPath: target,
+          title: `Overwrite file ${args.path}`,
+          explanation: 'Replaces the entire content of an existing file.',
+          safetyImpact: 'The previous content is lost unless you have a copy.'
+        }
+      }
+      case 'start_dev_server': {
+        const command = args.command || `npm run ${args.script || 'dev'}`
+        return {
+          actionType: name,
+          command,
+          title: `Start Development Server (${command})`,
+          explanation: `Starts local development server running '${command}'.`,
+          safetyImpact: 'Spawns an external Node child process listening on local port.'
+        }
+      }
+      default:
+        return null
+    }
+  }
+
+  /**
+   * Approval gate. Returns a result to hand back to the model when the call must not run now,
+   * or null when it may proceed. Fails closed when no approval channel is wired.
+   */
+  private checkApprovalGate(
+    name: string,
+    rawArgs: unknown,
+    workspacePath: string,
+    approvalId?: string
+  ): ToolExecutionResult | null {
+    const args = (rawArgs && typeof rawArgs === 'object' ? rawArgs : {}) as Record<string, any>
+    const gated = this.describeGatedAction(name, args, workspacePath)
+    if (!gated) return null
+
+    const boundArgs = { tool: name, args }
+
+    if (approvalId) {
+      if (this.policyEngine.verifyApprovedAction(approvalId, boundArgs)) return null
+      return {
+        toolName: name,
+        success: false,
+        output: '',
+        error: 'Approval is invalid, expired, already used, or the arguments changed after approval. The action was not run.'
+      }
+    }
+
+    const evalRes = this.policyEngine.evaluateAction({
+      actionType: gated.actionType,
+      workspacePath,
+      targetPath: gated.targetPath,
+      command: gated.command,
+      title: gated.title,
+      workingDirectory: workspacePath,
+      explanation: gated.explanation,
+      safetyImpact: gated.safetyImpact,
+      arguments: boundArgs
+    })
+    if (!evalRes.requiresApproval) return null
+
+    if (!evalRes.approvalRequest || !this.onRequestApproval) {
+      return {
+        toolName: name,
+        success: false,
+        output: '',
+        error: `'${gated.title}' needs the user's approval, but no approval channel is available here. The action was not run.`
+      }
+    }
+
+    this.onRequestApproval(evalRes.approvalRequest)
+    return {
+      toolName: name,
+      success: true,
+      output: `Approval requested from the user: "${gated.title}". The action has NOT run yet. Tell the user you are waiting for their approval and do not claim it was done.`
     }
   }
 
@@ -956,32 +1096,7 @@ export class ToolExecutor {
       }
     }
 
-    const command = args.command || `npm run ${args.script || 'dev'}`
-    const evalRes = this.policyEngine.evaluateAction({
-      actionType: 'start_dev_server',
-      workspacePath,
-      command,
-      title: `Start Development Server (${command})`,
-      workingDirectory: workspacePath,
-      explanation: `Starts local development server running '${command}'.`,
-      safetyImpact: 'Spawns an external Node child process listening on local port.',
-      arguments: {
-        command,
-        script: args.script || 'dev',
-        port: args.preferredPort,
-        workingDirectory: workspacePath
-      }
-    })
-
-    if (evalRes.requiresApproval && evalRes.approvalRequest && this.onRequestApproval) {
-      this.onRequestApproval(evalRes.approvalRequest)
-      return {
-        toolName: 'start_dev_server',
-        success: true,
-        output: `Action '${command}' is gated under Assistive Autonomy policy. An explicit approval modal has been displayed to the user in the UI. Inform the user that you are awaiting their approval.`
-      }
-    }
-
+    // Approval is enforced by checkApprovalGate() before this runs.
     try {
       const proc = await this.processManager.startDevServer({
         script: args.script,

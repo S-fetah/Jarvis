@@ -7,6 +7,7 @@ import {
   Globe,
   Radio,
   Send,
+  Square,
   Zap
 } from 'lucide-react'
 import type { TalkingStyle, TaskMode, ThinkingDepth } from '../../../../shared/types'
@@ -17,6 +18,8 @@ import { PromptControlsBar } from '../PromptControlsBar'
 interface ComposerProps {
   initialPrompt?: string
   onSubmit: (prompt: string) => void
+  /** Cancels the running task; shows a Stop button while streaming. */
+  onStop?: () => void
   isStreaming: boolean
   lightMode: boolean
   model: string
@@ -43,6 +46,7 @@ interface MentionOption {
 export const Composer = React.memo(function Composer({
   initialPrompt = '',
   onSubmit,
+  onStop,
   isStreaming,
   lightMode,
   model,
@@ -329,16 +333,30 @@ export const Composer = React.memo(function Composer({
                 </Kbd>
                 send
               </span>
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                disabled={!canSend}
-                className="min-w-[84px] gap-1.5"
-              >
-                <Send className="h-3.5 w-3.5" />
-                {isStreaming ? 'Working' : 'Send'}
-              </Button>
+              {isStreaming && onStop ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={onStop}
+                  className="min-w-[84px] gap-1.5"
+                  aria-label="Stop the running task"
+                >
+                  <Square className="h-3.5 w-3.5" />
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={!canSend}
+                  className="min-w-[84px] gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {isStreaming ? 'Working' : 'Send'}
+                </Button>
+              )}
             </div>
           </div>
         </form>

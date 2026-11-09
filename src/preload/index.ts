@@ -20,6 +20,10 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('task:cancel', taskId)
   },
 
+  cancelChat: (conversationId: string): Promise<boolean> => {
+    return ipcRenderer.invoke('chat:cancel', conversationId)
+  },
+
   getTaskState: (taskId: string): Promise<TaskState | null> => {
     return ipcRenderer.invoke('task:get-state', taskId)
   },

@@ -505,6 +505,23 @@ export function SettingsApp(): React.JSX.Element {
                 </div>
               </div>
 
+              {hubState?.localServerToken && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2">
+                  <span className="text-xs font-semibold text-jarvis-ivory">API key for IDE clients:</span>
+                  <code className="font-mono text-[10.5px] text-jarvis-muted break-all">{hubState.localServerToken}</code>
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard.writeText(hubState.localServerToken || '')}
+                    className="rounded border border-jarvis-border px-2 py-0.5 font-mono text-[10.5px] text-jarvis-ivory hover:border-jarvis-accent"
+                  >
+                    Copy
+                  </button>
+                  <span className="w-full font-mono text-[10.5px] text-jarvis-muted">
+                    Required as `Authorization: Bearer &lt;key&gt;` (the "API key" field in Cursor / Continue). Requests from web pages are always refused.
+                  </span>
+                </div>
+              )}
+
               {/* Providers Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {providers.map((provider) => {

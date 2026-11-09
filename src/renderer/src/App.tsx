@@ -577,6 +577,7 @@ export default function App(): React.JSX.Element {
 
                 <Composer
                   onSubmit={handleSendMessage}
+                  onStop={() => void window.jarvisAPI?.cancelChat(activeConvId)}
                   isStreaming={isStreaming}
                   lightMode={settings.lightMode}
                   model={settings.defaultModel}

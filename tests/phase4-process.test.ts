@@ -3,6 +3,28 @@ import fs from 'fs'
 import path from 'path'
 import { ToolExecutor } from '../src/main/tools/tool-executor'
 import { ProcessManager } from '../src/main/process/process-manager'
+import { PolicyEngine } from '../src/main/policy/policy-engine'
+import type { ApprovalRequest } from '../src/shared/types'
+
+/**
+ * Runs a gated tool the way the app does: first call raises an approval request,
+ * the user grants it, then the call is re-run with the approval id (ADR-004/ADR-008).
+ */
+async function runApproved(
+  name: string,
+  args: Record<string, unknown>,
+  workspace: string,
+  processManager?: ProcessManager
+) {
+  const policy = new PolicyEngine()
+  const requests: ApprovalRequest[] = []
+  const executor = new ToolExecutor(policy, processManager, (req) => requests.push(req))
+  const pending = await executor.executeTool(name, args, workspace)
+  expect(pending.output).toContain('Approval requested')
+  expect(requests).toHaveLength(1)
+  policy.resolveApproval(requests[0].id, 'granted')
+  return executor.executeTool(name, args, workspace, undefined, requests[0].id)
+}
 
 describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
   const testWorkspace = path.join(__dirname, 'fixtures', 'phase4-ws')
@@ -34,15 +56,19 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     const originalContent = 'export function hello() {\n  return "old message"\n}\n'
     fs.writeFileSync(filePath, originalContent, 'utf-8')
 
-    const result = await toolExecutor.executeTool(
+    const gated = await toolExecutor.executeTool(
       'file_patch',
-      {
-        path: 'app.ts',
-        findTarget: 'return "old message"',
-        replaceContent: 'return "new message"',
-        backup: true
-      },
+      { path: 'app.ts', findTarget: 'return "old message"', replaceContent: 'return "new message"', backup: true },
       testWorkspace
+    )
+    expect(gated.success).toBe(false) // no approval channel → fails closed
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(originalContent)
+
+    const result = await runApproved(
+      'file_patch',
+      { path: 'app.ts', findTarget: 'return "old message"', replaceContent: 'return "new message"', backup: true },
+      testWorkspace,
+      processManager
     )
 
     expect(result.success).toBe(true)
@@ -61,14 +87,11 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
   })
 
   it('file_patch blocks directory traversal outside workspace', async () => {
-    const result = await toolExecutor.executeTool(
+    const result = await runApproved(
       'file_patch',
-      {
-        path: '../../secret.txt',
-        findTarget: 'foo',
-        replaceContent: 'bar'
-      },
-      testWorkspace
+      { path: '../../secret.txt', findTarget: 'foo', replaceContent: 'bar' },
+      testWorkspace,
+      processManager
     )
 
     expect(result.success).toBe(false)
@@ -79,14 +102,11 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     const filePath = path.join(testWorkspace, 'config.json')
     fs.writeFileSync(filePath, '{"port": 8080}', 'utf-8')
 
-    const result = await toolExecutor.executeTool(
+    const result = await runApproved(
       'file_patch',
-      {
-        path: 'config.json',
-        findTarget: '{"port": 3000}',
-        replaceContent: '{"port": 4000}'
-      },
-      testWorkspace
+      { path: 'config.json', findTarget: '{"port": 3000}', replaceContent: '{"port": 4000}' },
+      testWorkspace,
+      processManager
     )
 
     expect(result.success).toBe(false)
@@ -200,7 +220,7 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     expect(searchRes.output).toContain('https://github.com/search?q=ai%20agent%20framework')
   })
 
-  it('send_email_direct requires recipient and handles unconfigured credentials safely', async () => {
+  it('send_email_direct never sends without approval (fails closed with no approval channel)', async () => {
     const result = await toolExecutor.executeTool(
       'send_email_direct',
       {
@@ -212,9 +232,8 @@ describe('Phase 4: Dev Server, Browser & Code Patching Tools', () => {
     )
 
     expect(result.toolName).toBe('send_email_direct')
-    // Without SMTP credentials set in test env, it cleanly reports credential requirement
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Direct email dispatch requires SMTP credentials')
+    expect(result.error).toContain("needs the user's approval")
   })
 
   it('send_gmail parses parameters including closeTabAfter and autoSend', async () => {

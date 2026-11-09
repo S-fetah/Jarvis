@@ -53,8 +53,23 @@ function isAuthorizedSender(webContents: Electron.WebContents): boolean {
   return false
 }
 
+// Persistent data lives in %APPDATA%\Jarvis, independent of the launch folder (ADR-007).
+// One-time copy from the old cwd-relative folder; the old folder is left in place as a backup.
+function resolveDataDir(): string {
+  const dataDir = join(app.getPath('appData'), 'Jarvis')
+  const legacyDir = join(process.cwd(), 'userData')
+  const alreadyMigrated = fs.existsSync(join(dataDir, 'jarvis.sqlite')) || fs.existsSync(join(dataDir, 'provider_vault.json'))
+  if (!alreadyMigrated && fs.existsSync(legacyDir) && path.resolve(legacyDir) !== path.resolve(dataDir)) {
+    fs.cpSync(legacyDir, dataDir, { recursive: true, errorOnExist: false, force: false })
+    console.log(`[Jarvis Main] Copied data from ${legacyDir} to ${dataDir}`)
+  }
+  fs.mkdirSync(dataDir, { recursive: true })
+  return dataDir
+}
+const dataDir = resolveDataDir()
+
 // Persistent SQLite Storage
-const dbPath = join(process.cwd(), 'userData', 'jarvis.sqlite')
+const dbPath = join(dataDir, 'jarvis.sqlite')
 const db = new JarvisDatabase(dbPath)
 
 // In-memory runtime state for tasks
@@ -77,9 +92,9 @@ const settings: JarvisSettings = {
   thinkingDepth: 'standard'
 }
 
-const credentialVault = new CredentialVault(path.join(process.cwd(), 'userData'))
+const credentialVault = new CredentialVault(dataDir)
 const modelBalancer = new ModelBalancer(credentialVault)
-const localGatewayServer = new LocalGatewayServer(modelBalancer)
+const localGatewayServer = new LocalGatewayServer(modelBalancer, () => credentialVault.getLocalServerToken())
 const modelAdapter = new ModelGatewayAdapter(
   {
     baseUrl: settings.gatewayUrl,
@@ -767,6 +782,17 @@ function registerIpcHandlers(): void {
   })
 
   // --- Live LLM Streaming Chat ---
+  // One running agent loop per conversation; chat:cancel aborts it (plan §8 Test G).
+  const chatRuns = new Map<string, AbortController>()
+
+  ipcMain.handle('chat:cancel', async (event, conversationId: string) => {
+    if (!isAuthorizedSender(event.sender)) return false
+    const controller = chatRuns.get(conversationId)
+    if (!controller) return false
+    controller.abort()
+    return true
+  })
+
   ipcMain.handle(
     'chat:send',
     async (
@@ -800,8 +826,13 @@ function registerIpcHandlers(): void {
           content: m.content
         }))
 
+      chatRuns.get(conversationId)?.abort()
+      const controller = new AbortController()
+      chatRuns.set(conversationId, controller)
+
       try {
         const agentResult = await agentOrchestrator.runLoop(pastMessages, {
+          signal: controller.signal,
           workspacePath: chosenWorkspace,
           outputDirectory: settings.outputDirectory,
           model: settings.defaultModel,
@@ -867,6 +898,8 @@ function registerIpcHandlers(): void {
           reply: replyContent,
           reasoning: undefined
         }
+      } finally {
+        if (chatRuns.get(conversationId) === controller) chatRuns.delete(conversationId)
       }
     }
   )
@@ -973,7 +1006,11 @@ function registerIpcHandlers(): void {
         return false
       }
 
-      const isVerified = policyEngine.verifyApprovedAction(approvalId, currentArgs)
+      // Tool-gated approvals carry { tool, args }; ToolExecutor verifies and consumes the token itself.
+      const toolCall = pendingReq.arguments as { tool?: unknown; args?: Record<string, unknown> }
+      const isToolApproval = typeof toolCall?.tool === 'string'
+
+      const isVerified = isToolApproval || policyEngine.verifyApprovedAction(approvalId, currentArgs)
       if (!isVerified) {
         console.error('[Jarvis Main] Security violation: Approval verification failed or arguments tampered:', approvalId)
         sendTimelineEvent({
@@ -1004,24 +1041,44 @@ function registerIpcHandlers(): void {
         details: `User granted verified execution: ${pendingReq?.title || pendingReq?.command || 'Action'}.`
       })
 
+      let actionOk = true
+      let resultNote = ''
       try {
-        await executeApprovedAction(pendingReq)
+        if (isToolApproval) {
+          const res = await toolExecutor.executeTool(
+            toolCall.tool as string,
+            toolCall.args,
+            pendingReq.workspacePath || task.workspacePath,
+            settings.outputDirectory,
+            approvalId
+          )
+          actionOk = res.success
+          resultNote = res.success ? res.output : `Error: ${res.error}`
+        } else {
+          await executeApprovedAction(pendingReq)
+        }
       } catch (err: any) {
+        actionOk = false
+        resultNote = `Error: ${err?.message || String(err)}`
         console.error('[Jarvis Main] Error executing approved action:', err)
       }
 
-      if (currentStep) currentStep.status = 'completed'
-      task.status = 'completed'
+      if (currentStep) {
+        currentStep.status = actionOk ? 'completed' : 'failed'
+        if (!actionOk) currentStep.error = resultNote
+      }
+      task.status = actionOk ? 'completed' : 'failed'
       task.currentApproval = undefined
       sendTaskUpdate({ ...task, updatedAt: Date.now() })
-      mascotManager?.setMascotState('completed')
+      mascotManager?.setMascotState(actionOk ? 'completed' : 'error')
 
-      // Record confirmation message in active conversation
+      // Record the outcome in the active conversation
       const convs = db.getConversations()
       if (convs.length > 0) {
         const activeConv = convs[0]
         const actionName = pendingReq?.title || pendingReq?.command || 'Requested action'
-        const confirmMsg = `✅ **Action Approved & Executed:** ${actionName}`
+        const header = actionOk ? `✅ **Action Approved & Executed:** ${actionName}` : `⚠️ **Approved action failed:** ${actionName}`
+        const confirmMsg = resultNote ? `${header}\n\n${resultNote.slice(0, 1500)}` : header
         db.addMessage(activeConv.id, 'assistant', confirmMsg)
       }
     } else {
