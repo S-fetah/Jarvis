@@ -125,6 +125,8 @@ export interface JarvisSettings {
   workspacePaths: string[]
   theme: ThemePreference
   outputDirectory: string
+  sqliteStoragePath?: string
+  defaultSqliteStoragePath?: string
   talkingStyle?: TalkingStyle
   taskMode?: TaskMode
   thinkingDepth?: ThinkingDepth
@@ -238,6 +240,13 @@ export interface JarvisAPI {
   getSettings: () => Promise<JarvisSettings>
   updateSettings: (settings: Partial<JarvisSettings>) => Promise<JarvisSettings>
   selectWorkspaceFolder: () => Promise<string | null>
+  selectSqliteStorageFolder?: () => Promise<string | null>
+  setSqliteStorageFolder?: (folderPath: string | null) => Promise<{
+    success: boolean
+    sqliteStoragePath?: string
+    mode?: 'migrated' | 'loaded_existing' | 'unchanged'
+    error?: string
+  }>
   setWindowTheme?: (theme: ThemePreference) => Promise<void>
   exportDiagnostics?: () => Promise<{ success: boolean; filePath: string }>
   getAutoStart?: () => Promise<boolean>

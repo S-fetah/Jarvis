@@ -10,6 +10,7 @@ import { ModelBalancer } from './gateway/model-balancer'
 import { LocalGatewayServer } from './gateway/local-gateway-server'
 import { ProviderId } from '../shared/types'
 import { JarvisDatabase } from './storage/database'
+import { relocateSqliteStorage, resolveInitialDataDirectories } from './storage/storage-config'
 import { MascotManager } from './windows/mascot-manager'
 import { ToolExecutor } from './tools/tool-executor'
 import { AgentOrchestrator } from './agent/agent-orchestrator'
@@ -53,23 +54,16 @@ function isAuthorizedSender(webContents: Electron.WebContents): boolean {
   return false
 }
 
-// Persistent data lives in %APPDATA%\Jarvis, independent of the launch folder (ADR-007).
-// One-time copy from the old cwd-relative folder; the old folder is left in place as a backup.
-function resolveDataDir(): string {
-  const dataDir = join(app.getPath('appData'), 'Jarvis')
-  const legacyDir = join(process.cwd(), 'userData')
-  const alreadyMigrated = fs.existsSync(join(dataDir, 'jarvis.sqlite')) || fs.existsSync(join(dataDir, 'provider_vault.json'))
-  if (!alreadyMigrated && fs.existsSync(legacyDir) && path.resolve(legacyDir) !== path.resolve(dataDir)) {
-    fs.cpSync(legacyDir, dataDir, { recursive: true, errorOnExist: false, force: false })
-    console.log(`[Jarvis Main] Copied data from ${legacyDir} to ${dataDir}`)
-  }
-  fs.mkdirSync(dataDir, { recursive: true })
-  return dataDir
-}
-const dataDir = resolveDataDir()
+// Persistent data lives in %APPDATA%\Jarvis (or custom SQLite folder via storage-location.json).
+const storageDirs = resolveInitialDataDirectories(
+  app.getPath('appData'),
+  join(process.cwd(), 'userData')
+)
+const dataDir = storageDirs.configDir
+const defaultSqliteDir = storageDirs.defaultSqliteDir
 
 // Persistent SQLite Storage
-const dbPath = join(dataDir, 'jarvis.sqlite')
+const dbPath = storageDirs.dbPath
 const db = new JarvisDatabase(dbPath)
 
 // In-memory runtime state for tasks
@@ -87,6 +81,8 @@ const settings: JarvisSettings = {
   workspacePaths: ['C:\\work\\softwares\\jarvis'],
   theme: 'system',
   outputDirectory: 'C:\\work\\softwares\\jarvis\\output',
+  sqliteStoragePath: storageDirs.sqliteDir,
+  defaultSqliteStoragePath: defaultSqliteDir,
   talkingStyle: 'balanced',
   taskMode: 'chat',
   thinkingDepth: 'standard'
@@ -302,6 +298,120 @@ function createWindow(): void {
   }
 }
 
+function getSafeSettingsSnapshot(): JarvisSettings {
+  const { apiKey, ...safeSettings } = settings
+  return {
+    ...safeSettings,
+    sqliteStoragePath: path.dirname(db.getDbPath()),
+    defaultSqliteStoragePath: defaultSqliteDir,
+    hasApiKey: Boolean(apiKey && apiKey.length > 0)
+  }
+}
+
+function loadPersistedSettingsFromDb(): void {
+  const savedApiKey = db.getSetting('apiKey')
+  if (savedApiKey) {
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        try {
+          const buf = Buffer.from(savedApiKey, 'base64')
+          settings.apiKey = safeStorage.decryptString(buf)
+        } catch {
+          // Legacy plaintext fallback: upgrade and encrypt it
+          settings.apiKey = savedApiKey
+          try {
+            const encrypted = safeStorage.encryptString(savedApiKey).toString('base64')
+            db.setSetting('apiKey', encrypted)
+          } catch {}
+        }
+      } else {
+        settings.apiKey = savedApiKey
+      }
+    } catch {
+      settings.apiKey = savedApiKey
+    }
+  }
+
+  const savedModel = db.getSetting('defaultModel')
+  if (savedModel) settings.defaultModel = savedModel
+
+  const savedLightMode = db.getSetting('lightMode')
+  if (savedLightMode !== null) settings.lightMode = savedLightMode === 'true'
+
+  const savedGatewayUrl = db.getSetting('gatewayUrl')
+  if (savedGatewayUrl) settings.gatewayUrl = savedGatewayUrl
+
+  const savedMascot = db.getSetting('mascot_enabled')
+  if (savedMascot !== null) settings.mascotEnabled = savedMascot === 'true'
+
+  const savedStyle = db.getSetting('talkingStyle')
+  if (savedStyle) settings.talkingStyle = savedStyle as any
+
+  const savedMode = db.getSetting('taskMode')
+  if (savedMode) settings.taskMode = savedMode as any
+
+  const savedDepth = db.getSetting('thinkingDepth')
+  if (savedDepth) settings.thinkingDepth = savedDepth as any
+
+  const savedTheme = db.getSetting('theme')
+  if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+    settings.theme = savedTheme
+  }
+
+  const savedLaunch = db.getSetting('launchOnLogin')
+  if (savedLaunch !== null) {
+    settings.launchOnLogin = savedLaunch === 'true'
+  } else {
+    try {
+      settings.launchOnLogin = app.getLoginItemSettings().openAtLogin
+    } catch {
+      settings.launchOnLogin = false
+    }
+  }
+
+  const savedCustomPrompt = db.getSetting('customPrompt')
+  if (savedCustomPrompt !== null) settings.customPrompt = savedCustomPrompt
+
+  const savedRiskAck = db.getSetting('customPromptRiskAcknowledged')
+  if (savedRiskAck !== null) settings.customPromptRiskAcknowledged = savedRiskAck === 'true'
+
+  const savedMinToTray = db.getSetting('minimizeToTray')
+  if (savedMinToTray !== null) {
+    settings.minimizeToTray = savedMinToTray === 'true'
+  } else {
+    settings.minimizeToTray = true
+  }
+
+  const savedOutputDir = db.getSetting('outputDirectory')
+  if (savedOutputDir) settings.outputDirectory = savedOutputDir
+
+  const savedWorkspaces = db.getSetting('workspacePaths')
+  if (savedWorkspaces) {
+    try {
+      const parsed = JSON.parse(savedWorkspaces)
+      if (Array.isArray(parsed) && parsed.length > 0) settings.workspacePaths = parsed
+    } catch {}
+  }
+
+  settings.sqliteStoragePath = path.dirname(db.getDbPath())
+  settings.defaultSqliteStoragePath = defaultSqliteDir
+
+  modelAdapter.updateConfig({
+    baseUrl: settings.gatewayUrl,
+    apiKey: settings.apiKey,
+    model: settings.defaultModel
+  })
+
+  agentOrchestrator = new AgentOrchestrator(modelAdapter, toolExecutor, {
+    defaultWorkspacePath: settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis',
+    defaultOutputDir: settings.outputDirectory
+  })
+
+  if (db.getConversations().length === 0) {
+    db.createConversation('Jarvis General Chat')
+  }
+}
+
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.jarvis.desktop')
 
@@ -315,106 +425,7 @@ app.whenReady().then(async () => {
   try {
     await db.initialize()
     console.log('[Jarvis Main] SQLite database initialized successfully at:', dbPath)
-
-    const savedApiKey = db.getSetting('apiKey')
-    if (savedApiKey) {
-      try {
-        if (safeStorage.isEncryptionAvailable()) {
-          try {
-            const buf = Buffer.from(savedApiKey, 'base64')
-            settings.apiKey = safeStorage.decryptString(buf)
-          } catch {
-            // Legacy plaintext fallback: upgrade and encrypt it
-            settings.apiKey = savedApiKey
-            try {
-              const encrypted = safeStorage.encryptString(savedApiKey).toString('base64')
-              db.setSetting('apiKey', encrypted)
-            } catch {}
-          }
-        } else {
-          settings.apiKey = savedApiKey
-        }
-      } catch {
-        settings.apiKey = savedApiKey
-      }
-    }
-
-    const savedModel = db.getSetting('defaultModel')
-    if (savedModel) settings.defaultModel = savedModel
-
-    const savedLightMode = db.getSetting('lightMode')
-    if (savedLightMode !== null) settings.lightMode = savedLightMode === 'true'
-
-    const savedGatewayUrl = db.getSetting('gatewayUrl')
-    if (savedGatewayUrl) settings.gatewayUrl = savedGatewayUrl
-
-    const savedMascot = db.getSetting('mascot_enabled')
-    if (savedMascot !== null) settings.mascotEnabled = savedMascot === 'true'
-
-    const savedStyle = db.getSetting('talkingStyle')
-    if (savedStyle) settings.talkingStyle = savedStyle as any
-
-    const savedMode = db.getSetting('taskMode')
-    if (savedMode) settings.taskMode = savedMode as any
-
-    const savedDepth = db.getSetting('thinkingDepth')
-    if (savedDepth) settings.thinkingDepth = savedDepth as any
-
-    const savedTheme = db.getSetting('theme')
-    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
-      settings.theme = savedTheme
-    }
-
-    const savedLaunch = db.getSetting('launchOnLogin')
-    if (savedLaunch !== null) {
-      settings.launchOnLogin = savedLaunch === 'true'
-    } else {
-      try {
-        settings.launchOnLogin = app.getLoginItemSettings().openAtLogin
-      } catch {
-        settings.launchOnLogin = false
-      }
-    }
-
-    const savedCustomPrompt = db.getSetting('customPrompt')
-    if (savedCustomPrompt !== null) settings.customPrompt = savedCustomPrompt
-
-    const savedRiskAck = db.getSetting('customPromptRiskAcknowledged')
-    if (savedRiskAck !== null) settings.customPromptRiskAcknowledged = savedRiskAck === 'true'
-
-    const savedMinToTray = db.getSetting('minimizeToTray')
-    if (savedMinToTray !== null) {
-      settings.minimizeToTray = savedMinToTray === 'true'
-    } else {
-      settings.minimizeToTray = true
-    }
-
-    const savedOutputDir = db.getSetting('outputDirectory')
-    if (savedOutputDir) settings.outputDirectory = savedOutputDir
-
-    const savedWorkspaces = db.getSetting('workspacePaths')
-    if (savedWorkspaces) {
-      try {
-        const parsed = JSON.parse(savedWorkspaces)
-        if (Array.isArray(parsed) && parsed.length > 0) settings.workspacePaths = parsed
-      } catch {}
-    }
-
-    modelAdapter.updateConfig({
-      baseUrl: settings.gatewayUrl,
-      apiKey: settings.apiKey,
-      model: settings.defaultModel
-    })
-
-    agentOrchestrator = new AgentOrchestrator(modelAdapter, toolExecutor, {
-      defaultWorkspacePath: settings.workspacePaths[0] || 'C:\\work\\softwares\\jarvis',
-      defaultOutputDir: settings.outputDirectory
-    })
-
-    const convs = db.getConversations()
-    if (convs.length === 0) {
-      db.createConversation('Jarvis General Chat')
-    }
+    loadPersistedSettingsFromDb()
   } catch (err) {
     console.error('[Jarvis Main] Failed to initialize SQLite:', err)
   }
@@ -1135,11 +1146,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('settings:get', async (event) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
-    const { apiKey, ...safeSettings } = settings
-    return {
-      ...safeSettings,
-      hasApiKey: Boolean(apiKey && apiKey.length > 0)
-    }
+    return getSafeSettingsSnapshot()
   })
 
   ipcMain.handle('settings:update', async (event, newSettings: Partial<JarvisSettings>) => {
@@ -1251,25 +1258,74 @@ function registerIpcHandlers(): void {
       defaultOutputDir: settings.outputDirectory
     })
 
-    const { apiKey, ...safeSettings } = settings
-    return {
-      ...safeSettings,
-      hasApiKey: Boolean(apiKey && apiKey.length > 0)
-    }
+    return getSafeSettingsSnapshot()
   })
+
+  const openFolderPicker = async (
+    sender: Electron.WebContents,
+    title: string,
+    defaultPath?: string
+  ): Promise<string | null> => {
+    const parentWin =
+      BrowserWindow.fromWebContents(sender) ||
+      settingsWindowManager?.getSettingsWindow() ||
+      mainWindow
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openDirectory', 'createDirectory'],
+      title,
+      ...(defaultPath ? { defaultPath } : {})
+    }
+    const result = parentWin
+      ? await dialog.showOpenDialog(parentWin, options)
+      : await dialog.showOpenDialog(options)
+    return !result.canceled && result.filePaths.length > 0 ? result.filePaths[0] : null
+  }
 
   ipcMain.handle('workspace:select-folder', async (event) => {
     if (!isAuthorizedSender(event.sender)) return null
-    if (!mainWindow) return null
-    const result = await dialog.showOpenDialog(mainWindow, {
-      properties: ['openDirectory'],
-      title: 'Select Workspace Directory'
-    })
-    if (!result.canceled && result.filePaths.length > 0) {
-      return result.filePaths[0]
-    }
-    return null
+    return openFolderPicker(event.sender, 'Select Workspace Directory')
   })
+
+  ipcMain.handle('storage:select-sqlite-folder', async (event) => {
+    if (!isAuthorizedSender(event.sender)) return null
+    return openFolderPicker(event.sender, 'Select SQLite Storage Folder', path.dirname(db.getDbPath()))
+  })
+
+  ipcMain.handle(
+    'storage:set-sqlite-folder',
+    async (
+      event,
+      folderPath: string | null
+    ): Promise<{
+      success: boolean
+      sqliteStoragePath?: string
+      mode?: 'migrated' | 'loaded_existing' | 'unchanged'
+      error?: string
+    }> => {
+      if (!isAuthorizedSender(event.sender)) {
+        return { success: false, error: 'Unauthorized sender' }
+      }
+      try {
+        const res = await relocateSqliteStorage(db, dataDir, defaultSqliteDir, folderPath)
+        settings.sqliteStoragePath = res.sqliteDir
+        if (res.mode === 'loaded_existing') {
+          loadPersistedSettingsFromDb()
+          applyWindowTheme()
+        }
+        return {
+          success: true,
+          sqliteStoragePath: res.sqliteDir,
+          mode: res.mode
+        }
+      } catch (err: any) {
+        console.error('[Jarvis Main] Failed to update SQLite storage folder:', err)
+        return {
+          success: false,
+          error: err?.message || 'Failed to update SQLite storage folder'
+        }
+      }
+    }
+  )
 
   ipcMain.handle('workspace:list-files', async (event, customWorkspacePath?: string) => {
     if (!isAuthorizedSender(event.sender)) return []
@@ -1451,6 +1507,8 @@ function registerIpcHandlers(): void {
     const allowedRoots = [
       ...settings.workspacePaths,
       settings.outputDirectory,
+      dataDir,
+      path.dirname(db.getDbPath()),
       app.getPath('desktop'),
       app.getPath('downloads'),
       app.getPath('documents')

@@ -99,6 +99,7 @@ export async function exportDiagnosticBundle(
       `- **Output Directory:** \`${settings.outputDirectory}\``,
       ``,
       `## 3. Storage & Persistence`,
+      `- **SQLite Storage Directory:** \`${settings.sqliteStoragePath || path.dirname(db.getDbPath())}\``,
       `- **Conversations in SQLite:** ${conversations.length}`,
       `- **Active Conversation ID:** \`${dbSummary.activeConversationId}\``,
       ``,

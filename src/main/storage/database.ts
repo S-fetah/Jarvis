@@ -203,28 +203,65 @@ export class JarvisDatabase {
     this.save()
   }
 
-  public save(): void {
-    if (!this.db) return
-    const data = this.db.export()
-    const buffer = Buffer.from(data)
+  public getDbPath(): string {
+    return this.dbPath
+  }
+
+  private writeAtomic(targetPath: string, buffer: Buffer): void {
     // SEC-010: Atomic write using temporary file to prevent database corruption
-    const tempPath = `${this.dbPath}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`
+    const tempPath = `${targetPath}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`
     try {
-      fs.mkdirSync(path.dirname(this.dbPath), { recursive: true })
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true })
       fs.writeFileSync(tempPath, buffer)
       try {
-        fs.renameSync(tempPath, this.dbPath)
+        fs.renameSync(tempPath, targetPath)
       } catch {
-        fs.copyFileSync(tempPath, this.dbPath)
+        fs.copyFileSync(tempPath, targetPath)
         try {
           fs.unlinkSync(tempPath)
         } catch {}
       }
     } catch (err) {
-      console.error('[Jarvis Database] Failed to write database atomically:', err)
       try {
         if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
       } catch {}
+      throw err
+    }
+  }
+
+  public async switchDatabasePath(
+    newDbPath: string,
+    strategy: 'migrate' | 'load_existing'
+  ): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized')
+
+    if (strategy === 'migrate') {
+      const buffer = Buffer.from(this.db.export())
+      this.writeAtomic(newDbPath, buffer)
+      this.dbPath = newDbPath
+      return
+    }
+
+    // Flush active DB to its current location before switching
+    this.save()
+    const SQL = await initSqlJs()
+    const buffer = fs.readFileSync(newDbPath)
+    const nextDb = new SQL.Database(buffer)
+    this.db.close()
+    this.db = nextDb
+    this.dbPath = newDbPath
+    this.applyMigrations()
+    this.save()
+  }
+
+  public save(): void {
+    if (!this.db) return
+    const data = this.db.export()
+    const buffer = Buffer.from(data)
+    try {
+      this.writeAtomic(this.dbPath, buffer)
+    } catch (err) {
+      console.error('[Jarvis Database] Failed to write database atomically:', err)
     }
   }
 

@@ -4,6 +4,7 @@ import {
   Brain,
   Check,
   Cpu,
+  Database,
   Download,
   ExternalLink,
   Eye,
@@ -65,6 +66,8 @@ export function SettingsApp(): React.JSX.Element {
   const [memorySaved, setMemorySaved] = useState(false)
   const [diagnosticsRunning, setDiagnosticsRunning] = useState(false)
   const [diagnosticsMessage, setDiagnosticsMessage] = useState<string | null>(null)
+  const [storageUpdating, setStorageUpdating] = useState(false)
+  const [storageFeedback, setStorageFeedback] = useState<{ ok: boolean; text: string } | null>(null)
   const [importingFreeApi, setImportingFreeApi] = useState(false)
   const [importMessage, setImportMessage] = useState<string | null>(null)
   const [customPromptText, setCustomPromptText] = useState<string>('')
@@ -260,6 +263,49 @@ export function SettingsApp(): React.JSX.Element {
       setDiagnosticsMessage(`Export failed: ${err.message}`)
     } finally {
       setDiagnosticsRunning(false)
+    }
+  }
+
+  const applySqliteStorageFolder = async (folderPath: string | null): Promise<void> => {
+    if (!window.jarvisAPI?.setSqliteStorageFolder) return
+    setStorageUpdating(true)
+    setStorageFeedback(null)
+    try {
+      const res = await window.jarvisAPI.setSqliteStorageFolder(folderPath)
+      if (!res.success) {
+        setStorageFeedback({ ok: false, text: res.error || 'Failed to update SQLite storage folder.' })
+        return
+      }
+      if (window.jarvisAPI.getSettings) {
+        const refreshed = await window.jarvisAPI.getSettings()
+        setSettings(refreshed)
+        if (refreshed.theme) applyTheme(refreshed.theme)
+      }
+      if (res.mode === 'migrated') {
+        setStorageFeedback({
+          ok: true,
+          text: `Database migrated to ${res.sqliteStoragePath}\\jarvis.sqlite (previous file kept as backup).`
+        })
+      } else if (res.mode === 'loaded_existing') {
+        setStorageFeedback({
+          ok: true,
+          text: `Switched to existing database at ${res.sqliteStoragePath}\\jarvis.sqlite.`
+        })
+      } else {
+        setStorageFeedback({ ok: true, text: 'SQLite storage folder confirmed.' })
+      }
+    } catch (err: any) {
+      setStorageFeedback({ ok: false, text: err?.message || 'Unexpected error changing storage folder.' })
+    } finally {
+      setStorageUpdating(false)
+    }
+  }
+
+  const handleChooseSqliteFolder = async (): Promise<void> => {
+    if (!window.jarvisAPI?.selectSqliteStorageFolder) return
+    const selected = await window.jarvisAPI.selectSqliteStorageFolder()
+    if (selected) {
+      await applySqliteStorageFolder(selected)
     }
   }
 
@@ -1126,6 +1172,89 @@ export function SettingsApp(): React.JSX.Element {
                     onCheckedChange={(checked) => handleUpdateSetting({ minimizeToTray: checked })}
                   />
                 </div>
+              </div>
+
+              {/* SQLite Database Storage */}
+              <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Database className="h-3.5 w-3.5 text-jarvis-accent shrink-0" />
+                      <h2 className="text-xs font-semibold text-jarvis-ivory">SQLite Storage Location</h2>
+                      {settings?.sqliteStoragePath &&
+                      settings?.defaultSqliteStoragePath &&
+                      settings.sqliteStoragePath.toLowerCase() !==
+                        settings.defaultSqliteStoragePath.toLowerCase() ? (
+                        <Badge variant="accent">Custom Folder</Badge>
+                      ) : (
+                        <Badge variant="neutral">Default</Badge>
+                      )}
+                    </div>
+                    <p className="text-3xs text-jarvis-muted mt-1 leading-relaxed">
+                      Choose the folder where <code className="font-mono">jarvis.sqlite</code> (conversations, settings, and task history) is saved. New folders receive a safe copy of your current database; folders with an existing database load it without overwriting.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2">
+                  <span className="font-mono text-2xs text-jarvis-ivory truncate">
+                    {settings?.sqliteStoragePath || 'Resolving…'}
+                  </span>
+                  {settings?.sqliteStoragePath && (
+                    <button
+                      type="button"
+                      onClick={() => window.jarvisAPI?.openPath?.(settings.sqliteStoragePath!, true)}
+                      className="inline-flex items-center gap-1 font-mono text-3xs text-jarvis-sage hover:text-jarvis-ivory shrink-0"
+                    >
+                      <FolderOpen className="h-3 w-3" />
+                      Open
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={storageUpdating}
+                    onClick={() => void handleChooseSqliteFolder()}
+                    className="gap-1.5 text-xs"
+                  >
+                    {storageUpdating ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    )}
+                    {storageUpdating ? 'Updating…' : 'Select Folder…'}
+                  </Button>
+
+                  {settings?.sqliteStoragePath &&
+                    settings?.defaultSqliteStoragePath &&
+                    settings.sqliteStoragePath.toLowerCase() !==
+                      settings.defaultSqliteStoragePath.toLowerCase() && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={storageUpdating}
+                        onClick={() => void applySqliteStorageFolder(null)}
+                        className="gap-1.5 text-xs text-jarvis-muted hover:text-jarvis-ivory"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Reset to Default
+                      </Button>
+                    )}
+                </div>
+
+                {storageFeedback && (
+                  <p
+                    className={cn(
+                      'font-mono text-3xs',
+                      storageFeedback.ok ? 'text-jarvis-accent' : 'text-red-400'
+                    )}
+                  >
+                    {storageFeedback.text}
+                  </p>
+                )}
               </div>
 
               {/* Support Diagnostics */}

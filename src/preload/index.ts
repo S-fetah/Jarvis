@@ -128,6 +128,21 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('workspace:select-folder')
   },
 
+  selectSqliteStorageFolder: (): Promise<string | null> => {
+    return ipcRenderer.invoke('storage:select-sqlite-folder')
+  },
+
+  setSqliteStorageFolder: (
+    folderPath: string | null
+  ): Promise<{
+    success: boolean
+    sqliteStoragePath?: string
+    mode?: 'migrated' | 'loaded_existing' | 'unchanged'
+    error?: string
+  }> => {
+    return ipcRenderer.invoke('storage:set-sqlite-folder', folderPath)
+  },
+
   // System & External Links
   openExternalUrl: (url: string): Promise<void> => {
     return ipcRenderer.invoke('system:open-external-url', url)
