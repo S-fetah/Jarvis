@@ -25,6 +25,7 @@ Today the agent loop, tools, policy, gateway and storage all live in the Electro
    apps/desktop        Electron UI client
    packages/core       agent loop, task engine, policy, memory, gateway, storage
    packages/protocol   shared types and the client↔core API schema (zod)
+   packages/voice      optional downloadable voice feature (STT, TTS, VAD, wake-word contracts & runtime)
    packages/tools-*    tool servers: files, browser, shell, uia, email…
    apps/node           (later) node agent for other PCs
    apps/hub            (later) Jarvis-hub web app

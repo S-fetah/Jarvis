@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { ToolExecutor } from '../src/main/tools/tool-executor'
-import { ProcessManager } from '../src/main/process/process-manager'
-import { PolicyEngine } from '../src/main/policy/policy-engine'
-import type { ApprovalRequest } from '../src/shared/types'
-import { isCdpAvailable } from '../src/main/utils/cdp'
+import { ToolExecutor } from '../packages/core/src/tools/tool-executor'
+import { ProcessManager } from '../packages/core/src/process/process-manager'
+import { PolicyEngine } from '../packages/core/src/policy/policy-engine'
+import type { ApprovalRequest } from '@jarvis/protocol'
+import { isCdpAvailable } from '../packages/core/src/utils/cdp'
 
 describe('CDP Browser Automation & Memory Tools', () => {
   const testWorkspace = path.join(__dirname, 'fixtures', 'cdp-ws')

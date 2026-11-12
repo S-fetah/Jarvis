@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { CredentialVault } from '../src/main/gateway/credential-vault'
-import { ModelBalancer } from '../src/main/gateway/model-balancer'
+import { CredentialVault } from '../packages/core/src/gateway/credential-vault'
+import { ModelBalancer } from '../packages/core/src/gateway/model-balancer'
 
 describe('ModelBalancer (Phase 7 Native Routing & Balancing Engine)', () => {
   const testUserData = path.resolve(__dirname, '../userData/test-balancer')

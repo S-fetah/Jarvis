@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import path from 'path'
-import { AgentOrchestrator } from '../src/main/agent/agent-orchestrator'
-import { ToolExecutor } from '../src/main/tools/tool-executor'
-import { PolicyEngine } from '../src/main/policy/policy-engine'
-import { ModelGatewayAdapter } from '../src/main/gateway/model-adapter'
+import { AgentOrchestrator } from '../packages/core/src/agent/agent-orchestrator'
+import { ToolExecutor } from '../packages/core/src/tools/tool-executor'
+import { PolicyEngine } from '../packages/core/src/policy/policy-engine'
+import { ModelGatewayAdapter } from '../packages/core/src/gateway/model-adapter'
 
 describe('AgentOrchestrator (Multi-Turn Tool Execution Loop)', () => {
   const workspacePath = path.resolve(__dirname, '..')
@@ -57,7 +57,7 @@ describe('AgentOrchestrator (Multi-Turn Tool Execution Loop)', () => {
                 type: 'function',
                 function: {
                   name: 'workspace_list',
-                  arguments: JSON.stringify({ subpath: 'src' })
+                  arguments: JSON.stringify({ subpath: 'apps/desktop/src' })
                 }
               }
             ]

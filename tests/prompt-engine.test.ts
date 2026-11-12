@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PromptEngine } from '../src/main/gateway/prompt-engine'
+import { PromptEngine } from '../packages/core/src/gateway/prompt-engine'
 
 describe('PromptEngine (Privacy-First Prompt & Mode Architecture)', () => {
   it('strictly conceals internal storage paths, localhost ports, and ADR codes', () => {

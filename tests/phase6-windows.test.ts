@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { ToolExecutor } from '../src/main/tools/tool-executor'
-import { PolicyEngine } from '../src/main/policy/policy-engine'
-import { JARVIS_TOOLS, ScreenCaptureSchema } from '../src/main/tools/tool-registry'
-import { exportDiagnosticBundle } from '../src/main/utils/diagnostics'
-import { JarvisDatabase } from '../src/main/storage/database'
-import { JarvisSettings } from '../src/shared/types'
+import { ToolExecutor } from '../packages/core/src/tools/tool-executor'
+import { PolicyEngine } from '../packages/core/src/policy/policy-engine'
+import { JARVIS_TOOLS, ScreenCaptureSchema } from '../packages/core/src/tools/tool-registry'
+import { exportDiagnosticBundle } from '../apps/desktop/src/main/utils/diagnostics'
+import { JarvisDatabase } from '../packages/core/src/storage/database'
+import { JarvisSettings } from '@jarvis/protocol'
 
 describe('Phase 6: Windows Integration, Diagnostics & Screen Capture', () => {
   const workspacePath = path.resolve(__dirname, '..')

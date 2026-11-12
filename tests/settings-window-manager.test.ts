@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { SettingsWindowManager } from '../src/main/windows/settings-window-manager'
+import { SettingsWindowManager } from '../apps/desktop/src/main/windows/settings-window-manager'
 
 // Mock Electron
 const mockWebContents = {

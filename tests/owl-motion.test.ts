@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { OwlMotion } from '../src/renderer/src/mascot/OwlMotion'
+import { OwlMotion } from '../apps/desktop/src/renderer/src/mascot/OwlMotion'
 
 describe('OwlMotion', () => {
   it('hop lifts, flaps and puffs, then lands and ends', () => {

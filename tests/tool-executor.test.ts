@@ -1,8 +1,8 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { ToolExecutor } from '../src/main/tools/tool-executor'
-import { PolicyEngine } from '../src/main/policy/policy-engine'
+import { ToolExecutor } from '../packages/core/src/tools/tool-executor'
+import { PolicyEngine } from '../packages/core/src/policy/policy-engine'
 
 describe('ToolExecutor (Read-Only & Document Engine)', () => {
   const workspacePath = path.resolve(__dirname, '..')
@@ -17,7 +17,7 @@ describe('ToolExecutor (Read-Only & Document Engine)', () => {
   })
 
   it('workspace_list returns directory structure and respects bounds', async () => {
-    const res = await executor.executeTool('workspace_list', { subpath: 'src', maxDepth: 2 }, workspacePath)
+    const res = await executor.executeTool('workspace_list', { subpath: 'apps/desktop/src', maxDepth: 2 }, workspacePath)
     expect(res.success).toBe(true)
     expect(res.toolName).toBe('workspace_list')
     expect(res.output).toContain('### Workspace Directory')
@@ -37,7 +37,7 @@ describe('ToolExecutor (Read-Only & Document Engine)', () => {
     expect(res.toolName).toBe('file_read')
     expect(res.output).toContain('### File: `package.json`')
     expect(res.output).toContain('1 | {')
-    expect(res.output).toContain('"name": "jarvis-desktop"')
+    expect(res.output).toContain('"name": "jarvis-monorepo"')
   })
 
   it('file_read blocks reading files outside workspace (SEC-006 path traversal)', async () => {
@@ -56,7 +56,7 @@ describe('ToolExecutor (Read-Only & Document Engine)', () => {
     const res = await executor.executeTool('project_inspect', { detail: 'summary' }, workspacePath)
     expect(res.success).toBe(true)
     expect(res.toolName).toBe('project_inspect')
-    expect(res.output).toContain('jarvis-desktop')
+    expect(res.output).toContain('jarvis-monorepo')
     expect(res.output).toContain('npm run dev')
     expect(res.output).toContain('Git Branch')
     expect(res.output).toContain('Electron + Vite')

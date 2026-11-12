@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { detectAssetInMessage } from '../src/renderer/src/components/chat/MessageList'
+import { detectAssetInMessage } from '../apps/desktop/src/renderer/src/components/chat/MessageList'
 
 describe('Canvas Document & Asset Detection', () => {
   it('detects absolute Windows path to PDF over bare filename', () => {

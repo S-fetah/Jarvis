@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { PdfGenerator } from '../src/main/tools/pdf-generator'
+import { PdfGenerator } from '../packages/core/src/tools/pdf-generator'
 
 describe('PdfGenerator (Phase 3 Vector Document Engine)', () => {
   const testOutputDir = path.resolve(__dirname, '../output/test-pdf')

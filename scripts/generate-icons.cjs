@@ -5,8 +5,9 @@ const path = require('path')
 app.whenReady().then(() => {
   const userPngPath = 'C:/Users/abdelfetah safiddine/.gemini/antigravity/brain/7528fe2f-d45c-4851-b2ce-b126ab577fe2/.user_uploaded/media_1794253002181_4340fbfb.png'
   
-  // Fallback to resources/icon.png if user path is not present in another environment
-  const srcPath = fs.existsSync(userPngPath) ? userPngPath : path.join(process.cwd(), 'resources', 'icon.png')
+  // Fallback to apps/desktop/resources/icon.png if user path is not present in another environment
+  const desktopRoot = path.join(process.cwd(), 'apps', 'desktop')
+  const srcPath = fs.existsSync(userPngPath) ? userPngPath : path.join(desktopRoot, 'resources', 'icon.png')
   
   if (!fs.existsSync(srcPath)) {
     console.error('Source image not found:', srcPath)
@@ -31,18 +32,18 @@ app.whenReady().then(() => {
   const masterPng = masterImage.toPNG()
 
   // 1. Save master PNG in resources
-  const outPng = path.join(process.cwd(), 'resources', 'icon.png')
+  const outPng = path.join(desktopRoot, 'resources', 'icon.png')
   fs.writeFileSync(outPng, masterPng)
   console.log('Saved 1.45x zoomed master PNG:', outPng)
 
   // 2. Save branding image
-  const brandingPng = path.join(process.cwd(), 'resources', 'branding', 'jarvis-owl.png')
+  const brandingPng = path.join(desktopRoot, 'resources', 'branding', 'jarvis-owl.png')
   fs.mkdirSync(path.dirname(brandingPng), { recursive: true })
   fs.writeFileSync(brandingPng, masterPng)
   console.log('Saved 1.45x zoomed branding PNG:', brandingPng)
 
   // 3. Save to renderer public assets for in-app UI / favicon
-  const publicDir = path.join(process.cwd(), 'src', 'renderer', 'public')
+  const publicDir = path.join(desktopRoot, 'src', 'renderer', 'public')
   if (fs.existsSync(publicDir)) {
     fs.writeFileSync(path.join(publicDir, 'icon.png'), masterPng)
     console.log('Saved 1.45x zoomed public icon.png')
@@ -83,7 +84,7 @@ app.whenReady().then(() => {
   }
 
   const icoBuffer = Buffer.concat([header, ...dirEntries, ...buffers])
-  const outIco = path.join(process.cwd(), 'resources', 'icon.ico')
+  const outIco = path.join(desktopRoot, 'resources', 'icon.ico')
   fs.writeFileSync(outIco, icoBuffer)
   console.log('Successfully generated zoomed ICO:', outIco, 'Total size:', icoBuffer.length)
 

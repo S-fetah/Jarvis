@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampDialogCoordinates } from '../src/renderer/src/components/ui/Dialog'
+import { clampDialogCoordinates } from '../apps/desktop/src/renderer/src/components/ui/Dialog'
 
 describe('clampDialogCoordinates (Modal & Mini Windows Drag Clamping Engine)', () => {
   it('returns exact offset when within safe viewport bounds', () => {

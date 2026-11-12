@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { JarvisDatabase } from '../src/main/storage/database'
+import { JarvisDatabase } from '../packages/core/src/storage/database'
 import {
   SQLITE_FILENAME,
   STORAGE_CONFIG_FILENAME,
@@ -10,7 +10,7 @@ import {
   relocateSqliteStorage,
   resolveInitialDataDirectories,
   writeStorageLocationConfig
-} from '../src/main/storage/storage-config'
+} from '../packages/core/src/storage/storage-config'
 
 describe('SQLite Storage Folder Configuration', () => {
   let tempRoot: string

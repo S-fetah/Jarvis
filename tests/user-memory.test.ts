@@ -6,7 +6,7 @@ import {
   saveUserMemory,
   formatUserMemoryPrompt,
   getUserMemoryFilePath
-} from '../src/main/memory/user-memory'
+} from '../packages/core/src/memory/user-memory'
 
 describe('User Memory & Preferences Store (USER.md)', () => {
   const testWs = path.join(__dirname, 'fixtures', 'memory-ws')

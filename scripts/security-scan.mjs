@@ -57,8 +57,8 @@ check('Repository Secrets & .env Exposure', () => {
 
 // 2. Electron Window Sandboxing
 check('Electron Renderer Process Sandboxing', () => {
-  const mainTs = fs.readFileSync(path.join(ROOT, 'src/main/index.ts'), 'utf8')
-  const mascotManagerTs = fs.readFileSync(path.join(ROOT, 'src/main/windows/mascot-manager.ts'), 'utf8')
+  const mainTs = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/main/index.ts'), 'utf8')
+  const mascotManagerTs = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/main/windows/mascot-manager.ts'), 'utf8')
 
   if (mainTs.includes('sandbox: false') || mascotManagerTs.includes('sandbox: false')) {
     return { status: 'fail', severity: 'medium', message: 'One or more BrowserWindows have sandbox: false' }
@@ -73,7 +73,7 @@ check('Electron Renderer Process Sandboxing', () => {
 
 // 3. Shell Tool Execution Parameterization
 check('Shell Execution Parameterization (SEC-001)', () => {
-  const mainTs = fs.readFileSync(path.join(ROOT, 'src/main/index.ts'), 'utf8')
+  const mainTs = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/main/index.ts'), 'utf8')
   if (mainTs.includes('child_process.exec(') || mainTs.includes('exec(`start chrome')) {
     return { status: 'fail', severity: 'high', message: 'Raw shell concatenation exec() detected in tool execution' }
   }
@@ -85,7 +85,7 @@ check('Shell Execution Parameterization (SEC-001)', () => {
 
 // 4. HMAC Signature Verification in Approvals
 check('Cryptographic HMAC Approval Binding (SEC-002)', () => {
-  const mainTs = fs.readFileSync(path.join(ROOT, 'src/main/index.ts'), 'utf8')
+  const mainTs = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/main/index.ts'), 'utf8')
   if (!mainTs.includes('verifyApprovedAction(')) {
     return { status: 'fail', severity: 'high', message: 'policyEngine.verifyApprovedAction is not invoked in IPC handlers' }
   }
@@ -94,7 +94,7 @@ check('Cryptographic HMAC Approval Binding (SEC-002)', () => {
 
 // 5. Credential Redaction & Storage Encryption
 check('API Key Redaction & safeStorage (SEC-003)', () => {
-  const mainTs = fs.readFileSync(path.join(ROOT, 'src/main/index.ts'), 'utf8')
+  const mainTs = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/main/index.ts'), 'utf8')
   if (mainTs.includes("ipcMain.handle('settings:get', async () => settings)")) {
     return { status: 'fail', severity: 'high', message: 'settings:get returns raw settings object containing apiKey' }
   }
@@ -106,8 +106,8 @@ check('API Key Redaction & safeStorage (SEC-003)', () => {
 
 // 6. Navigation & Window Open Guards
 check('WebContents Navigation Lifecycle Guards (SEC-005)', () => {
-  const mainTs = fs.readFileSync(path.join(ROOT, 'src/main/index.ts'), 'utf8')
-  const mascotTs = fs.readFileSync(path.join(ROOT, 'src/main/windows/mascot-manager.ts'), 'utf8')
+  const mainTs = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/main/index.ts'), 'utf8')
+  const mascotTs = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/main/windows/mascot-manager.ts'), 'utf8')
 
   if (!mainTs.includes('setWindowOpenHandler') || !mascotTs.includes('setWindowOpenHandler')) {
     return { status: 'fail', severity: 'medium', message: 'setWindowOpenHandler missing on some windows' }
@@ -120,7 +120,7 @@ check('WebContents Navigation Lifecycle Guards (SEC-005)', () => {
 
 // 7. Symlink Traversal & Extension Gating
 check('Filesystem Boundary & Extension Gating (SEC-006, SEC-007)', () => {
-  const policyTs = fs.readFileSync(path.join(ROOT, 'src/main/policy/policy-engine.ts'), 'utf8')
+  const policyTs = fs.readFileSync(path.join(ROOT, 'packages/core/src/policy/policy-engine.ts'), 'utf8')
   if (!policyTs.includes('realpathSync')) {
     return { status: 'fail', severity: 'medium', message: 'realpathSync missing in path boundary check' }
   }

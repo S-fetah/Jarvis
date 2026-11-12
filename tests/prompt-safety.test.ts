@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { scanPromptSafety } from '../src/shared/prompt-safety'
-import { PromptEngine } from '../src/main/gateway/prompt-engine'
+import { scanPromptSafety } from '@jarvis/protocol'
+import { PromptEngine } from '../packages/core/src/gateway/prompt-engine'
 
 describe('Prompt Safety & Threat Analysis', () => {
   it('passes benign user instructions with clean status', () => {

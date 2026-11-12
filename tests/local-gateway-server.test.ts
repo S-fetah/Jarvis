@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { CredentialVault } from '../src/main/gateway/credential-vault'
-import { ModelBalancer } from '../src/main/gateway/model-balancer'
-import { LocalGatewayServer } from '../src/main/gateway/local-gateway-server'
+import { CredentialVault } from '../packages/core/src/gateway/credential-vault'
+import { ModelBalancer } from '../packages/core/src/gateway/model-balancer'
+import { LocalGatewayServer } from '../packages/core/src/gateway/local-gateway-server'
 
 describe('LocalGatewayServer (Embedded OpenAI-Compatible Gateway)', () => {
   const testUserData = path.resolve(__dirname, '../userData/test-server')

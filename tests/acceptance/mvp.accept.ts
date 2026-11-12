@@ -15,26 +15,26 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { spawn } from 'child_process'
-import { AgentOrchestrator, AgentRunOptions } from '../../src/main/agent/agent-orchestrator'
-import { ToolExecutor } from '../../src/main/tools/tool-executor'
-import { PolicyEngine } from '../../src/main/policy/policy-engine'
-import { ProcessManager } from '../../src/main/process/process-manager'
-import type { ChatCompletionMessage, ModelGatewayAdapter } from '../../src/main/gateway/model-adapter'
-import type { ApprovalRequest, TimelineEvent } from '../../src/shared/types'
-import { sendEmailDirect } from '../../src/main/utils/smtp'
-import { launchBrowser } from '../../src/main/utils/browser'
+import { AgentOrchestrator, AgentRunOptions } from '../../packages/core/src/agent/agent-orchestrator'
+import { ToolExecutor } from '../../packages/core/src/tools/tool-executor'
+import { PolicyEngine } from '../../packages/core/src/policy/policy-engine'
+import { ProcessManager } from '../../packages/core/src/process/process-manager'
+import type { ChatCompletionMessage, ModelGatewayAdapter } from '../../packages/core/src/gateway/model-adapter'
+import type { ApprovalRequest, TimelineEvent } from '@jarvis/protocol'
+import { sendEmailDirect } from '../../packages/core/src/utils/smtp'
+import { launchBrowser } from '../../packages/core/src/utils/browser'
 
-vi.mock('../../src/main/utils/smtp', () => ({
+vi.mock('../../packages/core/src/utils/smtp', () => ({
   sendEmailDirect: vi.fn(async () => ({ success: true, message: 'MOCK: delivered' }))
 }))
-vi.mock('../../src/main/utils/browser', () => ({
+vi.mock('../../packages/core/src/utils/browser', () => ({
   launchBrowser: vi.fn(async () => ({ success: true, message: 'MOCK: browser launched' }))
 }))
-vi.mock('../../src/main/utils/keyboard', () => ({
+vi.mock('../../packages/core/src/utils/keyboard', () => ({
   sendShortcut: vi.fn(async () => ({ success: true, message: 'MOCK: keys sent' }))
 }))
-vi.mock('../../src/main/utils/cdp', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/main/utils/cdp')>()),
+vi.mock('../../packages/core/src/utils/cdp', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../packages/core/src/utils/cdp')>()),
   isCdpAvailable: vi.fn(async () => true),
   waitForGmailReadyAndSend: vi.fn(async () => ({ success: true, message: 'MOCK: Gmail sent' }))
 }))

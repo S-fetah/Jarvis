@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { ToolExecutor } from '../src/main/tools/tool-executor'
-import { ProcessManager } from '../src/main/process/process-manager'
-import { PolicyEngine } from '../src/main/policy/policy-engine'
-import type { ApprovalRequest } from '../src/shared/types'
+import { ToolExecutor } from '../packages/core/src/tools/tool-executor'
+import { ProcessManager } from '../packages/core/src/process/process-manager'
+import { PolicyEngine } from '../packages/core/src/policy/policy-engine'
+import type { ApprovalRequest } from '@jarvis/protocol'
 
 /**
  * Runs a gated tool the way the app does: first call raises an approval request,

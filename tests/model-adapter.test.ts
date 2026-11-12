@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ModelGatewayAdapter } from '../src/main/gateway/model-adapter'
+import { ModelGatewayAdapter } from '../packages/core/src/gateway/model-adapter'
 
 describe('ModelGatewayAdapter', () => {
   it('initializes with default config and resolves models', async () => {

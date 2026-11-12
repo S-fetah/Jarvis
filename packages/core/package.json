@@ -1,0 +1,29 @@
+{
+  "name": "@jarvis/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "JARVIS core runtime: agent orchestrator, model gateway/balancer, policy engine, tools, process manager, and SQLite storage",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./agent/*": "./src/agent/*",
+    "./gateway/*": "./src/gateway/*",
+    "./memory/*": "./src/memory/*",
+    "./policy/*": "./src/policy/*",
+    "./process/*": "./src/process/*",
+    "./skills/*": "./src/skills/*",
+    "./storage/*": "./src/storage/*",
+    "./tools/*": "./src/tools/*",
+    "./utils/*": "./src/utils/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@jarvis/protocol": "*",
+    "sql.js": "^1.15.1",
+    "zod": "^3.24.2"
+  }
+}

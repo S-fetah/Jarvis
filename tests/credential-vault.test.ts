@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { CredentialVault } from '../src/main/gateway/credential-vault'
+import { CredentialVault } from '../packages/core/src/gateway/credential-vault'
 
 describe('CredentialVault (DPAPI Encrypted Provider Vault)', () => {
   const testUserData = path.resolve(__dirname, '../userData/test-vault')

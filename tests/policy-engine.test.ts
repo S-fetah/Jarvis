@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PolicyEngine } from '../src/main/policy/policy-engine'
+import { PolicyEngine } from '../packages/core/src/policy/policy-engine'
 
 describe('PolicyEngine (ADR-004 Verification)', () => {
   const workspace = 'C:\\work\\softwares\\jarvis'

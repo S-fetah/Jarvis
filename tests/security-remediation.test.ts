@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { PolicyEngine } from '../src/main/policy/policy-engine'
-import { JarvisDatabase } from '../src/main/storage/database'
+import { PolicyEngine } from '../packages/core/src/policy/policy-engine'
+import { JarvisDatabase } from '../packages/core/src/storage/database'
 import fs from 'fs'
 import path from 'path'
 

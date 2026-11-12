@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
-import { MascotAnimationController } from '../src/renderer/src/mascot/MascotAnimationController'
+import { MascotAnimationController } from '../apps/desktop/src/renderer/src/mascot/MascotAnimationController'
 
 describe('MascotAnimationController', () => {
   it('initializes in idle state with default base scale (0.65x)', () => {
