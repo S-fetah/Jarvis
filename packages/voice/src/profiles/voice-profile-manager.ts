@@ -10,6 +10,8 @@ export interface VoiceProfile {
   hasXttsLatents: boolean
   hasKokoroStyle: boolean
   folderPath: string
+  gender?: 'female' | 'male' | 'neutral'
+  baseVoice?: string
 }
 
 export interface VoiceProfileManagerOptions {
@@ -59,6 +61,14 @@ export class VoiceProfileManager {
           const hasXttsLatents = fs.existsSync(path.join(folderPath, 'xtts_speaker.bin'))
           const hasKokoroStyle = fs.existsSync(path.join(folderPath, 'kokoro_style.bin'))
 
+          const detectedGender: 'female' | 'male' | 'neutral' =
+            meta.gender ||
+            (meta.baseVoice?.startsWith('af_') || meta.baseVoice?.startsWith('bf_')
+              ? 'female'
+              : meta.baseVoice?.startsWith('am_') || meta.baseVoice?.startsWith('bm_')
+                ? 'male'
+                : 'neutral')
+
           profiles.push({
             id: meta.id || entry.name,
             name: meta.name || entry.name,
@@ -67,7 +77,9 @@ export class VoiceProfileManager {
             referenceWavPath: path.join(folderPath, 'reference.wav'),
             hasXttsLatents,
             hasKokoroStyle,
-            folderPath
+            folderPath,
+            gender: detectedGender,
+            baseVoice: meta.baseVoice || (detectedGender === 'female' ? 'af_bella' : 'bm_george')
           })
         } catch (err) {
           console.warn(`[VoiceProfileManager] Failed to parse profile in ${folderPath}:`, err)
@@ -93,7 +105,11 @@ export class VoiceProfileManager {
   async createProfile(
     name: string,
     wavBytes: Uint8Array,
-    description?: string
+    description?: string,
+    options?: {
+      gender?: 'female' | 'male' | 'neutral'
+      baseVoice?: string
+    }
   ): Promise<VoiceProfile> {
     this.ensureBaseDir()
     const slug = name
@@ -120,7 +136,13 @@ export class VoiceProfileManager {
     const xttsBinPath = path.join(folderPath, 'xtts_speaker.bin')
     fs.writeFileSync(xttsBinPath, xttsLatents)
 
-    // 4. Save metadata
+    // 4. Determine Gender & CPU Companion Base Voice
+    const detectedGender = this.detectGender(name, description, wavBytes, options?.gender)
+    const baseVoice =
+      options?.baseVoice ||
+      (detectedGender === 'female' ? 'af_bella' : 'bm_george')
+
+    // 5. Save metadata
     const profile: VoiceProfile = {
       id: slug,
       name,
@@ -129,13 +151,78 @@ export class VoiceProfileManager {
       referenceWavPath: refWavPath,
       hasXttsLatents: true,
       hasKokoroStyle: true,
-      folderPath
+      folderPath,
+      gender: detectedGender,
+      baseVoice
     }
 
     const metaPath = path.join(folderPath, 'profile.json')
     fs.writeFileSync(metaPath, JSON.stringify(profile, null, 2))
 
     return profile
+  }
+
+  private detectGender(
+    name: string,
+    description?: string,
+    wavBytes?: Uint8Array,
+    explicitGender?: 'female' | 'male' | 'neutral'
+  ): 'female' | 'male' | 'neutral' {
+    if (explicitGender && explicitGender !== 'neutral') return explicitGender
+
+    const text = `${name} ${description || ''}`.toLowerCase()
+    const femaleKeywords = [
+      'female',
+      'woman',
+      'girl',
+      'bella',
+      'sarah',
+      'heart',
+      'nicole',
+      'zira',
+      'emma',
+      'alice',
+      'lady',
+      'she',
+      'her'
+    ]
+    const maleKeywords = [
+      'male',
+      'man',
+      'boy',
+      'guy',
+      'david',
+      'michael',
+      'george',
+      'adam',
+      'jarvis',
+      'butler',
+      'sir',
+      'he',
+      'him',
+      'his'
+    ]
+
+    if (femaleKeywords.some((k) => text.includes(k))) return 'female'
+    if (maleKeywords.some((k) => text.includes(k))) return 'male'
+
+    if (wavBytes && wavBytes.length > 500) {
+      let zeroCrossings = 0
+      const start = 44
+      const end = Math.min(wavBytes.length - 2, 16044)
+      for (let i = start; i < end; i += 2) {
+        const s1 = (wavBytes[i] | (wavBytes[i + 1] << 8)) << 16 >> 16
+        const s2 = (wavBytes[i + 2] | (wavBytes[i + 3] << 8)) << 16 >> 16
+        if ((s1 >= 0 && s2 < 0) || (s1 < 0 && s2 >= 0)) {
+          zeroCrossings++
+        }
+      }
+      const durationSec = (end - start) / (2 * 16000)
+      const zcrRate = zeroCrossings / (durationSec || 1)
+      if (zcrRate > 900) return 'female'
+    }
+
+    return 'male'
   }
 
   /**

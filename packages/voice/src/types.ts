@@ -26,6 +26,8 @@ export interface AudioOutput {
   sampleRateHz: number
   format: 'pcm16' | 'wav' | 'mp3' | 'ogg'
   durationMs?: number
+  providerId?: string
+  voice?: string
 }
 
 export interface ProviderHealth {

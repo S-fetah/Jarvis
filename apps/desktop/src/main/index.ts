@@ -1819,7 +1819,9 @@ function registerIpcHandlers(): void {
       data: Array.from(audioData),
       sampleRateHz: output.sampleRateHz,
       format,
-      durationMs: output.durationMs
+      durationMs: output.durationMs,
+      providerId: output.providerId,
+      voice: output.voice
     }
   })
 
@@ -1830,10 +1832,28 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(
     'voice:create-profile',
-    async (event, { name, wavBase64, description }: { name: string; wavBase64: string; description?: string }) => {
+    async (
+      event,
+      {
+        name,
+        wavBase64,
+        description,
+        gender,
+        baseVoice
+      }: {
+        name: string
+        wavBase64: string
+        description?: string
+        gender?: 'female' | 'male' | 'neutral'
+        baseVoice?: string
+      }
+    ) => {
       if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
       const buffer = Buffer.from(wavBase64, 'base64')
-      return await voiceProfileManager.createProfile(name, buffer, description)
+      return await voiceProfileManager.createProfile(name, buffer, description, {
+        gender,
+        baseVoice
+      })
     }
   )
 

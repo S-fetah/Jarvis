@@ -147,12 +147,14 @@ Through our interactive design interview, the following decisions were finalized
 - 3D Mascot visual state bindings (`listening`, `thinking`, `speaking`, `interrupted`).
 
 ### Phase V3: CPU-Optimized Voice Cloning & Dual-Engine TTS
-- **Phase V3.1 (Kokoro-82M Universal Baseline)**: `KokoroTTSProvider` (`kokoro-js`) on ONNX Runtime with sentence chunker (<150ms TTFA on CPU).
-- **Phase V3.2 (Voice Profile Pre-baking)**: Voice Profile Studio in Settings (audio sample upload/record $\rightarrow$ precomputes persistent `xtts_speaker.bin` and `kokoro_style.bin`).
-- **Phase V3.3 (XTTS-v2 Precomputed Inference)**: `XttsV2Provider` streaming adapter with cached latents for exact voice resemblance.
-- **Phase V3.4 (Cascading Failover)**: `TTSDispatcher` cascading router (XTTS-v2 $\rightarrow$ Kokoro-82M $\rightarrow$ Edge-TTS).
+- **Phase V3.1 (Kokoro-82M Universal Baseline)**: `KokoroTTSProvider` (`kokoro-js`, `onnx-community/Kokoro-82M-v1.0-ONNX` q8, ~86MB) running 100% locally on CPU (<150ms TTFA) with 28 native expressive voices across female (`af_heart`, `af_bella`, `af_sarah`, `bf_emma`) and male (`bm_george` [British Butler], `am_michael`, `am_adam`, `bm_lewis`) personas.
+- **Phase V3.2 (Voice Profile Pre-baking & Persona Matching)**: Voice Profile Studio in Settings (audio sample upload/record $\rightarrow$ precomputes persistent `xtts_speaker.bin` and `kokoro_style.bin` with automatic acoustic pitch/keyword gender detection and companion CPU base voice assignment).
+- **Phase V3.3 (XTTS-v2 Precomputed Inference)**: `XttsV2Provider` streaming adapter with cached latents for exact zero-shot voice resemblance when server is online.
+- **Phase V3.4 (Cascading Failover & SAPI Gender Preservation)**: `VoiceManager` intelligent engine routing (Auto $\rightarrow$ XTTS-v2 for neural cloning when server active $\rightarrow$ Kokoro-82M CPU companion $\rightarrow$ Edge-TTS $\rightarrow$ Windows System.Speech SAPI with strict gender preservation: female $\rightarrow$ `Microsoft Zira Desktop`, male $\rightarrow$ `Microsoft David Desktop`).
+- **Phase V3.5 (Interactive Voice & Cloned Profile Playground)**: Dedicated Settings test studio supporting custom paragraphs, speed adjustment (0.5x–2.0x), quick presets, audio playback, and active engine/voice resolution badges.
 
-### Phase V4: Local Offline STT (Whisper ONNX)
+### Phase V4: Local Offline STT (Whisper ONNX) & Real-Time Interim Tracking
+- Real-time interim STT recognition (1.8s sliding window with simultaneous request lifecycle) for immediate visual feedback of spoken words.
 - Quantized Whisper `base.en` ONNX provider for 100% offline air-gapped speech recognition.
 - Automatic failover matrix (Cloud Groq $\rightarrow$ Local Whisper ONNX).
 

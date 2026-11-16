@@ -16,7 +16,7 @@ export default defineConfig({
     plugins: [
       externalizeDepsPlugin({
         exclude: internalWorkspaces,
-        include: ['onnxruntime-node']
+        include: ['onnxruntime-node', 'kokoro-js', '@huggingface/transformers', 'phonemizer']
       })
     ],
     resolve: {
@@ -24,7 +24,7 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        external: ['onnxruntime-node'],
+        external: ['onnxruntime-node', 'kokoro-js', '@huggingface/transformers', 'phonemizer'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         }

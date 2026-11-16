@@ -1,4 +1,6 @@
 import { spawn } from 'child_process'
+import fs from 'fs'
+import path from 'path'
 import type {
   AudioOutput,
   ProviderHealth,
@@ -14,16 +16,118 @@ export class SystemSpeechTTSProvider implements TextToSpeechProvider {
     return false
   }
 
+  private resolveVoice(
+    requestedVoice?: string,
+    speakerWav?: string
+  ): { voiceName: string; isFemale: boolean } {
+    let isFemale = false
+    const raw = (requestedVoice || '').trim().toLowerCase()
+
+    // 1. Inspect cloned profile metadata if speakerWav is supplied
+    if (speakerWav) {
+      try {
+        const metaPath = fs.existsSync(speakerWav) && fs.statSync(speakerWav).isDirectory()
+          ? path.join(speakerWav, 'profile.json')
+          : path.join(path.dirname(speakerWav), 'profile.json')
+
+        if (fs.existsSync(metaPath)) {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+          if (
+            meta.gender === 'female' ||
+            meta.baseVoice?.startsWith('af_') ||
+            meta.baseVoice?.startsWith('bf_')
+          ) {
+            isFemale = true
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Check voice name tokens
+    const femaleTokens = [
+      'af_',
+      'bf_',
+      'zf_',
+      'jf_',
+      'female',
+      'woman',
+      'zira',
+      'bella',
+      'heart',
+      'sarah',
+      'nicole',
+      'sky',
+      'nova',
+      'river',
+      'jessica',
+      'aoede',
+      'alloy',
+      'emma',
+      'isabella',
+      'alice',
+      'lily',
+      'jenny',
+      'aria',
+      'eva',
+      'hazel'
+    ]
+
+    if (femaleTokens.some((t) => raw.includes(t))) {
+      isFemale = true
+    }
+
+    // If explicit SAPI name was given (e.g., 'Microsoft Zira Desktop')
+    if (requestedVoice && requestedVoice.includes('Desktop')) {
+      return { voiceName: requestedVoice, isFemale }
+    }
+
+    return {
+      voiceName: isFemale ? 'Microsoft Zira Desktop' : 'Microsoft David Desktop',
+      isFemale
+    }
+  }
+
   async synthesize(text: string, options?: SpeechOptions): Promise<AudioOutput> {
     const startTime = Date.now()
     const sanitizedText = text.replace(/["`$]/g, ' ')
-    const voiceName = options?.voice || 'Microsoft David Desktop'
+    const resolved = this.resolveVoice(options?.voice, options?.speakerWav)
     const speed = Math.max(-10, Math.min(10, Math.round(((options?.speed ?? 1.0) - 1.0) * 10)))
 
     const script = `
 Add-Type -AssemblyName System.Speech;
 $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer;
-try { $synth.SelectVoice('${voiceName}') } catch {};
+$target = '${resolved.voiceName}';
+$isFemale = ${resolved.isFemale ? '$true' : '$false'};
+
+$selected = $false;
+try {
+  $synth.SelectVoice($target);
+  $selected = $true;
+} catch {};
+
+if (-not $selected) {
+  $voices = $synth.GetInstalledVoices() | Where-Object { $_.Enabled };
+  $match = $null;
+  if ($isFemale) {
+    $match = $voices | Where-Object {
+      $_.VoiceInfo.Gender -eq [System.Speech.Synthesis.VoiceGender]::Female -or
+      $_.VoiceInfo.Name -like '*Zira*' -or
+      $_.VoiceInfo.Name -like '*Eva*' -or
+      $_.VoiceInfo.Name -like '*Hazel*'
+    } | Select-Object -First 1;
+  } else {
+    $match = $voices | Where-Object {
+      $_.VoiceInfo.Gender -eq [System.Speech.Synthesis.VoiceGender]::Male -or
+      $_.VoiceInfo.Name -like '*David*' -or
+      $_.VoiceInfo.Name -like '*Mark*' -or
+      $_.VoiceInfo.Name -like '*George*'
+    } | Select-Object -First 1;
+  }
+  if ($match) {
+    try { $synth.SelectVoice($match.VoiceInfo.Name) } catch {};
+  }
+}
+
 $synth.Rate = ${speed};
 $ms = New-Object System.IO.MemoryStream;
 $synth.SetOutputToWaveStream($ms);
@@ -70,7 +174,9 @@ $bytes = $ms.ToArray();
           data: new Uint8Array(fullBuffer),
           sampleRateHz: 16000,
           format: 'wav',
-          durationMs: Date.now() - startTime
+          durationMs: Date.now() - startTime,
+          providerId: this.id,
+          voice: resolved.voiceName
         })
       })
     })

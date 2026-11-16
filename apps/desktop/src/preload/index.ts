@@ -330,8 +330,19 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('voice:list-profiles')
   },
 
-  voiceCreateProfile: (name: string, wavBase64: string, description?: string): Promise<any> => {
-    return ipcRenderer.invoke('voice:create-profile', { name, wavBase64, description })
+  voiceCreateProfile: (
+    name: string,
+    wavBase64: string,
+    description?: string,
+    options?: { gender?: 'female' | 'male' | 'neutral'; baseVoice?: string }
+  ): Promise<any> => {
+    return ipcRenderer.invoke('voice:create-profile', {
+      name,
+      wavBase64,
+      description,
+      gender: options?.gender,
+      baseVoice: options?.baseVoice
+    })
   },
 
   voiceDeleteProfile: (id: string): Promise<boolean> => {

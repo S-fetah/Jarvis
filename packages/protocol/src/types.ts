@@ -306,7 +306,14 @@ export interface JarvisAPI {
   voiceSynthesize?: (
     text: string,
     options?: { voice?: string; speed?: number; language?: string; speakerWav?: string; providerId?: string }
-  ) => Promise<{ data: Uint8Array | number[]; sampleRateHz: number; format: string; durationMs?: number }>
+  ) => Promise<{
+    data: Uint8Array | number[]
+    sampleRateHz: number
+    format: string
+    durationMs?: number
+    providerId?: string
+    voice?: string
+  }>
   voiceInterrupt?: () => Promise<boolean>
   voiceProcessChunk?: (chunk: Int16Array | number[]) => Promise<boolean>
   voiceGetConfig?: () => Promise<any>
@@ -320,8 +327,15 @@ export interface JarvisAPI {
     hasXttsLatents: boolean
     hasKokoroStyle: boolean
     folderPath: string
+    gender?: 'female' | 'male' | 'neutral'
+    baseVoice?: string
   }>>
-  voiceCreateProfile?: (name: string, wavBase64: string, description?: string) => Promise<any>
+  voiceCreateProfile?: (
+    name: string,
+    wavBase64: string,
+    description?: string,
+    options?: { gender?: 'female' | 'male' | 'neutral'; baseVoice?: string }
+  ) => Promise<any>
   voiceDeleteProfile?: (id: string) => Promise<boolean>
   onVoiceEvent?: (callback: (event: any) => void) => () => void
 }

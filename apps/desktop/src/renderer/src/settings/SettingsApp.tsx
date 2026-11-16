@@ -96,6 +96,8 @@ export function SettingsApp(): React.JSX.Element {
   const [voiceProfiles, setVoiceProfiles] = useState<any[]>([])
   const [newProfileName, setNewProfileName] = useState<string>('')
   const [newProfileDesc, setNewProfileDesc] = useState<string>('')
+  const [newProfileGender, setNewProfileGender] = useState<'female' | 'male'>('male')
+  const [newProfileBaseVoice, setNewProfileBaseVoice] = useState<string>('bm_george')
   const [newProfileWavBase64, setNewProfileWavBase64] = useState<string | null>(null)
   const [newProfileFileName, setNewProfileFileName] = useState<string | null>(null)
   const [isEnrolling, setIsEnrolling] = useState<boolean>(false)
@@ -116,6 +118,8 @@ export function SettingsApp(): React.JSX.Element {
     durationMs?: number
     sampleRateHz?: number
     format?: string
+    providerId?: string
+    voice?: string
     error?: string
   } | null>(null)
 
@@ -146,6 +150,7 @@ export function SettingsApp(): React.JSX.Element {
         const prof = voiceProfiles.find((p) => p.id === profId)
         if (prof) {
           speakerWav = prof.folderPath
+          voiceName = prof.baseVoice || (prof.gender === 'female' ? 'af_bella' : 'bm_george')
         }
       } else if (playgroundVoiceId.startsWith('voice:')) {
         voiceName = playgroundVoiceId.replace('voice:', '')
@@ -165,7 +170,9 @@ export function SettingsApp(): React.JSX.Element {
         latencyMs,
         durationMs: res?.durationMs,
         sampleRateHz: res?.sampleRateHz,
-        format: res?.format
+        format: res?.format,
+        providerId: res?.providerId || providerId || 'auto',
+        voice: res?.voice || voiceName || 'default'
       })
 
       if (res?.data && res.data.length > 0) {
@@ -1391,12 +1398,16 @@ export function SettingsApp(): React.JSX.Element {
                             <Badge variant="outline" className="text-3xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                               Dual-Cached
                             </Badge>
+                            <Badge variant="outline" className="text-3xs font-mono bg-jarvis-base text-jarvis-ivory border-jarvis-border">
+                              {p.gender === 'female' ? '👩 Female' : '👨 Male'}
+                            </Badge>
                           </div>
                           {p.description && (
                             <p className="text-3xs text-jarvis-muted">{p.description}</p>
                           )}
                           <div className="flex items-center gap-3 font-mono text-3xs text-jarvis-muted/80">
                             <span>XTTS Latents: {p.hasXttsLatents ? '✓ Ready' : '—'}</span>
+                            <span>CPU Base: {p.baseVoice || (p.gender === 'female' ? 'af_bella' : 'bm_george')}</span>
                             <span>Kokoro Style: {p.hasKokoroStyle ? '✓ 256-dim' : '—'}</span>
                           </div>
                         </div>
@@ -1413,10 +1424,16 @@ export function SettingsApp(): React.JSX.Element {
                                 if (window.jarvisAPI?.voiceSynthesize) {
                                   const res = await window.jarvisAPI.voiceSynthesize(
                                     `Hello, this is a test of the ${p.name} voice profile. All systems operational.`,
-                                    { speakerWav: p.folderPath }
+                                    {
+                                      speakerWav: p.folderPath,
+                                      voice: p.baseVoice || (p.gender === 'female' ? 'af_bella' : 'bm_george'),
+                                      providerId: 'auto'
+                                    }
                                   )
                                   if (res?.data) {
                                     await globalAudioPlayback.play(res.data, res.sampleRateHz || 24000)
+                                    setVoiceFeedback(`Synthesized ${p.name} using ${res.providerId || 'auto'} (${res.voice || p.baseVoice})`)
+                                    setTimeout(() => setVoiceFeedback(null), 3500)
                                   }
                                 }
                               } catch (err: any) {
@@ -1478,6 +1495,50 @@ export function SettingsApp(): React.JSX.Element {
                         onChange={(e) => setNewProfileDesc(e.target.value)}
                         className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
                       />
+                    </div>
+                  </div>
+
+                  {/* Gender & CPU Base Persona Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-3xs font-medium text-jarvis-ivory">Voice Gender</label>
+                      <select
+                        value={newProfileGender}
+                        onChange={(e) => {
+                          const g = e.target.value as 'female' | 'male'
+                          setNewProfileGender(g)
+                          setNewProfileBaseVoice(g === 'female' ? 'af_bella' : 'bm_george')
+                        }}
+                        className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                      >
+                        <option value="male">👨 Male Persona</option>
+                        <option value="female">👩 Female Persona</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-3xs font-medium text-jarvis-ivory">Kokoro CPU Companion Voice</label>
+                      <select
+                        value={newProfileBaseVoice}
+                        onChange={(e) => setNewProfileBaseVoice(e.target.value)}
+                        className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                      >
+                        {newProfileGender === 'female' ? (
+                          <>
+                            <option value="af_bella">Bella (Crisp & Articulate, American)</option>
+                            <option value="af_heart">Heart (Warm & Natural, American)</option>
+                            <option value="af_sarah">Sarah (Conversational, American)</option>
+                            <option value="bf_emma">Emma (British Elegant)</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="bm_george">George (British Butler / Jarvis-style)</option>
+                            <option value="am_michael">Michael (Deep & Authoritative, American)</option>
+                            <option value="am_adam">Adam (Broadcast-ready, American)</option>
+                            <option value="bm_lewis">Lewis (British Articulate)</option>
+                          </>
+                        )}
+                      </select>
                     </div>
                   </div>
 
@@ -1547,7 +1608,10 @@ export function SettingsApp(): React.JSX.Element {
                           }
 
                           if (window.jarvisAPI?.voiceCreateProfile) {
-                            await window.jarvisAPI.voiceCreateProfile(newProfileName, wavB64, newProfileDesc)
+                            await window.jarvisAPI.voiceCreateProfile(newProfileName, wavB64, newProfileDesc, {
+                              gender: newProfileGender,
+                              baseVoice: newProfileBaseVoice
+                            })
                             setNewProfileName('')
                             setNewProfileDesc('')
                             setNewProfileWavBase64(null)
@@ -1613,25 +1677,36 @@ export function SettingsApp(): React.JSX.Element {
                       onChange={(e) => setPlaygroundVoiceId(e.target.value)}
                       className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
                     >
-                      <option value="default">Default Voice ({voiceConfig?.ttsProvider || 'neural'})</option>
+                      <option value="default">Default Voice ({voiceConfig?.ttsProvider || 'kokoro-82m'})</option>
                       {voiceProfiles.length > 0 && (
                         <optgroup label="Cloned Voice Profiles">
                           {voiceProfiles.map((p) => (
                             <option key={p.id} value={`profile:${p.id}`}>
-                              ⭐ {p.name} {p.hasXttsLatents ? '(XTTS Cloned)' : '(WAV Cloned)'}
+                              ⭐ {p.name} ({p.gender === 'female' ? 'Female' : 'Male'} • {p.baseVoice || 'Auto'})
                             </option>
                           ))}
                         </optgroup>
                       )}
-                      <optgroup label="Kokoro-82M Preset Voices">
-                        <option value="voice:af_heart">Kokoro: Heart (Female)</option>
-                        <option value="voice:am_michael">Kokoro: Michael (Male)</option>
-                        <option value="voice:af_bella">Kokoro: Bella (Female)</option>
-                        <option value="voice:af_sarah">Kokoro: Sarah (Female)</option>
+                      <optgroup label="Kokoro-82M Female Voices">
+                        <option value="voice:af_heart">Kokoro: Heart (Warm & Natural, US)</option>
+                        <option value="voice:af_bella">Kokoro: Bella (Crisp & Articulate, US)</option>
+                        <option value="voice:af_sarah">Kokoro: Sarah (Conversational, US)</option>
+                        <option value="voice:af_nicole">Kokoro: Nicole (Gentle, US)</option>
+                        <option value="voice:bf_emma">Kokoro: Emma (British Elegant, UK)</option>
                       </optgroup>
-                      <optgroup label="Edge-TTS Voices">
-                        <option value="voice:en-US-JennyNeural">Edge-TTS: Jenny (Neural)</option>
-                        <option value="voice:en-US-GuyNeural">Edge-TTS: Guy (Neural)</option>
+                      <optgroup label="Kokoro-82M Male Voices">
+                        <option value="voice:bm_george">Kokoro: George (British Butler / Jarvis-style, UK)</option>
+                        <option value="voice:am_michael">Kokoro: Michael (Deep & Warm, US)</option>
+                        <option value="voice:am_adam">Kokoro: Adam (Broadcast-ready, US)</option>
+                        <option value="voice:bm_lewis">Kokoro: Lewis (British Articulate, UK)</option>
+                      </optgroup>
+                      <optgroup label="Edge-TTS Cloud Voices">
+                        <option value="voice:en-US-JennyNeural">Edge-TTS: Jenny (Neural Female)</option>
+                        <option value="voice:en-US-GuyNeural">Edge-TTS: Guy (Neural Male)</option>
+                      </optgroup>
+                      <optgroup label="Windows System.Speech (SAPI)">
+                        <option value="voice:Microsoft Zira Desktop">SAPI: Microsoft Zira (Female)</option>
+                        <option value="voice:Microsoft David Desktop">SAPI: Microsoft David (Male)</option>
                       </optgroup>
                     </select>
                   </div>
@@ -1740,10 +1815,20 @@ export function SettingsApp(): React.JSX.Element {
                         <span>Synthesis Error: {playgroundStats.error}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                          <Check className="h-3.5 w-3.5" /> Synthesized Successfully
+                          <Check className="h-3.5 w-3.5" /> Synthesized
                         </span>
+                        {playgroundStats.providerId && (
+                          <Badge variant="outline" className="text-3xs bg-jarvis-accent/15 text-jarvis-accent border-jarvis-accent/40 font-mono">
+                            Engine: {playgroundStats.providerId}
+                          </Badge>
+                        )}
+                        {playgroundStats.voice && (
+                          <Badge variant="outline" className="text-3xs bg-jarvis-base text-jarvis-ivory border-jarvis-border font-mono">
+                            Voice: {playgroundStats.voice}
+                          </Badge>
+                        )}
                         {playgroundStats.latencyMs !== undefined && (
                           <span className="text-jarvis-muted">Latency: <span className="text-jarvis-ivory font-bold">{playgroundStats.latencyMs}ms</span></span>
                         )}
@@ -1751,7 +1836,7 @@ export function SettingsApp(): React.JSX.Element {
                           <span className="text-jarvis-muted">Duration: <span className="text-jarvis-ivory font-bold">{(playgroundStats.durationMs / 1000).toFixed(1)}s</span></span>
                         )}
                         {playgroundStats.sampleRateHz !== undefined && (
-                          <span className="text-jarvis-muted">Format: <span className="text-jarvis-ivory font-bold">{playgroundStats.sampleRateHz}Hz {playgroundStats.format || 'wav'}</span></span>
+                          <span className="text-jarvis-muted">Rate: <span className="text-jarvis-ivory font-bold">{playgroundStats.sampleRateHz}Hz</span></span>
                         )}
                       </div>
                     )}

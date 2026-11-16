@@ -215,6 +215,86 @@ export class VoiceManager extends EventEmitter {
     }
   }
 
+  /**
+   * Resolves the primary TTS provider considering requested provider, auto mode,
+   * voice name, and voice profile characteristics.
+   */
+  resolveTTSProvider(options?: SpeechOptions): TextToSpeechProvider | undefined {
+    const requested = options?.providerId || this.config.ttsProvider
+
+    // 1. If explicit provider is requested and it is not 'auto', use it if registered
+    if (requested && requested !== 'auto') {
+      const match = this.ttsProviders.get(requested)
+      if (match) return match
+    }
+
+    // 2. Intelligent Auto-Routing:
+    // If a cloned voice profile (speakerWav) is passed
+    if (options?.speakerWav) {
+      // If XTTS-v2 provider is available and its server is active, route to XTTS-v2 for true neural cloning
+      const xtts = this.ttsProviders.get('xtts-v2')
+      if (xtts) return xtts
+    }
+
+    // If explicit voice is specified
+    const v = (options?.voice || '').toLowerCase()
+    if (
+      v.startsWith('af_') ||
+      v.startsWith('am_') ||
+      v.startsWith('bf_') ||
+      v.startsWith('bm_') ||
+      v.includes('kokoro')
+    ) {
+      const kokoro = this.ttsProviders.get('kokoro-82m')
+      if (kokoro) return kokoro
+    }
+
+    if (v.includes('neural')) {
+      const edge = this.ttsProviders.get('edge-tts')
+      if (edge) return edge
+    }
+
+    if (v.includes('desktop') || v.includes('microsoft')) {
+      const sys = this.ttsProviders.get('system-speech')
+      if (sys) return sys
+    }
+
+    // Default preference for local CPU instant neural
+    if (this.ttsProviders.has('kokoro-82m')) {
+      return this.ttsProviders.get('kokoro-82m')
+    }
+
+    if (this.ttsProviders.has('edge-tts')) {
+      return this.ttsProviders.get('edge-tts')
+    }
+
+    if (this.ttsProviders.has('system-speech')) {
+      return this.ttsProviders.get('system-speech')
+    }
+
+    return Array.from(this.ttsProviders.values())[0]
+  }
+
+  /**
+   * Resolves fallback TTS provider ensuring it differs from the primary provider.
+   */
+  resolveFallbackTTSProvider(primaryId?: string): TextToSpeechProvider | undefined {
+    const configuredFallback = this.config.ttsFallbackProvider
+    if (configuredFallback && configuredFallback !== primaryId) {
+      const match = this.ttsProviders.get(configuredFallback)
+      if (match) return match
+    }
+
+    const cascadeOrder = ['kokoro-82m', 'edge-tts', 'system-speech']
+    for (const id of cascadeOrder) {
+      if (id !== primaryId && this.ttsProviders.has(id)) {
+        return this.ttsProviders.get(id)
+      }
+    }
+
+    return Array.from(this.ttsProviders.values()).find((p) => p.id !== primaryId)
+  }
+
   async synthesize(text: string, options?: SpeechOptions): Promise<AudioOutput> {
     this.setState('speaking')
     this.currentAbortController = new AbortController()
@@ -223,14 +303,12 @@ export class VoiceManager extends EventEmitter {
       ? anySignal(options.signal, this.currentAbortController.signal)
       : this.currentAbortController.signal
 
-    const primaryId = options?.providerId || this.config.ttsProvider
-    const fallbackId = this.config.ttsFallbackProvider
-    const primary = this.ttsProviders.get(primaryId)
-    const fallback = fallbackId ? this.ttsProviders.get(fallbackId) : undefined
+    const primary = this.resolveTTSProvider(options)
+    const fallback = this.resolveFallbackTTSProvider(primary?.id)
 
     if (!primary && !fallback) {
       this.setState('error')
-      throw new Error(`No valid TTS provider registered (configured: ${primaryId}).`)
+      throw new Error(`No valid TTS provider registered (configured: ${this.config.ttsProvider}).`)
     }
 
     const mergedOptions: SpeechOptions = {
@@ -246,7 +324,10 @@ export class VoiceManager extends EventEmitter {
       try {
         const output = await primary.synthesize(text, mergedOptions)
         this.setState('idle')
-        return output
+        return {
+          ...output,
+          providerId: output.providerId || primary.id
+        }
       } catch (primaryErr) {
         if (combinedSignal.aborted) {
           this.setState('interrupted')
@@ -256,6 +337,10 @@ export class VoiceManager extends EventEmitter {
           this.setState('error')
           throw primaryErr
         }
+        console.warn(
+          `[VoiceManager] Primary TTS (${primary.id}) failed, falling back to ${fallback.id}:`,
+          primaryErr
+        )
       }
     }
 
@@ -264,7 +349,10 @@ export class VoiceManager extends EventEmitter {
       try {
         const output = await fallback.synthesize(text, mergedOptions)
         this.setState('idle')
-        return output
+        return {
+          ...output,
+          providerId: output.providerId || fallback.id
+        }
       } catch (fallbackErr) {
         this.setState(combinedSignal.aborted ? 'interrupted' : 'error')
         throw fallbackErr
