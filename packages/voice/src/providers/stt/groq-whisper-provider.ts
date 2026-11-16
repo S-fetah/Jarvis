@@ -66,10 +66,14 @@ export class GroqWhisperSTTProvider implements SpeechToTextProvider {
     formData.append('file', audioBlob, filename)
     formData.append('model', this.model)
     formData.append('response_format', 'verbose_json')
-    formData.append('temperature', String(this.temperature))
+    formData.append('temperature', String(this.temperature ?? 0.0))
 
-    if (options?.language) {
-      formData.append('language', options.language)
+    const prompt = options?.prompt || 'Jarvis, system, code, assistant, conversational, terminal, prompt, workflow.'
+    formData.append('prompt', prompt)
+
+    const lang = options?.language || 'en'
+    if (lang && lang !== 'auto') {
+      formData.append('language', lang)
     }
 
     const response = await fetch(this.endpoint, {

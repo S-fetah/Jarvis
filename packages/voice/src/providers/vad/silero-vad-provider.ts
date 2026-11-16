@@ -28,26 +28,44 @@ export class SileroVADProvider implements VADProvider {
     this.initPromise = this.initSession(config?.modelPath)
   }
 
-  private async initSession(customModelPath?: string): Promise<void> {
-    const candidatePaths = customModelPath
-      ? [customModelPath]
-      : [
-          path.resolve(__dirname, '../../../assets/models/silero_vad.onnx'),
-          path.resolve(__dirname, '../../assets/models/silero_vad.onnx'),
-          path.resolve(process.cwd(), 'packages/voice/assets/models/silero_vad.onnx'),
-          path.resolve(
-            process.env.APPDATA || process.env.HOME || '',
-            'Jarvis/models/voice/silero_vad.onnx'
-          )
-        ].filter(Boolean) as string[]
+  private findModelPath(customModelPath?: string): string | null {
+    if (customModelPath) {
+      return fs.existsSync(customModelPath) ? customModelPath : null
+    }
 
-    let foundPath: string | null = null
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p)) {
-        foundPath = p
-        break
+    // 1. Check persistent APPDATA cache
+    const appDataPath = path.resolve(
+      process.env.APPDATA || process.env.HOME || '',
+      'Jarvis/models/voice/silero_vad.onnx'
+    )
+    if (fs.existsSync(appDataPath)) return appDataPath
+
+    // 2. Search upwards from __dirname and process.cwd() for packages/voice/assets/models/silero_vad.onnx
+    const startDirs = [__dirname, process.cwd()]
+    for (const start of startDirs) {
+      let curr = start
+      for (let i = 0; i < 6; i++) {
+        const candidate = path.join(curr, 'packages', 'voice', 'assets', 'models', 'silero_vad.onnx')
+        if (fs.existsSync(candidate)) {
+          try {
+            fs.mkdirSync(path.dirname(appDataPath), { recursive: true })
+            fs.copyFileSync(candidate, appDataPath)
+            return appDataPath
+          } catch {
+            return candidate
+          }
+        }
+        const parent = path.dirname(curr)
+        if (parent === curr) break
+        curr = parent
       }
     }
+
+    return null
+  }
+
+  private async initSession(customModelPath?: string): Promise<void> {
+    const foundPath = this.findModelPath(customModelPath)
 
     if (!foundPath) {
       console.warn('[SileroVAD] ONNX model not found, falling back to adaptive energy VAD.')
@@ -61,6 +79,7 @@ export class SileroVADProvider implements VADProvider {
         graphOptimizationLevel: 'all'
       })
       this.reset()
+      this.isFallbackMode = false
     } catch (err) {
       console.warn('[SileroVAD] Failed to initialize ONNX session, using energy fallback:', err)
       this.isFallbackMode = true

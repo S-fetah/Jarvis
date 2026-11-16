@@ -98,18 +98,39 @@ export class AudioCaptureService {
       totalLength += chunk.length
     }
 
+    if (totalLength === 0) {
+      return {
+        data: new Uint8Array(0),
+        sampleRateHz: 16000,
+        channels: 1,
+        format: 'pcm16'
+      }
+    }
+
     const mergedFloat32 = new Float32Array(totalLength)
     let offset = 0
+    let peak = 0
     for (const chunk of this.recordedChunks) {
       mergedFloat32.set(chunk, offset)
       offset += chunk.length
     }
 
-    // Convert Float32Array to 16-bit signed PCM
-    const int16Array = new Int16Array(totalLength)
     for (let i = 0; i < totalLength; i++) {
-      const s = Math.max(-1, Math.min(1, mergedFloat32[i]))
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7fff
+      const abs = Math.abs(mergedFloat32[i])
+      if (abs > peak) peak = abs
+    }
+
+    // Normalization: boost quiet microphone input up to 4x to ensure high Whisper accuracy
+    const gain = peak > 0.01 ? Math.min(4.0, 0.9 / peak) : 1.0
+
+    // 100ms silence padding (1600 samples @ 16kHz) front and back to protect Whisper boundaries
+    const padSamples = 1600
+    const finalLength = totalLength + padSamples * 2
+    const int16Array = new Int16Array(finalLength)
+
+    for (let i = 0; i < totalLength; i++) {
+      const s = Math.max(-1, Math.min(1, mergedFloat32[i] * gain))
+      int16Array[padSamples + i] = s < 0 ? s * 0x8000 : s * 0x7fff
     }
 
     return {

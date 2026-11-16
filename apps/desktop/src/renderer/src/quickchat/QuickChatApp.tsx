@@ -53,7 +53,7 @@ const QuickChatComposer = React.memo(function QuickChatComposer({
       setIsTranscribing(true)
       try {
         const audio = await globalAudioCapture.stopRecording()
-        if (window.jarvisAPI?.voiceTranscribe) {
+        if (audio.data.length > 0 && window.jarvisAPI?.voiceTranscribe) {
           const transcript = await window.jarvisAPI.voiceTranscribe(audio)
           if (transcript?.text) {
             setInputPrompt((prev) => (prev ? `${prev} ${transcript.text}` : transcript.text))

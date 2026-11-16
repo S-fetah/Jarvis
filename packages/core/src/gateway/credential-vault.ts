@@ -173,11 +173,39 @@ export const PROVIDER_METADATA: Record<
 export class CredentialVault {
   private filePath: string
   private data: StoredVaultData
+  private vaultKey: Buffer
   private decryptedMemoryCache: Map<ProviderId, string> = new Map()
 
   constructor(userDataDir: string) {
     this.filePath = path.join(userDataDir, 'provider_vault.json')
+    this.vaultKey = this.resolveVaultKey(userDataDir)
     this.data = this.loadFromDisk()
+
+    // Auto-migrate from FreeLLMAPI on first load or if keys cannot be decrypted
+    if (this.hasFreeLLMAPIDatabase() && !this.getKey('groq') && !this.getKey('gemini')) {
+      void this.importFromFreeLLMAPI()
+    }
+  }
+
+  private resolveVaultKey(userDataDir: string): Buffer {
+    const keyPath = path.join(userDataDir, '.vault-key')
+    try {
+      if (fs.existsSync(keyPath)) {
+        const hex = fs.readFileSync(keyPath, 'utf8').trim()
+        if (hex.length === 64) {
+          return Buffer.from(hex, 'hex')
+        }
+      }
+      const newKey = crypto.randomBytes(32)
+      fs.mkdirSync(userDataDir, { recursive: true })
+      fs.writeFileSync(keyPath, newKey.toString('hex'), 'utf8')
+      return newKey
+    } catch {
+      return crypto
+        .createHash('sha256')
+        .update(userDataDir + (process.env.COMPUTERNAME || 'JARVIS'))
+        .digest()
+    }
   }
 
   private loadFromDisk(): StoredVaultData {
@@ -239,32 +267,68 @@ export class CredentialVault {
   private encrypt(plaintext: string): string {
     if (!plaintext) return ''
     try {
-      if (safeStorage && typeof safeStorage.isEncryptionAvailable === 'function' && safeStorage.isEncryptionAvailable()) {
-        return safeStorage.encryptString(plaintext).toString('base64')
-      }
-    } catch {}
-    // Headless / non-DPAPI fallback (e.g. test environment)
-    return `enc:${Buffer.from(plaintext, 'utf8').toString('base64')}`
+      const iv = crypto.randomBytes(12)
+      const cipher = crypto.createCipheriv('aes-256-gcm', this.vaultKey, iv)
+      const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+      const tag = cipher.getAuthTag()
+      return `v1:aes-256-gcm:${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`
+    } catch (err) {
+      console.error('[CredentialVault] AES-256-GCM encryption failed:', err)
+      return `enc:${Buffer.from(plaintext, 'utf8').toString('base64')}`
+    }
   }
 
   private decrypt(ciphertext: string): string {
     if (!ciphertext) return ''
-    if (ciphertext.startsWith('enc:')) {
-      return Buffer.from(ciphertext.slice(4), 'base64').toString('utf8')
-    }
-    try {
-      if (safeStorage && typeof safeStorage.isEncryptionAvailable === 'function' && safeStorage.isEncryptionAvailable()) {
-        const buf = Buffer.from(ciphertext, 'base64')
-        return safeStorage.decryptString(buf)
+
+    // 1. Permanent machine-bound AES-256-GCM vault format
+    if (ciphertext.startsWith('v1:aes-256-gcm:')) {
+      try {
+        const parts = ciphertext.split(':')
+        if (parts.length === 5) {
+          const iv = Buffer.from(parts[2], 'hex')
+          const tag = Buffer.from(parts[3], 'hex')
+          const enc = Buffer.from(parts[4], 'hex')
+          const decipher = crypto.createDecipheriv('aes-256-gcm', this.vaultKey, iv)
+          decipher.setAuthTag(tag)
+          const decrypted = decipher.update(enc, undefined, 'utf8') + decipher.final('utf8')
+          return decrypted
+        }
+      } catch (err) {
+        console.warn('[CredentialVault] AES-256-GCM decrypt error:', err)
+        return ''
       }
-    } catch (err) {
-      console.warn('[CredentialVault] safeStorage decrypt failed, attempting raw decode:', err)
     }
+
+    // 2. Headless plain base64 fallback
+    if (ciphertext.startsWith('enc:')) {
+      try {
+        return Buffer.from(ciphertext.slice(4), 'base64').toString('utf8')
+      } catch {
+        return ''
+      }
+    }
+
+    // 3. Legacy safeStorage fallback
     try {
-      return Buffer.from(ciphertext, 'base64').toString('utf8')
+      if (
+        safeStorage &&
+        typeof safeStorage.isEncryptionAvailable === 'function' &&
+        safeStorage.isEncryptionAvailable()
+      ) {
+        const buf = Buffer.from(ciphertext, 'base64')
+        const decrypted = safeStorage.decryptString(buf)
+        // Verify decrypted string does not contain replacement characters or non-ASCII control characters
+        if (decrypted && !decrypted.includes('\uFFFD')) {
+          return decrypted
+        }
+      }
     } catch {
-      return ciphertext
+      // SafeStorage failed
     }
+
+    // Never return raw binary ciphertext or corrupt replacement characters (\uFFFD)
+    return ''
   }
 
   public setKey(id: ProviderId, apiKey: string, baseUrl?: string): void {

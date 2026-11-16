@@ -37,6 +37,7 @@ export interface ProviderHealth {
 
 export interface TranscriptionOptions {
   language?: string
+  prompt?: string
   signal?: AbortSignal
 }
 
