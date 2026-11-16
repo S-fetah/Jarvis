@@ -7,6 +7,7 @@ import sys
 import argparse
 import time
 import subprocess
+import tempfile
 import torch
 import soundfile
 
@@ -22,8 +23,19 @@ def main():
 
     args = parser.parse_args()
 
-    # Determine paths
+    # Determine paths and repo root
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    
+    # Handle output path: if relative path looks like repo path (e.g. docs/...), resolve against repo root
+    output_path = args.output
+    if not os.path.isabs(output_path):
+        if output_path.startswith("docs") or output_path.startswith("packages"):
+            output_path = os.path.join(repo_root, output_path)
+        else:
+            output_path = os.path.abspath(output_path)
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
     ckpt_dir = os.path.join(repo_root, "packages", "voice", "models", "openvoice", "checkpoints_v2", "converter")
     default_se_path = os.path.join(repo_root, "packages", "voice", "models", "openvoice", "jarvis_target_se.pth")
     target_se_path = args.se or default_se_path
@@ -38,7 +50,7 @@ def main():
 
     from openvoice_cli.api import ToneColorConverter
 
-    # Initialize converter
+    # Initialize converter on CPU
     converter = ToneColorConverter(config_path, device="cpu")
     converter.watermark_model = None
     converter.load_ckpt(checkpoint_path)
@@ -56,49 +68,41 @@ def main():
         else:
             raise FileNotFoundError(f"Neither target SE ({target_se_path}) nor reference audio found.")
 
-    # 1. Generate base audio using edge-tts
+    # 1. Generate base audio using edge-tts into temp files
     import edge_tts
     import asyncio
 
-    base_wav = args.output + ".base.wav"
-    mp3_tmp = args.output + ".base.mp3"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base_wav = os.path.join(tmpdir, "base.wav")
+        mp3_tmp = os.path.join(tmpdir, "base.mp3")
 
-    async def gen_base():
-        rate_str = f"{int((args.speed - 1.0) * 100):+d}%" if args.speed != 1.0 else "+0%"
-        comm = edge_tts.Communicate(args.text, args.base_voice, rate=rate_str)
-        await comm.save(mp3_tmp)
+        async def gen_base():
+            rate_str = f"{int((args.speed - 1.0) * 100):+d}%" if args.speed != 1.0 else "+0%"
+            comm = edge_tts.Communicate(args.text, args.base_voice, rate=rate_str)
+            await comm.save(mp3_tmp)
 
-    asyncio.run(gen_base())
+        asyncio.run(gen_base())
 
-    # Convert mp3 to 24k mono wav
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", mp3_tmp, "-ar", "24000", "-ac", "1", base_wav],
-        capture_output=True,
-        check=True
-    )
-    if os.path.exists(mp3_tmp):
-        try: os.remove(mp3_tmp)
-        except: pass
+        # Convert mp3 to 24k mono wav
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", mp3_tmp, "-ar", "24000", "-ac", "1", base_wav],
+            capture_output=True,
+            check=True
+        )
 
-    # 2. Extract source SE
-    source_se = converter.extract_se([base_wav])
+        # 2. Extract source SE
+        source_se = converter.extract_se([base_wav])
 
-    # 3. Convert tone color to J.A.R.V.I.S.
-    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-    converter.convert(
-        audio_src_path=base_wav,
-        src_se=source_se,
-        tgt_se=target_se,
-        output_path=args.output,
-        tau=args.tau
-    )
+        # 3. Convert tone color to J.A.R.V.I.S.
+        converter.convert(
+            audio_src_path=base_wav,
+            src_se=source_se,
+            tgt_se=target_se,
+            output_path=output_path,
+            tau=args.tau
+        )
 
-    # Clean up base wav
-    if os.path.exists(base_wav):
-        try: os.remove(base_wav)
-        except: pass
-
-    print(f"[OpenVoice Runner] Output successfully saved: {args.output}")
+    print(f"[OpenVoice Runner] Output successfully saved: {output_path}")
     return 0
 
 if __name__ == "__main__":
