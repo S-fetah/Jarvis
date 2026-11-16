@@ -3,6 +3,8 @@ import {
   AlertCircle,
   Brain,
   Check,
+  ChevronDown,
+  ChevronUp,
   Cpu,
   Database,
   Download,
@@ -10,12 +12,12 @@ import {
   Eye,
   EyeOff,
   FolderOpen,
+  Headphones,
   Loader2,
   Monitor,
   Moon,
   Mic,
   Play,
-  Plus,
   RotateCcw,
   Server,
   Settings2,
@@ -26,7 +28,9 @@ import {
   Square,
   Sun,
   Trash2,
+  UploadCloud,
   Volume2,
+  Wand2,
   Zap
 } from 'lucide-react'
 import type {
@@ -46,6 +50,121 @@ import { scanPromptSafety } from '@jarvis/protocol'
 import { globalAudioPlayback } from '../lib/audio-service'
 
 type SettingsTab = 'providers' | 'models' | 'prompts' | 'voice' | 'app'
+
+interface BuiltinPersona {
+  id: string
+  name: string
+  gender: 'male' | 'female'
+  accent: string
+  description: string
+  recommendedSpeed: number
+}
+
+const BUILTIN_KOKORO_PERSONAS: BuiltinPersona[] = [
+  {
+    id: 'bm_george',
+    name: 'George',
+    gender: 'male',
+    accent: 'British (UK)',
+    description: 'British Butler / Jarvis-style cadence. Refined, articulate, and calm.',
+    recommendedSpeed: 1.0
+  },
+  {
+    id: 'bm_lewis',
+    name: 'Lewis',
+    gender: 'male',
+    accent: 'British (UK)',
+    description: 'British academic tone, poised and clearly enunciated.',
+    recommendedSpeed: 1.0
+  },
+  {
+    id: 'am_michael',
+    name: 'Michael',
+    gender: 'male',
+    accent: 'American (US)',
+    description: 'Deep, warm, and authoritative broadcast baritone.',
+    recommendedSpeed: 1.0
+  },
+  {
+    id: 'am_adam',
+    name: 'Adam',
+    gender: 'male',
+    accent: 'American (US)',
+    description: 'Modern, energetic narrator with crisp clarity.',
+    recommendedSpeed: 1.0
+  },
+  {
+    id: 'af_bella',
+    name: 'Bella',
+    gender: 'female',
+    accent: 'American (US)',
+    description: 'Bright, articulate, and expressive conversational voice.',
+    recommendedSpeed: 1.0
+  },
+  {
+    id: 'af_heart',
+    name: 'Heart',
+    gender: 'female',
+    accent: 'American (US)',
+    description: 'Warm, empathetic, and gentle companion voice.',
+    recommendedSpeed: 1.0
+  },
+  {
+    id: 'bf_emma',
+    name: 'Emma',
+    gender: 'female',
+    accent: 'British (UK)',
+    description: 'Elegant British tone with balanced pacing.',
+    recommendedSpeed: 1.0
+  },
+  {
+    id: 'af_sarah',
+    name: 'Sarah',
+    gender: 'female',
+    accent: 'American (US)',
+    description: 'Conversational, relaxed, and natural modern tone.',
+    recommendedSpeed: 1.0
+  }
+]
+
+interface CloudSystemPersona {
+  id: string
+  provider: string
+  name: string
+  gender: 'male' | 'female'
+  description: string
+}
+
+const CLOUD_SYSTEM_PERSONAS: CloudSystemPersona[] = [
+  {
+    id: 'en-US-JennyNeural',
+    provider: 'edge-tts',
+    name: 'Jenny (Neural)',
+    gender: 'female',
+    description: 'Microsoft Edge Cloud Neural female voice with expressive prosody.'
+  },
+  {
+    id: 'en-US-GuyNeural',
+    provider: 'edge-tts',
+    name: 'Guy (Neural)',
+    gender: 'male',
+    description: 'Microsoft Edge Cloud Neural male narrator voice.'
+  },
+  {
+    id: 'Microsoft David Desktop',
+    provider: 'system-speech',
+    name: 'Microsoft David',
+    gender: 'male',
+    description: 'Windows SAPI offline standard voice (zero download, instant).'
+  },
+  {
+    id: 'Microsoft Zira Desktop',
+    provider: 'system-speech',
+    name: 'Microsoft Zira',
+    gender: 'female',
+    description: 'Windows SAPI offline standard female voice.'
+  }
+]
 
 export function SettingsApp(): React.JSX.Element {
   // Navigation
@@ -86,11 +205,12 @@ export function SettingsApp(): React.JSX.Element {
   const [voiceConfig, setVoiceConfig] = useState<any>({
     enabled: true,
     sttProvider: 'groq-whisper',
-    ttsProvider: 'kokoro-82m',
+    ttsProvider: 'openvoice-v2',
+    ttsVoice: 'profile:javis-original',
     ttsFallbackProvider: 'system-speech',
     vadEnabled: true,
     interruptOnUserSpeech: true,
-    speed: 1.0,
+    speed: 0.95,
     language: 'en'
   })
   const [voiceProfiles, setVoiceProfiles] = useState<any[]>([])
@@ -100,17 +220,22 @@ export function SettingsApp(): React.JSX.Element {
   const [newProfileBaseVoice, setNewProfileBaseVoice] = useState<string>('bm_george')
   const [newProfileWavBase64, setNewProfileWavBase64] = useState<string | null>(null)
   const [newProfileFileName, setNewProfileFileName] = useState<string | null>(null)
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null)
+  const [autoSetActiveOnClone, setAutoSetActiveOnClone] = useState<boolean>(true)
   const [isEnrolling, setIsEnrolling] = useState<boolean>(false)
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null)
   const [testingVoiceId, setTestingVoiceId] = useState<string | null>(null)
+  const [isAuditioningActive, setIsAuditioningActive] = useState<boolean>(false)
+  const [personaLibraryTab, setPersonaLibraryTab] = useState<'cloned' | 'kokoro' | 'system'>('cloned')
+  const [isAdvancedVoiceOpen, setIsAdvancedVoiceOpen] = useState<boolean>(false)
 
   // Voice Playground State
   const [playgroundText, setPlaygroundText] = useState<string>(
-    'Hello! I am Jarvis, your personal AI desktop companion. I can help orchestrate complex workflows, explain codebases, and run local commands directly on your machine.'
+    'Good evening, sir. All automated systems and workspace tasks are operating at optimal efficiency.'
   )
   const [playgroundVoiceId, setPlaygroundVoiceId] = useState<string>('default')
   const [playgroundEngine, setPlaygroundEngine] = useState<string>('auto')
-  const [playgroundSpeed, setPlaygroundSpeed] = useState<number>(1.0)
+  const [playgroundSpeed, setPlaygroundSpeed] = useState<number>(0.95)
   const [isSynthesizing, setIsSynthesizing] = useState<boolean>(false)
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false)
   const [playgroundStats, setPlaygroundStats] = useState<{
@@ -131,6 +256,160 @@ export function SettingsApp(): React.JSX.Element {
     }
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl)
+      }
+    }
+  }, [audioPreviewUrl])
+
+  const getActivePersonaDisplay = () => {
+    const currentVoice = voiceConfig?.ttsVoice || 'profile:javis-original'
+    const currentProvider = voiceConfig?.ttsProvider || 'openvoice-v2'
+
+    if (currentVoice.startsWith('profile:')) {
+      const profId = currentVoice.replace('profile:', '')
+      const prof = voiceProfiles.find((p) => p.id === profId)
+      if (prof) {
+        return {
+          id: currentVoice,
+          name: prof.name,
+          subtitle: prof.description || 'Custom enrolled cloned voice profile',
+          engine: prof.hasOpenVoiceSE || prof.recommendedEngine === 'openvoice-v2'
+            ? 'OpenVoice V2 (Deterministic Latents)'
+            : 'Kokoro-82M Dual-Cached',
+          offline: true,
+          gender: prof.gender || 'male',
+          isCloned: true
+        }
+      }
+      if (profId === 'javis-original') {
+        return {
+          id: currentVoice,
+          name: 'J.A.R.V.I.S. (Paul Bettany)',
+          subtitle: 'Official MCU Paul Bettany neural clone with 256-dim deterministic tone color latents',
+          engine: 'OpenVoice V2 (Deterministic Latents)',
+          offline: true,
+          gender: 'male',
+          isCloned: true
+        }
+      }
+    }
+
+    const builtin = BUILTIN_KOKORO_PERSONAS.find((b) => b.id === currentVoice)
+    if (builtin) {
+      return {
+        id: currentVoice,
+        name: `${builtin.name} (${builtin.accent})`,
+        subtitle: builtin.description,
+        engine: 'Kokoro-82M ONNX',
+        offline: true,
+        gender: builtin.gender,
+        isCloned: false
+      }
+    }
+
+    const cloudSys = CLOUD_SYSTEM_PERSONAS.find((c) => c.id === currentVoice)
+    if (cloudSys) {
+      return {
+        id: currentVoice,
+        name: cloudSys.name,
+        subtitle: cloudSys.description,
+        engine: cloudSys.provider === 'edge-tts' ? 'Edge-TTS Cloud' : 'Windows SAPI',
+        offline: cloudSys.provider !== 'edge-tts',
+        gender: cloudSys.gender,
+        isCloned: false
+      }
+    }
+
+    return {
+      id: currentVoice,
+      name: currentVoice,
+      subtitle: 'Active TTS Voice',
+      engine: currentProvider,
+      offline: currentProvider !== 'edge-tts' && currentProvider !== 'openai-tts',
+      gender: 'neutral',
+      isCloned: false
+    }
+  }
+
+  const handleSetActiveVoice = async (options: {
+    ttsVoice: string
+    ttsProvider: string
+    speed?: number
+    name: string
+  }) => {
+    const updates: any = {
+      ttsVoice: options.ttsVoice,
+      ttsProvider: options.ttsProvider
+    }
+    if (options.speed !== undefined) {
+      updates.speed = options.speed
+    }
+    setVoiceConfig((prev: any) => ({ ...prev, ...updates }))
+    if (window.jarvisAPI?.voiceUpdateConfig) {
+      await window.jarvisAPI.voiceUpdateConfig(updates)
+    }
+    setVoiceFeedback(`Active voice set to "${options.name}" (${options.ttsProvider})`)
+    setTimeout(() => setVoiceFeedback(null), 3500)
+  }
+
+  const handleAuditionActiveVoice = async () => {
+    if (isPlayingAudio) {
+      globalAudioPlayback.stop()
+      setIsPlayingAudio(false)
+      setIsAuditioningActive(false)
+      return
+    }
+    setIsAuditioningActive(true)
+    try {
+      const text = 'Good evening, sir. All automated systems and workspace tasks are operating at optimal efficiency.'
+      const res = await window.jarvisAPI?.voiceSynthesize?.(text, {
+        voice: voiceConfig?.ttsVoice,
+        providerId: voiceConfig?.ttsProvider,
+        speed: voiceConfig?.speed || 0.95
+      })
+      if (res?.data) {
+        await globalAudioPlayback.play(res.data, res.sampleRateHz || 24000)
+      }
+    } catch (err: any) {
+      console.error('[SettingsApp] Audition error:', err)
+      setVoiceFeedback(`Audition error: ${err.message || err}`)
+      setTimeout(() => setVoiceFeedback(null), 4000)
+    } finally {
+      setIsAuditioningActive(false)
+    }
+  }
+
+  const handlePreviewPersona = async (voiceKey: string, providerId?: string, speakerWav?: string) => {
+    if (testingVoiceId === voiceKey && isPlayingAudio) {
+      globalAudioPlayback.stop()
+      setIsPlayingAudio(false)
+      setTestingVoiceId(null)
+      return
+    }
+    setTestingVoiceId(voiceKey)
+    try {
+      const sampleText = 'Good evening, sir. All systems are online and awaiting your command.'
+      const res = await window.jarvisAPI?.voiceSynthesize?.(sampleText, {
+        voice: voiceKey,
+        providerId: providerId || 'auto',
+        speakerWav: speakerWav,
+        speed: voiceKey === 'profile:javis-original' ? 0.95 : (voiceConfig?.speed || 1.0)
+      })
+      if (res?.data) {
+        await globalAudioPlayback.play(res.data, res.sampleRateHz || 24000)
+      }
+    } catch (err: any) {
+      console.error('[SettingsApp] Preview error:', err)
+      setVoiceFeedback(`Preview failed: ${err.message || err}`)
+      setTimeout(() => setVoiceFeedback(null), 4000)
+    } finally {
+      setTestingVoiceId(null)
+    }
+  }
+
   const handlePlaygroundSynthesize = async (): Promise<void> => {
     if (!playgroundText.trim() || isSynthesizing) return
     setIsSynthesizing(true)
@@ -145,7 +424,21 @@ export function SettingsApp(): React.JSX.Element {
       let speakerWav: string | undefined = undefined
       let voiceName: string | undefined = undefined
 
-      if (playgroundVoiceId.startsWith('profile:')) {
+      if (playgroundVoiceId === 'default') {
+        const activeVoice = voiceConfig?.ttsVoice || 'profile:javis-original'
+        if (activeVoice.startsWith('profile:')) {
+          const profId = activeVoice.replace('profile:', '')
+          const prof = voiceProfiles.find((p) => p.id === profId)
+          if (prof) {
+            speakerWav = prof.folderPath
+            voiceName = `profile:${prof.id}`
+          } else {
+            voiceName = activeVoice
+          }
+        } else {
+          voiceName = activeVoice
+        }
+      } else if (playgroundVoiceId.startsWith('profile:')) {
         const profId = playgroundVoiceId.replace('profile:', '')
         const prof = voiceProfiles.find((p) => p.id === profId)
         if (prof) {
@@ -476,6 +769,7 @@ export function SettingsApp(): React.JSX.Element {
   }
 
   const providers = hubState?.providers || []
+  const activePersona = getActivePersonaDisplay()
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-jarvis-base font-sans text-jarvis-sage selection:bg-jarvis-accent/30 selection:text-jarvis-ivory">
@@ -1214,15 +1508,23 @@ export function SettingsApp(): React.JSX.Element {
           {/* TAB: VOICE & CLONING STUDIO */}
           {activeTab === 'voice' && (
             <div className="max-w-3xl space-y-6">
-              <div>
-                <h1 className="font-display text-xl font-semibold text-jarvis-ivory">
-                  Voice & Speech Synthesis Studio
-                </h1>
-                <p className="mt-1 text-xs text-jarvis-muted leading-relaxed">
-                  Configure sub-second speech-to-text, low-latency CPU neural TTS, Silero VAD barge-in auto-mute, and precomputed zero-shot voice cloning profiles.
-                </p>
+              {/* Header Title */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="font-display text-xl font-semibold text-jarvis-ivory flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-jarvis-accent" />
+                    <span>Voice & Cloning Studio</span>
+                  </h1>
+                  <p className="mt-1 text-xs text-jarvis-muted leading-relaxed">
+                    Personalize J.A.R.V.I.S.'s voice, enroll high-fidelity zero-shot voice clones, and test neural speech generation in real-time.
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-3xs font-mono bg-jarvis-accent/10 text-jarvis-accent border-jarvis-accent/30">
+                  ADR-009 Dual-Engine Active
+                </Badge>
               </div>
 
+              {/* Feedback toast banner */}
               {voiceFeedback && (
                 <div className="flex items-center gap-2 rounded-lg border border-jarvis-accent/40 bg-jarvis-accent/10 p-3 text-xs text-jarvis-accent">
                   <Check className="h-4 w-4 shrink-0 text-emerald-400" />
@@ -1230,300 +1532,491 @@ export function SettingsApp(): React.JSX.Element {
                 </div>
               )}
 
-              {/* Voice Engine Architecture Configuration */}
-              <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-semibold text-jarvis-ivory">Voice Pipeline Engines</h2>
-                  <Badge variant="outline" className="text-3xs font-mono">
-                    ADR-009 Dual-Engine Active
-                  </Badge>
+              {/* 1. HERO CARD: ACTIVE J.A.R.V.I.S. VOICE PERSONA */}
+              <div className="relative overflow-hidden rounded-xl border border-jarvis-accent/30 bg-gradient-to-br from-jarvis-surface via-jarvis-surface to-jarvis-accent/5 p-5 shadow-raised">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-jarvis-accent/40 bg-jarvis-accent/15 text-jarvis-accent">
+                      {isPlayingAudio ? (
+                        <div className="flex items-center gap-0.5">
+                          <span className="h-4 w-1 animate-pulse bg-jarvis-accent rounded-full" />
+                          <span className="h-6 w-1 animate-pulse delay-75 bg-jarvis-accent rounded-full" />
+                          <span className="h-3 w-1 animate-pulse delay-150 bg-jarvis-accent rounded-full" />
+                        </div>
+                      ) : (
+                        <Volume2 className="h-6 w-6" />
+                      )}
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-sm font-semibold text-jarvis-ivory">
+                          {activePersona.name}
+                        </h2>
+                        <Badge variant="outline" className="text-3xs bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                          Active Agent Voice
+                        </Badge>
+                        <Badge variant="outline" className="text-3xs font-mono bg-jarvis-base text-jarvis-accent border-jarvis-accent/30">
+                          {activePersona.engine}
+                        </Badge>
+                        <Badge variant="outline" className="text-3xs font-mono bg-jarvis-base text-jarvis-muted border-jarvis-border">
+                          {activePersona.offline ? '100% Offline CPU' : 'Cloud Neural'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-jarvis-muted">
+                        {activePersona.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Audition Playback Button */}
+                  <div className="shrink-0 w-full sm:w-auto">
+                    <Button
+                      variant={isAuditioningActive || (isPlayingAudio && testingVoiceId === null) ? 'secondary' : 'primary'}
+                      size="sm"
+                      className="h-9 w-full sm:w-auto px-4 text-xs font-semibold flex items-center justify-center gap-2"
+                      onClick={handleAuditionActiveVoice}
+                    >
+                      {isAuditioningActive ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Generating Voice...</span>
+                        </>
+                      ) : isPlayingAudio ? (
+                        <>
+                          <Square className="h-3.5 w-3.5 fill-current text-red-400" />
+                          <span>Stop Playing</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                          <span>Audition J.A.R.V.I.S. Voice</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* STT Engine */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-jarvis-ivory">Speech-to-Text (STT) Engine</label>
-                    <select
-                      value={voiceConfig?.sttProvider || 'groq-whisper'}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setVoiceConfig((prev: any) => ({ ...prev, sttProvider: val }))
-                        window.jarvisAPI?.voiceUpdateConfig?.({ sttProvider: val })
-                      }}
-                      className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
-                    >
-                      <option value="groq-whisper">Groq Whisper Cloud (~150ms sub-second)</option>
-                      <option value="openai-whisper">OpenAI Whisper Cloud API</option>
-                    </select>
-                    <p className="text-3xs text-jarvis-muted">
-                      Groq processes 30s audio chunks in ~150ms for near-instant transcription.
-                    </p>
+                {/* Quick Cadence / Speed Control */}
+                <div className="mt-4 pt-3 border-t border-jarvis-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-jarvis-muted">Speech Cadence Rate:</span>
+                    <span className="font-mono text-jarvis-accent font-semibold">{voiceConfig?.speed || 0.95}x</span>
+                    <span className="text-3xs text-jarvis-muted/70">
+                      {(voiceConfig?.speed || 0.95) === 0.95 ? '(Official Bettany J.A.R.V.I.S. cadence)' : ''}
+                    </span>
                   </div>
 
-                  {/* Primary TTS Engine */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-jarvis-ivory">Primary TTS Engine</label>
-                    <select
-                      value={voiceConfig?.ttsProvider || 'kokoro-82m'}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setVoiceConfig((prev: any) => ({ ...prev, ttsProvider: val }))
-                        window.jarvisAPI?.voiceUpdateConfig?.({ ttsProvider: val })
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = 0.95
+                        setVoiceConfig((p: any) => ({ ...p, speed: val }))
+                        window.jarvisAPI?.voiceUpdateConfig?.({ speed: val })
                       }}
-                      className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
-                    >
-                      <option value="kokoro-82m">Kokoro-82M ONNX (CPU Native, &lt;150ms TTFA)</option>
-                      <option value="openvoice-v2">OpenVoice V2 (High-Fidelity J.A.R.V.I.S. Clone, CPU Native)</option>
-                      <option value="xtts-v2">Coqui XTTS-v2 (Zero-Shot Cloned Profiles)</option>
-                      <option value="system-speech">Windows SAPI (100% Offline, Zero-Download)</option>
-                      <option value="edge-tts">Edge TTS (Cloud Streaming)</option>
-                      <option value="openai-tts">OpenAI TTS (tts-1)</option>
-                    </select>
-                    <p className="text-3xs text-jarvis-muted">
-                      Sentence chunking ensures audio playback begins while remaining text is streamed.
-                    </p>
-                  </div>
-
-                  {/* Default Voice / Persona */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-jarvis-ivory">Default Voice / Persona</label>
-                    <select
-                      value={voiceConfig?.ttsVoice || 'bm_george'}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setVoiceConfig((prev: any) => ({ ...prev, ttsVoice: val }))
-                        window.jarvisAPI?.voiceUpdateConfig?.({ ttsVoice: val })
-                      }}
-                      className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none font-mono"
-                    >
-                      {voiceProfiles.length > 0 && (
-                        <optgroup label="Cloned Voice Profiles">
-                          {voiceProfiles.map((p) => (
-                            <option key={p.id} value={`profile:${p.id}`}>
-                              ⭐ {p.name} ({p.gender === 'female' ? 'Female' : 'Male'})
-                            </option>
-                          ))}
-                        </optgroup>
+                      className={cn(
+                        "text-3xs px-2 py-0.5 rounded border transition font-mono",
+                        (voiceConfig?.speed || 0.95) === 0.95
+                          ? "border-jarvis-accent text-jarvis-accent bg-jarvis-accent/10"
+                          : "border-jarvis-border text-jarvis-muted hover:text-jarvis-ivory"
                       )}
-                      <optgroup label="Kokoro-82M Male Voices">
-                        <option value="bm_george">Kokoro: George (British Butler / Jarvis-style)</option>
-                        <option value="am_michael">Kokoro: Michael (Deep & Warm)</option>
-                        <option value="am_adam">Kokoro: Adam (Broadcast-ready)</option>
-                        <option value="bm_lewis">Kokoro: Lewis (British Articulate)</option>
-                      </optgroup>
-                      <optgroup label="Kokoro-82M Female Voices">
-                        <option value="af_bella">Kokoro: Bella (Crisp & Articulate)</option>
-                        <option value="af_heart">Kokoro: Heart (Warm & Natural)</option>
-                        <option value="af_sarah">Kokoro: Sarah (Conversational)</option>
-                        <option value="bf_emma">Kokoro: Emma (British Elegant)</option>
-                      </optgroup>
-                      <optgroup label="Windows System.Speech (SAPI)">
-                        <option value="Microsoft David Desktop">SAPI: Microsoft David (Male)</option>
-                        <option value="Microsoft Zira Desktop">SAPI: Microsoft Zira (Female)</option>
-                      </optgroup>
-                    </select>
-                    <p className="text-3xs text-jarvis-muted">
-                      Default persona for conversational voice responses throughout the application.
-                    </p>
-                  </div>
-
-                  {/* Fallback TTS Engine */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-jarvis-ivory">Fallback TTS Engine</label>
-                    <select
-                      value={voiceConfig?.ttsFallbackProvider || 'system-speech'}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setVoiceConfig((prev: any) => ({ ...prev, ttsFallbackProvider: val }))
-                        window.jarvisAPI?.voiceUpdateConfig?.({ ttsFallbackProvider: val })
-                      }}
-                      className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
                     >
-                      <option value="system-speech">Windows SAPI (100% Offline, Zero-Download)</option>
-                      <option value="kokoro-82m">Kokoro-82M ONNX</option>
-                    </select>
-                    <p className="text-3xs text-jarvis-muted">
-                      Seamless zero-lag fallback when primary model is busy or offline.
-                    </p>
-                  </div>
-
-                  {/* Speed */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-jarvis-ivory">Speech Rate</label>
-                      <span className="font-mono text-xs text-jarvis-accent">{voiceConfig?.speed || 1.0}x</span>
-                    </div>
+                      0.95x (J.A.R.V.I.S.)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = 1.0
+                        setVoiceConfig((p: any) => ({ ...p, speed: val }))
+                        window.jarvisAPI?.voiceUpdateConfig?.({ speed: val })
+                      }}
+                      className={cn(
+                        "text-3xs px-2 py-0.5 rounded border transition font-mono",
+                        (voiceConfig?.speed || 0.95) === 1.0
+                          ? "border-jarvis-accent text-jarvis-accent bg-jarvis-accent/10"
+                          : "border-jarvis-border text-jarvis-muted hover:text-jarvis-ivory"
+                      )}
+                    >
+                      1.0x (Standard)
+                    </button>
                     <input
                       type="range"
                       min="0.7"
-                      max="1.5"
+                      max="1.4"
                       step="0.05"
-                      value={voiceConfig?.speed || 1.0}
+                      value={voiceConfig?.speed || 0.95}
                       onChange={(e) => {
                         const val = parseFloat(e.target.value)
-                        setVoiceConfig((prev: any) => ({ ...prev, speed: val }))
+                        setVoiceConfig((p: any) => ({ ...p, speed: val }))
                         window.jarvisAPI?.voiceUpdateConfig?.({ speed: val })
                       }}
-                      className="w-full accent-jarvis-accent"
-                    />
-                  </div>
-                </div>
-
-                {/* VAD & Barge-in Controls */}
-                <div className="border-t border-jarvis-border/60 pt-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-jarvis-ivory">Silero VAD Speech Activity Detection</p>
-                      <p className="text-3xs text-jarvis-muted mt-0.5">
-                        High-precision neural VAD v5 running in &lt;1ms/frame on CPU.
-                      </p>
-                    </div>
-                    <Switch
-                      label="Toggle VAD"
-                      checked={voiceConfig?.vadEnabled !== false}
-                      onCheckedChange={(checked) => {
-                        setVoiceConfig((prev: any) => ({ ...prev, vadEnabled: checked }))
-                        window.jarvisAPI?.voiceUpdateConfig?.({ vadEnabled: checked })
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-jarvis-border/40 pt-3">
-                    <div>
-                      <p className="text-xs font-medium text-jarvis-ivory">Instant Barge-in Interruption</p>
-                      <p className="text-3xs text-jarvis-muted mt-0.5">
-                        Instantly cancels TTS speech and listens the moment user starts speaking (&lt;150ms).
-                      </p>
-                    </div>
-                    <Switch
-                      label="Toggle Barge-in"
-                      checked={voiceConfig?.interruptOnUserSpeech !== false}
-                      onCheckedChange={(checked) => {
-                        setVoiceConfig((prev: any) => ({ ...prev, interruptOnUserSpeech: checked }))
-                        window.jarvisAPI?.voiceUpdateConfig?.({ interruptOnUserSpeech: checked })
-                      }}
+                      className="w-28 accent-jarvis-accent cursor-pointer"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Voice Profile Studio (Dual-Cached Zero-Shot Cloning) */}
+              {/* 2. PERSONA LIBRARY (Tabs: Cloned | Kokoro | Cloud) */}
+              <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-jarvis-border/60 pb-3">
+                  <div>
+                    <h2 className="text-xs font-semibold text-jarvis-ivory flex items-center gap-1.5">
+                      <Headphones className="h-4 w-4 text-jarvis-accent" />
+                      <span>Voice Persona Library</span>
+                    </h2>
+                    <p className="text-3xs text-jarvis-muted mt-0.5">
+                      Choose from enrolled neural clones or built-in CPU neural speakers.
+                    </p>
+                  </div>
+
+                  {/* Tabs */}
+                  <div className="flex items-center gap-1 bg-jarvis-base rounded-lg p-1 border border-jarvis-border">
+                    <button
+                      type="button"
+                      onClick={() => setPersonaLibraryTab('cloned')}
+                      className={cn(
+                        "px-2.5 py-1 text-3xs font-medium rounded-md transition",
+                        personaLibraryTab === 'cloned'
+                          ? "bg-jarvis-surface text-jarvis-ivory shadow-sm border border-jarvis-border"
+                          : "text-jarvis-muted hover:text-jarvis-ivory"
+                      )}
+                    >
+                      Cloned Personas ({voiceProfiles.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPersonaLibraryTab('kokoro')}
+                      className={cn(
+                        "px-2.5 py-1 text-3xs font-medium rounded-md transition",
+                        personaLibraryTab === 'kokoro'
+                          ? "bg-jarvis-surface text-jarvis-ivory shadow-sm border border-jarvis-border"
+                          : "text-jarvis-muted hover:text-jarvis-ivory"
+                      )}
+                    >
+                      Kokoro-82M CPU ({BUILTIN_KOKORO_PERSONAS.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPersonaLibraryTab('system')}
+                      className={cn(
+                        "px-2.5 py-1 text-3xs font-medium rounded-md transition",
+                        personaLibraryTab === 'system'
+                          ? "bg-jarvis-surface text-jarvis-ivory shadow-sm border border-jarvis-border"
+                          : "text-jarvis-muted hover:text-jarvis-ivory"
+                      )}
+                    >
+                      Cloud & SAPI ({CLOUD_SYSTEM_PERSONAS.length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* TAB CONTENT: CLONED PERSONAS */}
+                {personaLibraryTab === 'cloned' && (
+                  <div className="space-y-3">
+                    {voiceProfiles.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-jarvis-border p-6 text-center">
+                        <p className="text-xs text-jarvis-muted">No custom voice profiles enrolled yet.</p>
+                        <p className="text-3xs text-jarvis-muted/70 mt-1">
+                          Enroll an audio clip in the Voice Studio below to clone any voice!
+                        </p>
+                      </div>
+                    ) : (
+                      voiceProfiles.map((p) => {
+                        const isCurrentActive = voiceConfig?.ttsVoice === `profile:${p.id}`
+                        const isOriginalJarvis = p.id === 'javis-original'
+
+                        return (
+                          <div
+                            key={p.id}
+                            className={cn(
+                              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-3.5 transition",
+                              isCurrentActive
+                                ? "border-jarvis-accent/60 bg-jarvis-accent/5 shadow-sm"
+                                : "border-jarvis-border bg-jarvis-base hover:border-jarvis-borderStrong"
+                            )}
+                          >
+                            <div className="space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold text-jarvis-ivory">
+                                  {isOriginalJarvis ? '⭐ ' : ''}{p.name}
+                                </span>
+                                {isCurrentActive && (
+                                  <Badge variant="outline" className="text-3xs bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                                    ✓ Active Voice
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="text-3xs bg-jarvis-surface text-jarvis-accent border-jarvis-accent/30 font-mono">
+                                  {p.hasOpenVoiceSE ? 'OpenVoice V2 Tone Clone' : 'Dual-Cached'}
+                                </Badge>
+                                <Badge variant="outline" className="text-3xs font-mono bg-jarvis-surface text-jarvis-ivory border-jarvis-border">
+                                  {p.gender === 'female' ? '👩 Female' : '👨 Male'}
+                                </Badge>
+                                {isOriginalJarvis && (
+                                  <Badge variant="outline" className="text-3xs bg-amber-500/15 text-amber-300 border-amber-500/30 font-mono">
+                                    Official J.A.R.V.I.S. Default
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-3xs text-jarvis-muted">
+                                {p.description || (isOriginalJarvis
+                                  ? 'MCU Paul Bettany calibrated voice with 256-dim deterministic tone color latents and warm broadcast EQ.'
+                                  : 'Custom zero-shot cloned voice profile.')}
+                              </p>
+                              <div className="flex items-center gap-3 font-mono text-3xs text-jarvis-muted/80">
+                                <span>Embedding: {p.hasOpenVoiceSE ? '✓ 256-dim SE' : '—'}</span>
+                                <span>Base Cadence: {p.baseVoice || (p.gender === 'female' ? 'af_bella' : 'bm_george')}</span>
+                                {isOriginalJarvis && <span>Recommended Speed: 0.95x</span>}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-7 text-3xs flex items-center gap-1.5"
+                                disabled={testingVoiceId === `profile:${p.id}`}
+                                onClick={() => handlePreviewPersona(`profile:${p.id}`, p.hasOpenVoiceSE ? 'openvoice-v2' : 'kokoro-82m', p.folderPath)}
+                              >
+                                {testingVoiceId === `profile:${p.id}` ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <span>Playing...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-3 w-3" />
+                                    <span>Preview</span>
+                                  </>
+                                )}
+                              </Button>
+
+                              {isCurrentActive ? (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled
+                                  className="h-7 text-3xs font-semibold text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                                >
+                                  <Check className="h-3 w-3 mr-1" /> Active
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="h-7 text-3xs font-semibold"
+                                  onClick={() => handleSetActiveVoice({
+                                    ttsVoice: `profile:${p.id}`,
+                                    ttsProvider: p.hasOpenVoiceSE ? 'openvoice-v2' : 'kokoro-82m',
+                                    speed: isOriginalJarvis ? 0.95 : (voiceConfig?.speed || 1.0),
+                                    name: p.name
+                                  })}
+                                >
+                                  Set as Active Voice
+                                </Button>
+                              )}
+
+                              {!isOriginalJarvis && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-jarvis-muted hover:text-red-400 hover:bg-red-500/10"
+                                  onClick={async () => {
+                                    if (window.jarvisAPI?.voiceDeleteProfile) {
+                                      await window.jarvisAPI.voiceDeleteProfile(p.id)
+                                      if (isCurrentActive) {
+                                        await handleSetActiveVoice({
+                                          ttsVoice: 'profile:javis-original',
+                                          ttsProvider: 'openvoice-v2',
+                                          speed: 0.95,
+                                          name: 'J.A.R.V.I.S. (Paul Bettany)'
+                                        })
+                                      }
+                                      refreshVoiceData()
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* TAB CONTENT: KOKORO-82M */}
+                {personaLibraryTab === 'kokoro' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {BUILTIN_KOKORO_PERSONAS.map((b) => {
+                      const isCurrentActive = voiceConfig?.ttsVoice === b.id && voiceConfig?.ttsProvider === 'kokoro-82m'
+
+                      return (
+                        <div
+                          key={b.id}
+                          className={cn(
+                            "flex flex-col justify-between rounded-lg border p-3 transition space-y-2.5",
+                            isCurrentActive
+                              ? "border-jarvis-accent/60 bg-jarvis-accent/5 shadow-sm"
+                              : "border-jarvis-border bg-jarvis-base hover:border-jarvis-borderStrong"
+                          )}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-jarvis-ivory">{b.name}</span>
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className="text-3xs font-mono bg-jarvis-surface text-jarvis-muted border-jarvis-border">
+                                  {b.accent}
+                                </Badge>
+                                <Badge variant="outline" className="text-3xs font-mono bg-jarvis-surface text-jarvis-ivory border-jarvis-border">
+                                  {b.gender === 'female' ? '👩' : '👨'}
+                                </Badge>
+                              </div>
+                            </div>
+                            <p className="text-3xs text-jarvis-muted">{b.description}</p>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-jarvis-border/40">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-6 text-3xs flex items-center gap-1"
+                              disabled={testingVoiceId === b.id}
+                              onClick={() => handlePreviewPersona(b.id, 'kokoro-82m')}
+                            >
+                              {testingVoiceId === b.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Play className="h-3 w-3" />
+                              )}
+                              <span>Preview</span>
+                            </Button>
+
+                            {isCurrentActive ? (
+                              <Badge variant="outline" className="text-3xs bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                                ✓ Active
+                              </Badge>
+                            ) : (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="h-6 text-3xs font-semibold"
+                                onClick={() => handleSetActiveVoice({
+                                  ttsVoice: b.id,
+                                  ttsProvider: 'kokoro-82m',
+                                  speed: 1.0,
+                                  name: `${b.name} (${b.accent})`
+                                })}
+                              >
+                                Set as Active
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* TAB CONTENT: CLOUD & SAPI */}
+                {personaLibraryTab === 'system' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {CLOUD_SYSTEM_PERSONAS.map((c) => {
+                      const isCurrentActive = voiceConfig?.ttsVoice === c.id && voiceConfig?.ttsProvider === c.provider
+
+                      return (
+                        <div
+                          key={c.id}
+                          className={cn(
+                            "flex flex-col justify-between rounded-lg border p-3 transition space-y-2.5",
+                            isCurrentActive
+                              ? "border-jarvis-accent/60 bg-jarvis-accent/5 shadow-sm"
+                              : "border-jarvis-border bg-jarvis-base hover:border-jarvis-borderStrong"
+                          )}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-jarvis-ivory">{c.name}</span>
+                              <Badge variant="outline" className="text-3xs font-mono bg-jarvis-surface text-jarvis-accent border-jarvis-accent/30">
+                                {c.provider}
+                              </Badge>
+                            </div>
+                            <p className="text-3xs text-jarvis-muted">{c.description}</p>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-jarvis-border/40">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-6 text-3xs flex items-center gap-1"
+                              disabled={testingVoiceId === c.id}
+                              onClick={() => handlePreviewPersona(c.id, c.provider)}
+                            >
+                              {testingVoiceId === c.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Play className="h-3 w-3" />
+                              )}
+                              <span>Preview</span>
+                            </Button>
+
+                            {isCurrentActive ? (
+                              <Badge variant="outline" className="text-3xs bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                                ✓ Active
+                              </Badge>
+                            ) : (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="h-6 text-3xs font-semibold"
+                                onClick={() => handleSetActiveVoice({
+                                  ttsVoice: c.id,
+                                  ttsProvider: c.provider,
+                                  speed: 1.0,
+                                  name: c.name
+                                })}
+                              >
+                                Set as Active
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. VOICE STUDIO — CLONE A NEW VOICE */}
               <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xs font-semibold text-jarvis-ivory">Voice Profile Studio</h2>
+                    <h2 className="text-xs font-semibold text-jarvis-ivory flex items-center gap-1.5">
+                      <Wand2 className="h-4 w-4 text-jarvis-accent" />
+                      <span>Voice Studio — Clone a New Voice</span>
+                    </h2>
                     <p className="text-3xs text-jarvis-muted mt-0.5">
-                      Precomputes dual-cached tensors (xtts_speaker.bin + kokoro_style.bin) so synthesis runs without audio re-encoding delay.
+                      Upload a 3–10 second voice recording to extract and precompute tone color embeddings instantly.
                     </p>
                   </div>
                   <Badge variant="outline" className="text-3xs font-mono">
-                    {voiceProfiles.length} Profiles Enrolled
+                    Zero-Shot Cloning
                   </Badge>
                 </div>
 
-                {/* Enrolled Profiles List */}
-                <div className="space-y-2">
-                  {voiceProfiles.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-jarvis-border p-4 text-center">
-                      <p className="text-xs text-jarvis-muted">No custom voice profiles enrolled yet.</p>
-                      <p className="text-3xs text-jarvis-muted/70 mt-1">
-                        Enroll a 3–6 second reference audio clip below to generate dual-cached tensors.
-                      </p>
-                    </div>
-                  ) : (
-                    voiceProfiles.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between rounded-lg border border-jarvis-border bg-jarvis-base p-3 transition hover:border-jarvis-borderStrong"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-jarvis-ivory">{p.name}</span>
-                            <Badge variant="outline" className="text-3xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
-                              Dual-Cached
-                            </Badge>
-                            <Badge variant="outline" className="text-3xs font-mono bg-jarvis-base text-jarvis-ivory border-jarvis-border">
-                              {p.gender === 'female' ? '👩 Female' : '👨 Male'}
-                            </Badge>
-                          </div>
-                          {p.description && (
-                            <p className="text-3xs text-jarvis-muted">{p.description}</p>
-                          )}
-                          <div className="flex items-center gap-3 font-mono text-3xs text-jarvis-muted/80">
-                            <span>XTTS Latents: {p.hasXttsLatents ? '✓ Ready' : '—'}</span>
-                            <span>CPU Base: {p.baseVoice || (p.gender === 'female' ? 'af_bella' : 'bm_george')}</span>
-                            <span>Kokoro Style: {p.hasKokoroStyle ? '✓ 256-dim' : '—'}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-7 text-3xs flex items-center gap-1.5"
-                            disabled={testingVoiceId === p.id}
-                            onClick={async () => {
-                              setTestingVoiceId(p.id)
-                              try {
-                                if (window.jarvisAPI?.voiceSynthesize) {
-                                  const res = await window.jarvisAPI.voiceSynthesize(
-                                    `Hello, this is a test of the ${p.name} voice profile. All systems operational.`,
-                                    {
-                                      speakerWav: p.folderPath,
-                                      voice: p.baseVoice || (p.gender === 'female' ? 'af_bella' : 'bm_george'),
-                                      providerId: 'auto'
-                                    }
-                                  )
-                                  if (res?.data) {
-                                    await globalAudioPlayback.play(res.data, res.sampleRateHz || 24000)
-                                    setVoiceFeedback(`Synthesized ${p.name} using ${res.providerId || 'auto'} (${res.voice || p.baseVoice})`)
-                                    setTimeout(() => setVoiceFeedback(null), 3500)
-                                  }
-                                }
-                              } catch (err: any) {
-                                console.error('Test synthesis error:', err)
-                                setVoiceFeedback(`Test synthesis error: ${err.message || err}`)
-                              } finally {
-                                setTestingVoiceId(null)
-                              }
-                            }}
-                          >
-                            <Play className="h-3 w-3" />
-                            <span>{testingVoiceId === p.id ? 'Synthesizing...' : 'Test Voice'}</span>
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-jarvis-muted hover:text-red-400 hover:bg-red-500/10"
-                            onClick={async () => {
-                              if (window.jarvisAPI?.voiceDeleteProfile) {
-                                await window.jarvisAPI.voiceDeleteProfile(p.id)
-                                refreshVoiceData()
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Enrollment Card */}
-                <div className="rounded-lg border border-jarvis-border/80 bg-jarvis-base/60 p-3 space-y-3">
-                  <h3 className="text-xs font-semibold text-jarvis-ivory flex items-center gap-1.5">
-                    <Plus className="h-3.5 w-3.5 text-jarvis-accent" />
-                    <span>Enroll New Voice Profile</span>
-                  </h3>
-
+                <div className="space-y-3 rounded-lg border border-jarvis-border/80 bg-jarvis-base/60 p-3.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-3xs font-medium text-jarvis-ivory">Profile Name</label>
+                      <label className="text-3xs font-medium text-jarvis-ivory">Voice Persona Name</label>
                       <input
                         type="text"
-                        placeholder="e.g. Tony Stark, British Gentleman"
+                        placeholder="e.g. Tony Stark, Morgan Freeman, FRIDAY"
                         value={newProfileName}
                         onChange={(e) => setNewProfileName(e.target.value)}
                         className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
@@ -1534,7 +2027,7 @@ export function SettingsApp(): React.JSX.Element {
                       <label className="text-3xs font-medium text-jarvis-ivory">Description (Optional)</label>
                       <input
                         type="text"
-                        placeholder="e.g. Confident cinematic cadence"
+                        placeholder="e.g. Crisp, witty assistant persona"
                         value={newProfileDesc}
                         onChange={(e) => setNewProfileDesc(e.target.value)}
                         className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
@@ -1542,10 +2035,9 @@ export function SettingsApp(): React.JSX.Element {
                     </div>
                   </div>
 
-                  {/* Gender & CPU Base Persona Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-3xs font-medium text-jarvis-ivory">Voice Gender</label>
+                      <label className="text-3xs font-medium text-jarvis-ivory">Persona Gender</label>
                       <select
                         value={newProfileGender}
                         onChange={(e) => {
@@ -1553,7 +2045,7 @@ export function SettingsApp(): React.JSX.Element {
                           setNewProfileGender(g)
                           setNewProfileBaseVoice(g === 'female' ? 'af_bella' : 'bm_george')
                         }}
-                        className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                        className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none font-mono"
                       >
                         <option value="male">👨 Male Persona</option>
                         <option value="female">👩 Female Persona</option>
@@ -1561,7 +2053,7 @@ export function SettingsApp(): React.JSX.Element {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-3xs font-medium text-jarvis-ivory">Kokoro CPU Companion Voice</label>
+                      <label className="text-3xs font-medium text-jarvis-ivory">Base Acoustic Rhythm</label>
                       <select
                         value={newProfileBaseVoice}
                         onChange={(e) => setNewProfileBaseVoice(e.target.value)}
@@ -1571,31 +2063,36 @@ export function SettingsApp(): React.JSX.Element {
                           <>
                             <option value="af_bella">Bella (Crisp & Articulate, American)</option>
                             <option value="af_heart">Heart (Warm & Natural, American)</option>
-                            <option value="af_sarah">Sarah (Conversational, American)</option>
                             <option value="bf_emma">Emma (British Elegant)</option>
+                            <option value="af_sarah">Sarah (Conversational, American)</option>
                           </>
                         ) : (
                           <>
                             <option value="bm_george">George (British Butler / Jarvis-style)</option>
-                            <option value="am_michael">Michael (Deep & Authoritative, American)</option>
-                            <option value="am_adam">Adam (Broadcast-ready, American)</option>
                             <option value="bm_lewis">Lewis (British Articulate)</option>
+                            <option value="am_michael">Michael (Deep & Authoritative)</option>
+                            <option value="am_adam">Adam (Broadcast-ready)</option>
                           </>
                         )}
                       </select>
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-                    <div className="flex items-center gap-2">
+                  {/* Audio Upload Dropzone & Player */}
+                  <div className="pt-2 border-t border-jarvis-border/40 space-y-2">
+                    <label className="text-3xs font-medium text-jarvis-ivory">Reference Audio Clip (WAV, MP3, M4A, 3–15 sec)</label>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                       <input
                         type="file"
                         id="voice-sample-upload"
-                        accept="audio/wav,audio/*"
+                        accept="audio/*"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0]
                           if (!file) return
+                          if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl)
+                          const preview = URL.createObjectURL(file)
+                          setAudioPreviewUrl(preview)
                           setNewProfileFileName(file.name)
                           const reader = new FileReader()
                           reader.onload = () => {
@@ -1608,22 +2105,52 @@ export function SettingsApp(): React.JSX.Element {
                       />
                       <label
                         htmlFor="voice-sample-upload"
-                        className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 text-3xs font-medium text-jarvis-ivory hover:border-jarvis-borderStrong hover:bg-jarvis-hover transition"
+                        className="cursor-pointer inline-flex items-center gap-2 rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs font-medium text-jarvis-ivory hover:border-jarvis-accent/60 hover:bg-jarvis-hover transition"
                       >
-                        <Volume2 className="h-3 w-3 text-jarvis-accent" />
-                        <span>{newProfileFileName ? newProfileFileName : 'Select Reference WAV Audio (3-6s)'}</span>
+                        <UploadCloud className="h-4 w-4 text-jarvis-accent" />
+                        <span>{newProfileFileName ? `Clip: ${newProfileFileName}` : 'Choose Audio File...'}</span>
                       </label>
+
+                      {audioPreviewUrl && (
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <audio src={audioPreviewUrl} controls className="h-8 w-60 rounded bg-jarvis-base" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl)
+                              setAudioPreviewUrl(null)
+                              setNewProfileFileName(null)
+                              setNewProfileWavBase64(null)
+                            }}
+                            className="text-3xs text-jarvis-muted hover:text-red-400 p-1"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
                     </div>
+                  </div>
+
+                  {/* Actions & Auto-active Checkbox */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-jarvis-border/40">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-jarvis-ivory">
+                      <input
+                        type="checkbox"
+                        checked={autoSetActiveOnClone}
+                        onChange={(e) => setAutoSetActiveOnClone(e.target.checked)}
+                        className="accent-jarvis-accent rounded"
+                      />
+                      <span>Make this newly cloned voice the active Jarvis voice immediately</span>
+                    </label>
 
                     <Button
                       variant="primary"
                       size="sm"
-                      className="h-8 text-xs font-semibold"
+                      className="h-8 text-xs font-semibold px-4"
                       disabled={isEnrolling || !newProfileName.trim()}
                       onClick={async () => {
                         setIsEnrolling(true)
                         try {
-                          // If no custom file is selected, generate a clean 3-second 16kHz sine reference
                           let wavB64 = newProfileWavBase64
                           if (!wavB64) {
                             const pcm = new Int16Array(16000 * 3)
@@ -1632,18 +2159,18 @@ export function SettingsApp(): React.JSX.Element {
                             }
                             const wavBytes = new Uint8Array(44 + pcm.length * 2)
                             const view = new DataView(wavBytes.buffer)
-                            view.setUint32(0, 0x52494646, false) // RIFF
+                            view.setUint32(0, 0x52494646, false)
                             view.setUint32(4, 36 + pcm.length * 2, true)
-                            view.setUint32(8, 0x57415645, false) // WAVE
-                            view.setUint32(12, 0x666d7420, false) // fmt
+                            view.setUint32(8, 0x57415645, false)
+                            view.setUint32(12, 0x666d7420, false)
                             view.setUint32(16, 16, true)
-                            view.setUint16(20, 1, true) // PCM
-                            view.setUint16(22, 1, true) // 1 channel
-                            view.setUint32(24, 16000, true) // 16kHz
+                            view.setUint16(20, 1, true)
+                            view.setUint16(22, 1, true)
+                            view.setUint32(24, 16000, true)
                             view.setUint32(28, 32000, true)
                             view.setUint16(32, 2, true)
                             view.setUint16(34, 16, true)
-                            view.setUint32(36, 0x64617461, false) // data
+                            view.setUint32(36, 0x64617461, false)
                             view.setUint32(40, pcm.length * 2, true)
                             new Int16Array(wavBytes.buffer, 44).set(pcm)
                             let binary = ''
@@ -1652,20 +2179,34 @@ export function SettingsApp(): React.JSX.Element {
                           }
 
                           if (window.jarvisAPI?.voiceCreateProfile) {
-                            await window.jarvisAPI.voiceCreateProfile(newProfileName, wavB64, newProfileDesc, {
+                            const created = await window.jarvisAPI.voiceCreateProfile(newProfileName, wavB64, newProfileDesc, {
                               gender: newProfileGender,
                               baseVoice: newProfileBaseVoice
                             })
+
+                            if (autoSetActiveOnClone && created?.id) {
+                              await handleSetActiveVoice({
+                                ttsVoice: `profile:${created.id}`,
+                                ttsProvider: 'openvoice-v2',
+                                speed: 1.0,
+                                name: newProfileName
+                              })
+                            }
+
                             setNewProfileName('')
                             setNewProfileDesc('')
                             setNewProfileWavBase64(null)
                             setNewProfileFileName(null)
-                            setVoiceFeedback('Voice profile enrolled successfully with precomputed dual tensors!')
+                            if (audioPreviewUrl) {
+                              URL.revokeObjectURL(audioPreviewUrl)
+                              setAudioPreviewUrl(null)
+                            }
+                            setVoiceFeedback(`Voice profile "${newProfileName}" cloned successfully!`)
                             setTimeout(() => setVoiceFeedback(null), 4000)
-                            refreshVoiceData()
+                            await refreshVoiceData()
                           }
                         } catch (err: any) {
-                          setVoiceFeedback(`Enrollment failed: ${err.message || err}`)
+                          setVoiceFeedback(`Cloning failed: ${err.message || err}`)
                         } finally {
                           setIsEnrolling(false)
                         }
@@ -1674,105 +2215,97 @@ export function SettingsApp(): React.JSX.Element {
                       {isEnrolling ? (
                         <>
                           <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          <span>Precomputing Tensors...</span>
+                          <span>Extracting Neural Embeddings...</span>
                         </>
                       ) : (
-                        <span>Precompute & Enroll Profile</span>
+                        <>
+                          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                          <span>Clone Voice & Precompute Latents</span>
+                        </>
                       )}
                     </Button>
                   </div>
                 </div>
               </div>
 
-              {/* Voice & Cloned Profile Playground */}
+              {/* 4. INTERACTIVE VOICE PLAYGROUND */}
               <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Volume2 className="h-4 w-4 text-jarvis-accent" />
-                    <h2 className="text-xs font-semibold text-jarvis-ivory">Voice & Cloned Profile Playground</h2>
+                    <h2 className="text-xs font-semibold text-jarvis-ivory">Interactive Speech Playground</h2>
                   </div>
                   <div className="flex items-center gap-2">
                     {isPlayingAudio && (
                       <span className="flex items-center gap-1.5 text-3xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full">
                         <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                         </span>
-                        Playing
+                        Synthesizing & Playing
                       </span>
                     )}
                     <Badge variant="outline" className="text-3xs font-mono">
-                      Interactive Test Studio
+                      Paragraph Testing
                     </Badge>
                   </div>
                 </div>
 
                 <p className="text-xs text-jarvis-muted leading-relaxed">
-                  Select any enrolled cloned voice profile or neural engine, enter or paste full paragraphs of text, and test speech synthesis, pronunciation, and latency in real time.
+                  Enter or paste any custom text to test pronunciation, cadence, and latency across any voice persona or engine.
                 </p>
 
                 {/* Selectors Bar */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Voice Profile Selector */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-jarvis-ivory">Target Voice / Profile</label>
+                    <label className="text-xs font-medium text-jarvis-ivory">Voice to Test</label>
                     <select
                       value={playgroundVoiceId}
                       onChange={(e) => setPlaygroundVoiceId(e.target.value)}
                       className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
                     >
-                      <option value="default">Default Voice ({voiceConfig?.ttsProvider || 'kokoro-82m'})</option>
+                      <option value="default">★ Current Active Voice ({activePersona.name})</option>
                       {voiceProfiles.length > 0 && (
                         <optgroup label="Cloned Voice Profiles">
                           {voiceProfiles.map((p) => (
                             <option key={p.id} value={`profile:${p.id}`}>
-                              ⭐ {p.name} ({p.hasOpenVoiceSE ? 'Neural Tone Cloned' : p.gender === 'female' ? 'Female' : 'Male'} • {p.baseVoice || 'Auto'})
+                              {p.id === 'javis-original' ? '⭐ ' : ''}{p.name} ({p.hasOpenVoiceSE ? 'OpenVoice V2' : 'Kokoro-style'})
                             </option>
                           ))}
                         </optgroup>
                       )}
-                      <optgroup label="Kokoro-82M Female Voices">
-                        <option value="voice:af_heart">Kokoro: Heart (Warm & Natural, US)</option>
-                        <option value="voice:af_bella">Kokoro: Bella (Crisp & Articulate, US)</option>
-                        <option value="voice:af_sarah">Kokoro: Sarah (Conversational, US)</option>
-                        <option value="voice:af_nicole">Kokoro: Nicole (Gentle, US)</option>
-                        <option value="voice:bf_emma">Kokoro: Emma (British Elegant, UK)</option>
+                      <optgroup label="Kokoro-82M CPU Voices">
+                        {BUILTIN_KOKORO_PERSONAS.map((b) => (
+                          <option key={b.id} value={`voice:${b.id}`}>
+                            {b.name} ({b.accent})
+                          </option>
+                        ))}
                       </optgroup>
-                      <optgroup label="Kokoro-82M Male Voices">
-                        <option value="voice:bm_george">Kokoro: George (British Butler / Jarvis-style, UK)</option>
-                        <option value="voice:am_michael">Kokoro: Michael (Deep & Warm, US)</option>
-                        <option value="voice:am_adam">Kokoro: Adam (Broadcast-ready, US)</option>
-                        <option value="voice:bm_lewis">Kokoro: Lewis (British Articulate, UK)</option>
-                      </optgroup>
-                      <optgroup label="Edge-TTS Cloud Voices">
-                        <option value="voice:en-US-JennyNeural">Edge-TTS: Jenny (Neural Female)</option>
-                        <option value="voice:en-US-GuyNeural">Edge-TTS: Guy (Neural Male)</option>
-                      </optgroup>
-                      <optgroup label="Windows System.Speech (SAPI)">
-                        <option value="voice:Microsoft Zira Desktop">SAPI: Microsoft Zira (Female)</option>
-                        <option value="voice:Microsoft David Desktop">SAPI: Microsoft David (Male)</option>
+                      <optgroup label="Cloud & System Voices">
+                        {CLOUD_SYSTEM_PERSONAS.map((c) => (
+                          <option key={c.id} value={`voice:${c.id}`}>
+                            {c.name} ({c.provider})
+                          </option>
+                        ))}
                       </optgroup>
                     </select>
                   </div>
 
-                  {/* TTS Engine Selector */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-jarvis-ivory">TTS Engine Override</label>
+                    <label className="text-xs font-medium text-jarvis-ivory">Engine Mode</label>
                     <select
                       value={playgroundEngine}
                       onChange={(e) => setPlaygroundEngine(e.target.value)}
                       className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
                     >
-                      <option value="auto">Auto (Configured Default: {voiceConfig?.ttsProvider || 'kokoro-82m'})</option>
-                      <option value="openvoice-v2">OpenVoice V2 (High-Fidelity J.A.R.V.I.S. Neural Clone)</option>
-                      <option value="kokoro-82m">Kokoro-82M (Instant CPU Neural)</option>
-                      <option value="xtts-v2">Coqui XTTS-v2 (Zero-shot Voice Cloning)</option>
+                      <option value="auto">Auto (Smart Engine Routing)</option>
+                      <option value="openvoice-v2">OpenVoice V2 (Deterministic J.A.R.V.I.S. Clone)</option>
+                      <option value="kokoro-82m">Kokoro-82M ONNX (Sub-150ms TTFA)</option>
                       <option value="edge-tts">Microsoft Edge-TTS (Cloud Neural)</option>
-                      <option value="system-speech">System Speech (Windows SAPI)</option>
+                      <option value="system-speech">Windows SAPI (100% Offline)</option>
                     </select>
                   </div>
 
-                  {/* Speed Slider */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center">
                       <label className="text-xs font-medium text-jarvis-ivory">Playback Speed</label>
@@ -1781,7 +2314,7 @@ export function SettingsApp(): React.JSX.Element {
                     <input
                       type="range"
                       min="0.5"
-                      max="2.0"
+                      max="1.5"
                       step="0.05"
                       value={playgroundSpeed}
                       onChange={(e) => setPlaygroundSpeed(parseFloat(e.target.value))}
@@ -1793,16 +2326,23 @@ export function SettingsApp(): React.JSX.Element {
                 {/* Quick Presets Bar */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-3xs font-semibold uppercase tracking-wider text-jarvis-muted">Sample Presets:</span>
+                    <span className="text-3xs font-semibold uppercase tracking-wider text-jarvis-muted">Presets:</span>
                     <span className="text-3xs font-mono text-jarvis-muted/70">{playgroundText.length} characters</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setPlaygroundText('Hello! I am Jarvis, your personal AI companion. All voice synthesis and cloning pipelines are active and calibrated.')}
+                      onClick={() => setPlaygroundText('Good evening, sir. All automated systems and workspace tasks are operating at optimal efficiency.')}
                       className="rounded border border-jarvis-border/80 bg-jarvis-base px-2 py-1 text-3xs text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory transition font-mono"
                     >
                       👋 Greeting
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlaygroundText('I have calibrated the tone color converters and speech boundary detectors. We are fully operational and ready for your instructions, sir.')}
+                      className="rounded border border-jarvis-border/80 bg-jarvis-base px-2 py-1 text-3xs text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory transition font-mono"
+                    >
+                      🛡️ J.A.R.V.I.S. Line
                     </button>
                     <button
                       type="button"
@@ -1820,10 +2360,10 @@ export function SettingsApp(): React.JSX.Element {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPlaygroundText('All twenty-six automated test suites passed with zero errors. System ready.')}
+                      onClick={() => setPlaygroundText('All automated test suites passed with zero errors. System ready.')}
                       className="rounded border border-jarvis-border/80 bg-jarvis-base px-2 py-1 text-3xs text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory transition font-mono"
                     >
-                      ⚡ Quick Confirmation
+                      ⚡ Quick Ping
                     </button>
                     <button
                       type="button"
@@ -1891,7 +2431,7 @@ export function SettingsApp(): React.JSX.Element {
                 {/* Actions Bar */}
                 <div className="flex items-center justify-between pt-1">
                   <div className="text-3xs text-jarvis-muted">
-                    Tip: Choose your cloned profile to hear it read custom paragraphs!
+                    Tip: Press "Synthesize & Play" to render speech with active tone vectors.
                   </div>
                   <div className="flex items-center gap-2">
                     {isPlayingAudio && (
@@ -1931,6 +2471,162 @@ export function SettingsApp(): React.JSX.Element {
                     </Button>
                   </div>
                 </div>
+              </div>
+
+              {/* 5. COLLAPSIBLE ADVANCED SPEECH & HARDWARE CONFIG */}
+              <div className="rounded-xl border border-jarvis-border bg-jarvis-surface overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedVoiceOpen(!isAdvancedVoiceOpen)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-jarvis-hover/50 transition text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="h-4 w-4 text-jarvis-accent" />
+                    <div>
+                      <h3 className="text-xs font-semibold text-jarvis-ivory">Advanced Speech & Audio Hardware</h3>
+                      <p className="text-3xs text-jarvis-muted">
+                        Configure STT models, Silero VAD sensitivity, barge-in muting, and fallback engines.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-3xs font-mono">
+                      {isAdvancedVoiceOpen ? 'Expanded' : 'Configure'}
+                    </Badge>
+                    {isAdvancedVoiceOpen ? (
+                      <ChevronUp className="h-4 w-4 text-jarvis-muted" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-jarvis-muted" />
+                    )}
+                  </div>
+                </button>
+
+                {isAdvancedVoiceOpen && (
+                  <div className="p-4 pt-0 space-y-4 border-t border-jarvis-border/60">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                      {/* STT Engine */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-jarvis-ivory">Speech-to-Text (STT) Engine</label>
+                        <select
+                          value={voiceConfig?.sttProvider || 'groq-whisper'}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setVoiceConfig((prev: any) => ({ ...prev, sttProvider: val }))
+                            window.jarvisAPI?.voiceUpdateConfig?.({ sttProvider: val })
+                          }}
+                          className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                        >
+                          <option value="groq-whisper">Groq Whisper Cloud (~150ms sub-second latency)</option>
+                          <option value="openai-whisper">OpenAI Whisper Cloud API</option>
+                        </select>
+                        <p className="text-3xs text-jarvis-muted">
+                          Groq runs whisper-large-v3-turbo with sub-second turnaround.
+                        </p>
+                      </div>
+
+                      {/* Primary TTS Engine Override */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-jarvis-ivory">Primary TTS Engine Override</label>
+                        <select
+                          value={voiceConfig?.ttsProvider || 'openvoice-v2'}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setVoiceConfig((prev: any) => ({ ...prev, ttsProvider: val }))
+                            window.jarvisAPI?.voiceUpdateConfig?.({ ttsProvider: val })
+                          }}
+                          className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                        >
+                          <option value="openvoice-v2">OpenVoice V2 (High-Fidelity J.A.R.V.I.S. Clone, CPU Native)</option>
+                          <option value="kokoro-82m">Kokoro-82M ONNX (CPU Native, &lt;150ms TTFA)</option>
+                          <option value="xtts-v2">Coqui XTTS-v2 (Zero-Shot Cloned Profiles)</option>
+                          <option value="system-speech">Windows SAPI (100% Offline, Zero-Download)</option>
+                          <option value="edge-tts">Edge TTS (Cloud Streaming)</option>
+                          <option value="openai-tts">OpenAI TTS (tts-1)</option>
+                        </select>
+                        <p className="text-3xs text-jarvis-muted">
+                          Sentence chunking ensures audio playback begins while text is streaming.
+                        </p>
+                      </div>
+
+                      {/* Fallback TTS Engine */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-jarvis-ivory">Fallback TTS Engine</label>
+                        <select
+                          value={voiceConfig?.ttsFallbackProvider || 'system-speech'}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setVoiceConfig((prev: any) => ({ ...prev, ttsFallbackProvider: val }))
+                            window.jarvisAPI?.voiceUpdateConfig?.({ ttsFallbackProvider: val })
+                          }}
+                          className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                        >
+                          <option value="system-speech">Windows SAPI (100% Offline, Zero-Download)</option>
+                          <option value="kokoro-82m">Kokoro-82M ONNX</option>
+                        </select>
+                        <p className="text-3xs text-jarvis-muted">
+                          Instant zero-lag fallback when primary model is busy or offline.
+                        </p>
+                      </div>
+
+                      {/* STT Language */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-jarvis-ivory">Primary Language</label>
+                        <select
+                          value={voiceConfig?.language || 'en'}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setVoiceConfig((prev: any) => ({ ...prev, language: val }))
+                            window.jarvisAPI?.voiceUpdateConfig?.({ language: val })
+                          }}
+                          className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                        >
+                          <option value="en">English (US/UK)</option>
+                          <option value="auto">Auto-detect</option>
+                        </select>
+                        <p className="text-3xs text-jarvis-muted">
+                          Language for transcription and text-to-speech processing.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* VAD & Barge-in Controls */}
+                    <div className="border-t border-jarvis-border/60 pt-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-jarvis-ivory">Silero VAD Speech Activity Detection</p>
+                          <p className="text-3xs text-jarvis-muted mt-0.5">
+                            High-precision neural VAD v5 running in &lt;1ms/frame on CPU.
+                          </p>
+                        </div>
+                        <Switch
+                          label="Toggle VAD"
+                          checked={voiceConfig?.vadEnabled !== false}
+                          onCheckedChange={(checked) => {
+                            setVoiceConfig((prev: any) => ({ ...prev, vadEnabled: checked }))
+                            window.jarvisAPI?.voiceUpdateConfig?.({ vadEnabled: checked })
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-jarvis-border/40 pt-3">
+                        <div>
+                          <p className="text-xs font-medium text-jarvis-ivory">Instant Barge-in Interruption</p>
+                          <p className="text-3xs text-jarvis-muted mt-0.5">
+                            Instantly cancels TTS speech and listens the moment you start speaking (&lt;150ms).
+                          </p>
+                        </div>
+                        <Switch
+                          label="Toggle Barge-in"
+                          checked={voiceConfig?.interruptOnUserSpeech !== false}
+                          onCheckedChange={(checked) => {
+                            setVoiceConfig((prev: any) => ({ ...prev, interruptOnUserSpeech: checked }))
+                            window.jarvisAPI?.voiceUpdateConfig?.({ interruptOnUserSpeech: checked })
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

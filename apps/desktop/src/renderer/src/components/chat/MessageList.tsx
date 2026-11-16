@@ -142,7 +142,7 @@ const MessageItem = React.memo(function MessageItem({
         setIsSynthesizing(false)
         if (audio?.data) {
           setIsPlayingSpeech(true)
-          await globalAudioPlayback.play(audio.data)
+          await globalAudioPlayback.play(audio.data, audio.sampleRateHz || 24000)
           setIsPlayingSpeech(false)
         }
       } catch (err) {

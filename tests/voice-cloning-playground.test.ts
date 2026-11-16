@@ -229,5 +229,47 @@ describe('Voice Selection, Kokoro-82M & Voice Profile Architecture', () => {
       expect(out.format).toBe('wav')
       expect(out.sampleRateHz).toBe(24000)
     })
+
+    it('routes to openvoice-v2 by default when configured with javis-original persona', async () => {
+      const openVoiceMock: TextToSpeechProvider = {
+        id: 'openvoice-v2',
+        locality: 'local',
+        supportsStreaming: () => false,
+        synthesize: vi.fn().mockResolvedValue({
+          data: new Uint8Array([10, 20, 30]),
+          sampleRateHz: 24000,
+          format: 'wav',
+          durationMs: 1200,
+          providerId: 'openvoice-v2',
+          voice: 'bm_george'
+        }),
+        healthCheck: vi.fn().mockResolvedValue({ ok: true, providerId: 'openvoice-v2' })
+      }
+
+      const manager = new VoiceManager({
+        config: {
+          ttsProvider: 'openvoice-v2',
+          ttsVoice: 'profile:javis-original',
+          speed: 0.95
+        },
+        ttsProviders: [openVoiceMock]
+      })
+
+      // When options are empty, resolveTTSProvider uses the configured default
+      const provider = manager.resolveTTSProvider({})
+      expect(provider?.id).toBe('openvoice-v2')
+
+      const cfg = manager.getConfig()
+      expect(cfg.ttsProvider).toBe('openvoice-v2')
+      expect(cfg.ttsVoice).toBe('profile:javis-original')
+      expect(cfg.speed).toBe(0.95)
+
+      const res = await manager.synthesize('Good evening, sir.')
+      expect(res.providerId).toBe('openvoice-v2')
+      expect(openVoiceMock.synthesize).toHaveBeenCalledWith(
+        'Good evening, sir.',
+        expect.objectContaining({ speed: 0.95 })
+      )
+    })
   })
 })

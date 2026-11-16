@@ -42,6 +42,7 @@ import {
   EdgeTTSProvider,
   KokoroTTSProvider,
   XTTSv2Provider,
+  OpenVoiceTTSProvider,
   VoiceProfileManager,
   pcm16ToWav
 } from '@jarvis/voice'
@@ -136,10 +137,27 @@ const openaiTTS = new OpenAITTSProvider({
 const edgeTTS = new EdgeTTSProvider()
 const kokoroTTS = new KokoroTTSProvider()
 const xttsTTS = new XTTSv2Provider()
+const openVoiceTTS = new OpenVoiceTTSProvider()
+
+const voiceConfigFile = join(dataDir, 'voice-config.json')
+let savedVoiceConfig: any = {}
+try {
+  if (fs.existsSync(voiceConfigFile)) {
+    savedVoiceConfig = JSON.parse(fs.readFileSync(voiceConfigFile, 'utf-8'))
+  }
+} catch (e) {
+  console.warn('[Jarvis Main] Failed to load voice-config.json:', e)
+}
 
 const voiceManager = new VoiceManager({
+  config: {
+    ttsProvider: 'openvoice-v2',
+    ttsVoice: 'profile:javis-original',
+    speed: 0.95,
+    ...savedVoiceConfig
+  },
   sttProviders: [groqWhisperSTT, openaiWhisperSTT],
-  ttsProviders: [kokoroTTS, xttsTTS, systemSpeechTTS, edgeTTS, openaiTTS]
+  ttsProviders: [openVoiceTTS, kokoroTTS, xttsTTS, systemSpeechTTS, edgeTTS, openaiTTS]
 })
 
 const voiceProfileManager = new VoiceProfileManager()
@@ -1775,7 +1793,13 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('voice:update-config', async (event, partial) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
-    return voiceManager.updateConfig(partial)
+    const updated = voiceManager.updateConfig(partial)
+    try {
+      fs.writeFileSync(voiceConfigFile, JSON.stringify(updated, null, 2), 'utf-8')
+    } catch (e) {
+      console.warn('[Jarvis Main] Failed to persist voice-config.json:', e)
+    }
+    return updated
   })
 
   ipcMain.handle('voice:interrupt', async (event) => {
@@ -1810,6 +1834,18 @@ function registerIpcHandlers(): void {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
     const resolvedOptions = { ...(options || {}) }
 
+    // Fall back to configured defaults when options are not explicitly set
+    const cfg = voiceManager.getConfig()
+    if (!resolvedOptions.voice) {
+      resolvedOptions.voice = cfg.ttsVoice || 'profile:javis-original'
+    }
+    if (!resolvedOptions.providerId || resolvedOptions.providerId === 'auto') {
+      resolvedOptions.providerId = cfg.ttsProvider || 'openvoice-v2'
+    }
+    if (resolvedOptions.speed === undefined && cfg.speed !== undefined) {
+      resolvedOptions.speed = cfg.speed
+    }
+
     // If target voice is an enrolled cloned profile, resolve folder path and companion voice
     if (resolvedOptions.voice?.startsWith('profile:')) {
       const profId = resolvedOptions.voice.replace('profile:', '')
@@ -1818,18 +1854,14 @@ function registerIpcHandlers(): void {
         resolvedOptions.speakerWav = prof.folderPath
         resolvedOptions.voice = prof.baseVoice || (prof.gender === 'female' ? 'af_bella' : 'bm_george')
         if (prof.hasOpenVoiceSE || prof.recommendedEngine === 'openvoice-v2') {
-          if (!resolvedOptions.providerId || resolvedOptions.providerId === 'auto') {
-            resolvedOptions.providerId = 'openvoice-v2'
-          }
+          resolvedOptions.providerId = 'openvoice-v2'
         }
       }
     } else if (resolvedOptions.speakerWav) {
       // Profile path was passed in speakerWav
-      if (!resolvedOptions.providerId || resolvedOptions.providerId === 'auto') {
-        const profileSe = path.join(resolvedOptions.speakerWav, 'openvoice_se.pth')
-        if (fs.existsSync(profileSe)) {
-          resolvedOptions.providerId = 'openvoice-v2'
-        }
+      const profileSe = path.join(resolvedOptions.speakerWav, 'openvoice_se.pth')
+      if (fs.existsSync(profileSe)) {
+        resolvedOptions.providerId = 'openvoice-v2'
       }
     }
 

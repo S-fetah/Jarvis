@@ -172,6 +172,17 @@ Through our interactive design interview, the following decisions were finalized
     - Dual execution path: Fast HTTP daemon at `http://127.0.0.1:8020` via FastAPI (`packages/voice/server/openvoice_service.py`) with automatic fallback to standalone child-process CLI runner (`packages/voice/server/openvoice_cli_runner.py`).
     - Smart routing in Electron main process (`voice:synthesize`): Automatically detects cloned profiles with `openvoice_se.pth` and routes to `openvoice-v2`, while routing known Kokoro voice strings (`af_*`, `am_*`, `bf_*`, `bm_*`) directly to `kokoro-82m`.
 
+### Phase V3.7: Redesigned Voice & Cloning Studio UI/UX & Default J.A.R.V.I.S. Persona
+- **Active J.A.R.V.I.S. Persona Hero Card**: Dynamic visual status card showcasing the current speaking persona, active engine badge (`OpenVoice V2 (Deterministic Latents)`), 100% offline CPU status, one-click audition audio playback, and instantaneous speech cadence controls (0.95x J.A.R.V.I.S. cadence vs 1.0x standard).
+- **Categorized Persona Library**: Segregated into Cloned Personas (with precomputed embeddings), Built-in Kokoro-82M CPU personas (with gender and UK/US accent breakdowns), and Cloud & SAPI voices. Every persona features a one-click "Set as Active Voice" button that atomically persists `ttsVoice`, `ttsProvider`, and cadence settings, alongside a one-click live preview button.
+- **Intuitive Voice Studio (Zero-Shot Cloning)**: Clean file picker with instant embedded `<audio controls>` waveform preview so users can listen to their uploaded sample prior to cloning, one-click latent extraction, and optional "Make this newly cloned voice the active Jarvis voice immediately" toggle.
+- **Interactive Speech Playground**: Comprehensive paragraph tester with scenario presets (Greeting, J.A.R.V.I.S. Line, Technical Code, Long Story, Quick Confirmation), independent engine/voice testing overrides, real-time audio playback stop/start controls, and real-time synthesis metrics (latency ms, duration s, sample rate Hz).
+- **Collapsible Advanced Speech & Audio Hardware Drawer**: Cleanly tucks away advanced knobs (Groq Whisper vs OpenAI STT, Silero VAD v5 detection, instant barge-in auto-mute, primary engine override, and Windows SAPI fallback) without overwhelming the user interface.
+- **Application-Wide Default J.A.R.V.I.S. Routing & Disk Persistence**:
+  - `apps/desktop/src/main/index.ts` loads persisted settings from `%APPDATA%\Jarvis\voice-config.json` on startup.
+  - Defaults out-of-the-box to `ttsProvider: 'openvoice-v2'`, `ttsVoice: 'profile:javis-original'`, and `speed: 0.95`.
+  - `voice:synthesize` automatically injects configured defaults whenever options are omitted, guaranteeing that J.A.R.V.I.S. speaks with the cloned Paul Bettany voice across all desktop chat responses and autonomous tasks.
+
 ### Phase V4: Local Offline STT (Whisper ONNX) & Real-Time Interim Tracking
 - Real-time interim STT recognition (1.8s sliding window with simultaneous request lifecycle) for immediate visual feedback of spoken words.
 - Quantized Whisper `base.en` ONNX provider for 100% offline air-gapped speech recognition.
