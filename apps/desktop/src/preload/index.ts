@@ -326,6 +326,18 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('voice:update-config', config)
   },
 
+  voiceListProfiles: (): Promise<any> => {
+    return ipcRenderer.invoke('voice:list-profiles')
+  },
+
+  voiceCreateProfile: (name: string, wavBase64: string, description?: string): Promise<any> => {
+    return ipcRenderer.invoke('voice:create-profile', { name, wavBase64, description })
+  },
+
+  voiceDeleteProfile: (id: string): Promise<boolean> => {
+    return ipcRenderer.invoke('voice:delete-profile', id)
+  },
+
   onVoiceEvent: (callback: (event: any) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, voiceEvt: any): void => callback(voiceEvt)
     ipcRenderer.on('voice:event', handler)

@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import type {
+  AudioChunk,
   AudioInput,
   AudioOutput,
   SpeechOptions,
@@ -14,6 +15,10 @@ import type {
 } from './types'
 import { SileroVADProvider } from './providers/vad/silero-vad-provider'
 import { SpeechBoundaryDetector } from './vad/speech-boundary-detector'
+import { SentenceChunker } from './utils/sentence-chunker'
+import { SystemSpeechTTSProvider } from './providers/tts/system-speech-tts-provider'
+import { KokoroTTSProvider } from './providers/tts/kokoro-tts-provider'
+import { XTTSv2Provider } from './providers/tts/xtts-tts-provider'
 
 export interface VoiceManagerOptions {
   config?: Partial<VoiceConfig>
@@ -54,10 +59,14 @@ export class VoiceManager extends EventEmitter {
       }
     }
 
-    if (options?.ttsProviders) {
+    if (options?.ttsProviders && options.ttsProviders.length > 0) {
       for (const provider of options.ttsProviders) {
         this.registerTTSProvider(provider)
       }
+    } else {
+      this.registerTTSProvider(new SystemSpeechTTSProvider())
+      this.registerTTSProvider(new KokoroTTSProvider())
+      this.registerTTSProvider(new XTTSv2Provider())
     }
 
     this.vadProvider = options?.vadProvider || new SileroVADProvider()
@@ -266,6 +275,36 @@ export class VoiceManager extends EventEmitter {
 
     this.setState('error')
     throw new Error('TTS synthesis failed on all available providers.')
+  }
+
+  /**
+   * Sentence-streaming TTS synthesis using SentenceChunker for sub-second TTFA.
+   */
+  async *synthesizeStream(
+    textStream: AsyncIterable<string>,
+    options?: SpeechOptions
+  ): AsyncGenerator<AudioChunk, void, unknown> {
+    const chunker = new SentenceChunker()
+    const sentenceStream = chunker.processStream(textStream)
+
+    for await (const sentence of sentenceStream) {
+      if (options?.signal?.aborted || this.currentAbortController?.signal.aborted) {
+        break
+      }
+      if (sentence.trim().length === 0) continue
+
+      try {
+        const audio = await this.synthesize(sentence, options)
+        yield {
+          data: audio.data,
+          sampleRateHz: audio.sampleRateHz,
+          isFinal: false
+        }
+      } catch (err) {
+        if (options?.signal?.aborted || this.currentAbortController?.signal.aborted) break
+        console.error(`[VoiceManager] Sentence synthesis failed: "${sentence}":`, err)
+      }
+    }
   }
 
   onVoiceEvent(callback: (event: VoiceEvent) => void): () => void {

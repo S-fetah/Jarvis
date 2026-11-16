@@ -39,7 +39,10 @@ import {
   OpenAIWhisperSTTProvider,
   OpenAITTSProvider,
   SystemSpeechTTSProvider,
-  EdgeTTSProvider
+  EdgeTTSProvider,
+  KokoroTTSProvider,
+  XTTSv2Provider,
+  VoiceProfileManager
 } from '@jarvis/voice'
 import { MascotManager } from './windows/mascot-manager'
 import { TrayManager } from './windows/tray-manager'
@@ -130,11 +133,15 @@ const openaiTTS = new OpenAITTSProvider({
   apiKey: () => credentialVault.getKey('openai') || ''
 })
 const edgeTTS = new EdgeTTSProvider()
+const kokoroTTS = new KokoroTTSProvider()
+const xttsTTS = new XTTSv2Provider()
 
 const voiceManager = new VoiceManager({
   sttProviders: [groqWhisperSTT, openaiWhisperSTT],
-  ttsProviders: [systemSpeechTTS, edgeTTS, openaiTTS]
+  ttsProviders: [kokoroTTS, xttsTTS, systemSpeechTTS, edgeTTS, openaiTTS]
 })
+
+const voiceProfileManager = new VoiceProfileManager()
 
 voiceManager.on('voiceEvent', (event) => {
   broadcastToWindows('voice:event', event)
@@ -1807,5 +1814,24 @@ function registerIpcHandlers(): void {
       format: output.format,
       durationMs: output.durationMs
     }
+  })
+
+  ipcMain.handle('voice:list-profiles', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return await voiceProfileManager.listProfiles()
+  })
+
+  ipcMain.handle(
+    'voice:create-profile',
+    async (event, { name, wavBase64, description }: { name: string; wavBase64: string; description?: string }) => {
+      if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+      const buffer = Buffer.from(wavBase64, 'base64')
+      return await voiceProfileManager.createProfile(name, buffer, description)
+    }
+  )
+
+  ipcMain.handle('voice:delete-profile', async (event, id: string) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return await voiceProfileManager.deleteProfile(id)
   })
 }

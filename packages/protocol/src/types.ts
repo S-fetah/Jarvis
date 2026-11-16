@@ -311,5 +311,17 @@ export interface JarvisAPI {
   voiceProcessChunk?: (chunk: Int16Array | number[]) => Promise<boolean>
   voiceGetConfig?: () => Promise<any>
   voiceUpdateConfig?: (config: any) => Promise<any>
+  voiceListProfiles?: () => Promise<Array<{
+    id: string
+    name: string
+    createdAt: number
+    description?: string
+    referenceWavPath: string
+    hasXttsLatents: boolean
+    hasKokoroStyle: boolean
+    folderPath: string
+  }>>
+  voiceCreateProfile?: (name: string, wavBase64: string, description?: string) => Promise<any>
+  voiceDeleteProfile?: (id: string) => Promise<boolean>
   onVoiceEvent?: (callback: (event: any) => void) => () => void
 }
