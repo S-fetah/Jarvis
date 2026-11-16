@@ -35,7 +35,28 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
     this.pythonPath = config?.pythonPath || 'python'
     this.targetSePath =
       config?.targetSePath ||
-      path.resolve(__dirname, '../../../models/openvoice/jarvis_target_se.pth')
+      this.findRepoFile('packages', 'voice', 'models', 'openvoice', 'jarvis_target_se.pth')
+  }
+
+  private findRepoFile(...relativeSegments: string[]): string {
+    const startDirs = [__dirname, process.cwd()]
+    for (const start of startDirs) {
+      let curr = start
+      for (let i = 0; i < 6; i++) {
+        const candidate = path.join(curr, ...relativeSegments)
+        if (fs.existsSync(candidate)) {
+          return candidate
+        }
+        const parent = path.dirname(curr)
+        if (parent === curr) break
+        curr = parent
+      }
+    }
+    return path.resolve(process.cwd(), ...relativeSegments)
+  }
+
+  private getRunnerScript(): string {
+    return this.findRepoFile('packages', 'voice', 'server', 'openvoice_cli_runner.py')
   }
 
   supportsStreaming(): boolean {
@@ -61,7 +82,7 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
 
     // 2. Fall back to Python CLI runner verification
     try {
-      const runnerScript = path.resolve(__dirname, '../../../server/openvoice_cli_runner.py')
+      const runnerScript = this.getRunnerScript()
       if (fs.existsSync(runnerScript)) {
         return {
           ok: true,
@@ -124,7 +145,10 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
       os.tmpdir(),
       `jarvis-openvoice-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`
     )
-    const runnerScript = path.resolve(__dirname, '../../../server/openvoice_cli_runner.py')
+    const runnerScript = this.getRunnerScript()
+    if (!fs.existsSync(runnerScript)) {
+      throw new Error(`OpenVoice runner script not found: ${runnerScript}`)
+    }
     const sePath = this.resolveSpeakerSe(options?.speakerWav)
 
     const args = [
@@ -180,15 +204,44 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
   }
 
   private resolveSpeakerSe(speakerWav?: string): string | undefined {
-    if (!speakerWav) return this.targetSePath
+    if (speakerWav) {
+      // 1. Direct check if speakerWav is a folder containing openvoice_se.pth
+      const candidateInFolder = path.join(speakerWav, 'openvoice_se.pth')
+      if (fs.existsSync(candidateInFolder)) {
+        return candidateInFolder
+      }
 
-    // If speakerWav is in a profile folder, check if openvoice_se.pth exists there
-    const dir = path.dirname(speakerWav)
-    const profileSe = path.join(dir, 'openvoice_se.pth')
-    if (fs.existsSync(profileSe)) {
-      return profileSe
+      // 2. If speakerWav is a file (e.g. reference.wav), check its parent directory
+      const dir = path.dirname(speakerWav)
+      const profileSe = path.join(dir, 'openvoice_se.pth')
+      if (fs.existsSync(profileSe)) {
+        return profileSe
+      }
     }
 
-    return this.targetSePath
+    // 3. Check AppData profile directory for javis-original
+    const appDataPath =
+      process.env.APPDATA ||
+      (process.platform === 'darwin'
+        ? path.join(os.homedir(), 'Library', 'Application Support')
+        : path.join(os.homedir(), '.config'))
+    const javisOriginalSe = path.join(
+      appDataPath,
+      'Jarvis',
+      'profiles',
+      'voice',
+      'javis-original',
+      'openvoice_se.pth'
+    )
+    if (fs.existsSync(javisOriginalSe)) {
+      return javisOriginalSe
+    }
+
+    // 4. Fallback to repo target SE path
+    if (fs.existsSync(this.targetSePath)) {
+      return this.targetSePath
+    }
+
+    return undefined
   }
 }
