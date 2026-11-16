@@ -4,7 +4,9 @@ import {
   Check,
   Copy,
   CornerDownLeft,
+  Loader2,
   Maximize2,
+  Mic,
   Send,
   ShieldAlert,
   ShieldCheck,
@@ -29,6 +31,7 @@ import { JarvisMark } from '../components/brand/JarvisMark'
 import { Badge, Button, IconButton, Spinner } from '../components/ui'
 import { applyTheme, readCachedTheme } from '../lib/theme'
 import { cn } from '../lib/cn'
+import { globalAudioCapture } from '../lib/audio-service'
 
 interface QuickChatComposerProps {
   onSubmit: (prompt: string) => void
@@ -40,7 +43,36 @@ const QuickChatComposer = React.memo(function QuickChatComposer({
   isStreaming
 }: QuickChatComposerProps): React.JSX.Element {
   const [inputPrompt, setInputPrompt] = useState('')
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
   const canSend = Boolean(inputPrompt.trim()) && !isStreaming
+
+  const handleToggleRecording = async (): Promise<void> => {
+    if (isRecording) {
+      setIsRecording(false)
+      setIsTranscribing(true)
+      try {
+        const audio = await globalAudioCapture.stopRecording()
+        if (window.jarvisAPI?.voiceTranscribe) {
+          const transcript = await window.jarvisAPI.voiceTranscribe(audio)
+          if (transcript?.text) {
+            setInputPrompt((prev) => (prev ? `${prev} ${transcript.text}` : transcript.text))
+          }
+        }
+      } catch (err) {
+        console.error('[Voice] QuickChat transcription failed:', err)
+      } finally {
+        setIsTranscribing(false)
+      }
+    } else {
+      try {
+        await globalAudioCapture.startRecording()
+        setIsRecording(true)
+      } catch (err) {
+        console.error('[Voice] QuickChat mic start failed:', err)
+      }
+    }
+  }
 
   const handleSubmit = (event?: React.FormEvent): void => {
     event?.preventDefault()
@@ -76,16 +108,39 @@ const QuickChatComposer = React.memo(function QuickChatComposer({
             <CornerDownLeft className="h-2.5 w-2.5" />
             send · shift+enter for a new line
           </span>
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            disabled={!canSend}
-            className="h-7 gap-1 px-2.5 text-[10px]"
-          >
-            <Send className="h-3 w-3" />
-            Send
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleToggleRecording}
+              disabled={isTranscribing || isStreaming}
+              className={cn(
+                'inline-flex h-7 w-7 items-center justify-center rounded border transition',
+                isRecording
+                  ? 'border-red-500/80 bg-red-500/20 text-red-400 animate-pulse'
+                  : isTranscribing
+                    ? 'border-jarvis-accent/50 bg-jarvis-accent/10 text-jarvis-accent'
+                    : 'border-jarvis-border bg-jarvis-base text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory'
+              )}
+              title={isRecording ? 'Listening... click to transcribe' : 'Voice input (Microphone)'}
+              aria-label={isRecording ? 'Stop recording voice' : 'Start voice input'}
+            >
+              {isTranscribing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-jarvis-accent" />
+              ) : (
+                <Mic className={cn('h-3.5 w-3.5', isRecording && 'text-red-400')} />
+              )}
+            </button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={!canSend}
+              className="h-7 gap-1 px-2.5 text-[10px]"
+            >
+              <Send className="h-3 w-3" />
+              Send
+            </Button>
+          </div>
         </div>
       </div>
     </form>

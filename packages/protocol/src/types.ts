@@ -292,4 +292,21 @@ export interface JarvisAPI {
   onNavigateSettingsTab?: (callback: (tab: string) => void) => () => void
   getUserMemory?: (workspacePath?: string) => Promise<{ filePath: string; rawMarkdown: string; memory: any }>
   saveUserMemory?: (markdown: string, workspacePath?: string) => Promise<boolean>
+
+  // Voice System API
+  voiceGetState?: () => Promise<string>
+  voiceTranscribe?: (audio: {
+    data: Uint8Array | number[]
+    sampleRateHz: number
+    channels: 1 | 2
+    format: 'pcm16' | 'wav' | 'webm' | 'ogg'
+  }) => Promise<{ text: string; language?: string; durationMs?: number }>
+  voiceSynthesize?: (
+    text: string,
+    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string }
+  ) => Promise<{ data: Uint8Array | number[]; sampleRateHz: number; format: string; durationMs?: number }>
+  voiceInterrupt?: () => Promise<boolean>
+  voiceGetConfig?: () => Promise<any>
+  voiceUpdateConfig?: (config: any) => Promise<any>
+  onVoiceEvent?: (callback: (event: any) => void) => () => void
 }

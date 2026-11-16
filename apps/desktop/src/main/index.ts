@@ -33,6 +33,14 @@ import {
   ThinkingDepth,
   TimelineEvent
 } from '@jarvis/protocol'
+import {
+  VoiceManager,
+  GroqWhisperSTTProvider,
+  OpenAIWhisperSTTProvider,
+  OpenAITTSProvider,
+  SystemSpeechTTSProvider,
+  EdgeTTSProvider
+} from '@jarvis/voice'
 import { MascotManager } from './windows/mascot-manager'
 import { TrayManager } from './windows/tray-manager'
 import { SettingsWindowManager } from './windows/settings-window-manager'
@@ -110,6 +118,27 @@ const modelAdapter = new ModelGatewayAdapter(
   },
   modelBalancer
 )
+
+const groqWhisperSTT = new GroqWhisperSTTProvider({
+  apiKey: () => credentialVault.getKey('groq') || ''
+})
+const openaiWhisperSTT = new OpenAIWhisperSTTProvider({
+  apiKey: () => credentialVault.getKey('openai') || ''
+})
+const systemSpeechTTS = new SystemSpeechTTSProvider()
+const openaiTTS = new OpenAITTSProvider({
+  apiKey: () => credentialVault.getKey('openai') || ''
+})
+const edgeTTS = new EdgeTTSProvider()
+
+const voiceManager = new VoiceManager({
+  sttProviders: [groqWhisperSTT, openaiWhisperSTT],
+  ttsProviders: [systemSpeechTTS, edgeTTS, openaiTTS]
+})
+
+voiceManager.on('voiceEvent', (event) => {
+  broadcastToWindows('voice:event', event)
+})
 
 const toolExecutor = new ToolExecutor(policyEngine, processManager, (approvalReq) => {
   const taskId = crypto.randomUUID()
@@ -1723,5 +1752,50 @@ function registerIpcHandlers(): void {
     fs.writeFileSync(fp, params.markdown, 'utf-8')
     broadcastToWindows('memory:updated')
     return true
+  })
+
+  // --- Voice System IPC Handlers ---
+  ipcMain.handle('voice:get-state', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return voiceManager.getState()
+  })
+
+  ipcMain.handle('voice:get-config', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return voiceManager.getConfig()
+  })
+
+  ipcMain.handle('voice:update-config', async (event, partial) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return voiceManager.updateConfig(partial)
+  })
+
+  ipcMain.handle('voice:interrupt', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    voiceManager.interrupt()
+    return true
+  })
+
+  ipcMain.handle('voice:transcribe', async (event, audioInput) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const rawData =
+      audioInput.data instanceof Uint8Array
+        ? audioInput.data
+        : new Uint8Array(audioInput.data)
+    return await voiceManager.transcribe({
+      ...audioInput,
+      data: rawData
+    })
+  })
+
+  ipcMain.handle('voice:synthesize', async (event, { text, options }) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const output = await voiceManager.synthesize(text, options)
+    return {
+      data: Array.from(output.data),
+      sampleRateHz: output.sampleRateHz,
+      format: output.format,
+      durationMs: output.durationMs
+    }
   })
 }

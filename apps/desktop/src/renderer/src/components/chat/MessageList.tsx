@@ -8,7 +8,10 @@ import {
   ExternalLink,
   FileText,
   Globe,
-  RotateCw
+  Loader2,
+  RotateCw,
+  Volume2,
+  VolumeX
 } from 'lucide-react'
 import type { ChatMessage } from '@jarvis/protocol'
 import { formatTime } from '../../lib/format'
@@ -17,6 +20,7 @@ import { Button, IconButton, Spinner } from '../ui'
 import { MarkdownRenderer } from '../MarkdownRenderer'
 import { ThinkingBlock } from '../ThinkingBlock'
 import { RateLimitCard } from '../RateLimitCard'
+import { globalAudioPlayback } from '../../lib/audio-service'
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -121,6 +125,33 @@ const MessageItem = React.memo(function MessageItem({
   const isUser = message.role === 'user'
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
+  const [isPlayingSpeech, setIsPlayingSpeech] = useState(false)
+  const [isSynthesizing, setIsSynthesizing] = useState(false)
+
+  const handleToggleSpeech = async (): Promise<void> => {
+    if (isPlayingSpeech) {
+      globalAudioPlayback.stop()
+      setIsPlayingSpeech(false)
+      return
+    }
+
+    if (window.jarvisAPI?.voiceSynthesize) {
+      setIsSynthesizing(true)
+      try {
+        const audio = await window.jarvisAPI.voiceSynthesize(message.content)
+        setIsSynthesizing(false)
+        if (audio?.data) {
+          setIsPlayingSpeech(true)
+          await globalAudioPlayback.play(audio.data)
+          setIsPlayingSpeech(false)
+        }
+      } catch (err) {
+        console.error('[Voice] Failed to synthesize message speech:', err)
+        setIsSynthesizing(false)
+        setIsPlayingSpeech(false)
+      }
+    }
+  }
 
   if (isUser) {
     if (isEditing) {
@@ -242,6 +273,20 @@ const MessageItem = React.memo(function MessageItem({
           <span className="font-mono text-[10px] text-jarvis-muted/80">
             {formatTime(message.timestamp)}
           </span>
+          <IconButton
+            label={isPlayingSpeech ? 'Stop reading' : isSynthesizing ? 'Synthesizing audio…' : 'Read aloud'}
+            size="sm"
+            onClick={handleToggleSpeech}
+            className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            {isSynthesizing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-jarvis-accent" />
+            ) : isPlayingSpeech ? (
+              <VolumeX className="h-3.5 w-3.5 text-red-400" />
+            ) : (
+              <Volume2 className="h-3.5 w-3.5 text-jarvis-muted hover:text-jarvis-ivory" />
+            )}
+          </IconButton>
           <IconButton
             label={isCopied ? 'Copied response' : 'Copy response'}
             size="sm"

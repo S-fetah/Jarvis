@@ -287,6 +287,45 @@ const api: JarvisAPI = {
 
   saveUserMemory: (markdown: string, workspacePath?: string): Promise<boolean> => {
     return ipcRenderer.invoke('memory:save', { markdown, workspacePath })
+  },
+
+  // Voice System API
+  voiceGetState: (): Promise<string> => {
+    return ipcRenderer.invoke('voice:get-state')
+  },
+
+  voiceTranscribe: (audio: {
+    data: Uint8Array | number[]
+    sampleRateHz: number
+    channels: 1 | 2
+    format: 'pcm16' | 'wav' | 'webm' | 'ogg'
+  }): Promise<{ text: string; language?: string; durationMs?: number }> => {
+    return ipcRenderer.invoke('voice:transcribe', audio)
+  },
+
+  voiceSynthesize: (
+    text: string,
+    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string }
+  ): Promise<{ data: Uint8Array | number[]; sampleRateHz: number; format: string; durationMs?: number }> => {
+    return ipcRenderer.invoke('voice:synthesize', { text, options })
+  },
+
+  voiceInterrupt: (): Promise<boolean> => {
+    return ipcRenderer.invoke('voice:interrupt')
+  },
+
+  voiceGetConfig: (): Promise<any> => {
+    return ipcRenderer.invoke('voice:get-config')
+  },
+
+  voiceUpdateConfig: (config: any): Promise<any> => {
+    return ipcRenderer.invoke('voice:update-config', config)
+  },
+
+  onVoiceEvent: (callback: (event: any) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, voiceEvt: any): void => callback(voiceEvt)
+    ipcRenderer.on('voice:event', handler)
+    return () => ipcRenderer.removeListener('voice:event', handler)
   }
 }
 

@@ -51,6 +51,8 @@ export interface SpeechOptions {
   voice?: string
   speed?: number
   language?: string
+  /** Path or URI to a 3–6 second reference audio sample for zero-shot voice cloning (e.g. XTTS-v2) */
+  speakerWav?: string
   signal?: AbortSignal
 }
 
@@ -65,6 +67,7 @@ export interface SpeechToTextProvider {
 export interface TextToSpeechProvider {
   readonly id: string
   readonly locality: 'local' | 'cloud'
+  readonly supportsVoiceCloning?: boolean
   synthesize(text: string, options?: SpeechOptions): Promise<AudioOutput>
   synthesizeStream?(chunks: AsyncIterable<string>, options?: SpeechOptions): AsyncIterable<AudioChunk>
   supportsStreaming(): boolean
@@ -88,6 +91,9 @@ export interface VoiceConfig {
   privacyMode: 'local_only' | 'hybrid_opt_in'
   sttProvider: string
   ttsProvider: string
+  ttsFallbackProvider?: string
+  /** Reference audio file path for voice cloning (used by XTTS-v2) */
+  ttsSpeakerWav?: string
   vadEnabled: boolean
   interruptOnUserSpeech: boolean
   language: string
@@ -104,6 +110,7 @@ export interface VoiceFeatureStatus {
 }
 
 export type VoiceEvent =
+  | { type: 'voice:state_change'; state: VoiceState; previousState?: VoiceState }
   | { type: 'voice:listening_started' }
   | { type: 'voice:listening_stopped' }
   | { type: 'voice:transcript_partial'; text: string }

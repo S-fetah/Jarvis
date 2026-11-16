@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@jarvis/protocol": "*"
+    "@jarvis/protocol": "*",
+    "@travisvn/edge-tts": "^1.0.2"
   }
 }

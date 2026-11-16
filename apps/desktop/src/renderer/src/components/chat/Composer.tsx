@@ -5,6 +5,8 @@ import {
   FileCode,
   FolderTree,
   Globe,
+  Loader2,
+  Mic,
   Radio,
   Send,
   Square,
@@ -14,6 +16,7 @@ import type { TalkingStyle, TaskMode, ThinkingDepth } from '@jarvis/protocol'
 import { cn } from '../../lib/cn'
 import { Button, Kbd } from '../ui'
 import { PromptControlsBar } from '../PromptControlsBar'
+import { globalAudioCapture } from '../../lib/audio-service'
 
 interface ComposerProps {
   initialPrompt?: string
@@ -66,7 +69,39 @@ export const Composer = React.memo(function Composer({
   const [mentionQuery, setMentionQuery] = useState('')
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([])
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [audioLevel, setAudioLevel] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const handleToggleRecording = async (): Promise<void> => {
+    if (isRecording) {
+      setIsRecording(false)
+      setIsTranscribing(true)
+      try {
+        const audio = await globalAudioCapture.stopRecording()
+        if (window.jarvisAPI?.voiceTranscribe) {
+          const transcript = await window.jarvisAPI.voiceTranscribe(audio)
+          if (transcript?.text) {
+            setInputPrompt((prev) => (prev ? `${prev} ${transcript.text}` : transcript.text))
+            textareaRef.current?.focus()
+          }
+        }
+      } catch (err) {
+        console.error('[Voice] Transcription failed:', err)
+      } finally {
+        setIsTranscribing(false)
+      }
+    } else {
+      try {
+        await globalAudioCapture.startRecording()
+        setIsRecording(true)
+        globalAudioCapture.onLevel(setAudioLevel)
+      } catch (err) {
+        console.error('[Voice] Failed to start microphone:', err)
+      }
+    }
+  }
 
   useEffect(() => {
     if (initialPrompt) {
@@ -326,7 +361,43 @@ export const Composer = React.memo(function Composer({
               )}
             </div>
 
-            <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleRecording}
+                disabled={isTranscribing || isStreaming}
+                className={cn(
+                  'relative inline-flex h-8 w-8 items-center justify-center rounded-md border transition',
+                  isRecording
+                    ? 'border-red-500/80 bg-red-500/20 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.4)] animate-pulse'
+                    : isTranscribing
+                      ? 'border-jarvis-accent/50 bg-jarvis-accent/10 text-jarvis-accent'
+                      : 'border-jarvis-border bg-jarvis-base text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory'
+                )}
+                title={
+                  isRecording
+                    ? 'Listening... click to transcribe'
+                    : isTranscribing
+                      ? 'Transcribing audio...'
+                      : 'Speak to Jarvis (Microphone)'
+                }
+                aria-label={isRecording ? 'Stop recording voice' : 'Start voice input'}
+              >
+                {isTranscribing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-jarvis-accent" />
+                ) : isRecording ? (
+                  <>
+                    <Mic className="h-3.5 w-3.5 text-red-400" />
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 transition-transform"
+                      style={{ transform: `scale(${1 + audioLevel * 1.5})` }}
+                    />
+                  </>
+                ) : (
+                  <Mic className="h-3.5 w-3.5" />
+                )}
+              </button>
+
               <span className="hidden items-center gap-1.5 text-3xs text-jarvis-muted md:flex">
                 <Kbd>
                   <CornerDownLeft className="h-2.5 w-2.5" />
