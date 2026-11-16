@@ -13,12 +13,18 @@ const internalWorkspaces = ['@jarvis/core', '@jarvis/protocol', '@jarvis/voice']
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: internalWorkspaces })],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: internalWorkspaces,
+        include: ['onnxruntime-node']
+      })
+    ],
     resolve: {
       alias: workspaceAliases
     },
     build: {
       rollupOptions: {
+        external: ['onnxruntime-node'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         }
