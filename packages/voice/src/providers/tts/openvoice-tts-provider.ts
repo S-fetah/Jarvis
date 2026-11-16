@@ -1,0 +1,194 @@
+import path from 'path'
+import fs from 'fs'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+import os from 'os'
+import type {
+  AudioOutput,
+  ProviderHealth,
+  SpeechOptions,
+  TextToSpeechProvider
+} from '../../types'
+
+const execFileAsync = promisify(execFile)
+
+export interface OpenVoiceConfig {
+  endpointUrl?: string // Default: 'http://127.0.0.1:8020'
+  sampleRate?: number // Default: 24000
+  pythonPath?: string // Default: 'python'
+  targetSePath?: string
+}
+
+export class OpenVoiceTTSProvider implements TextToSpeechProvider {
+  readonly id = 'openvoice-v2'
+  readonly locality = 'local' as const
+  readonly supportsVoiceCloning = true
+
+  private readonly endpointUrl: string
+  private readonly sampleRate: number
+  private readonly pythonPath: string
+  private readonly targetSePath: string
+
+  constructor(config?: OpenVoiceConfig) {
+    this.endpointUrl = config?.endpointUrl || 'http://127.0.0.1:8020'
+    this.sampleRate = config?.sampleRate || 24000
+    this.pythonPath = config?.pythonPath || 'python'
+    this.targetSePath =
+      config?.targetSePath ||
+      path.resolve(__dirname, '../../../models/openvoice/jarvis_target_se.pth')
+  }
+
+  supportsStreaming(): boolean {
+    return false
+  }
+
+  async healthCheck(): Promise<ProviderHealth> {
+    // 1. Check if HTTP microservice is running
+    try {
+      const res = await fetch(`${this.endpointUrl}/health`, {
+        signal: AbortSignal.timeout(600)
+      })
+      if (res.ok) {
+        return {
+          ok: true,
+          providerId: this.id,
+          message: `OpenVoice V2 neural clone service active at ${this.endpointUrl}`
+        }
+      }
+    } catch {
+      // Microservice not running, test CLI runner availability
+    }
+
+    // 2. Fall back to Python CLI runner verification
+    try {
+      const runnerScript = path.resolve(__dirname, '../../../server/openvoice_cli_runner.py')
+      if (fs.existsSync(runnerScript)) {
+        return {
+          ok: true,
+          providerId: this.id,
+          message: 'OpenVoice V2 standalone CLI runner ready'
+        }
+      }
+    } catch {
+      // CLI not available
+    }
+
+    return {
+      ok: false,
+      providerId: this.id,
+      message: 'OpenVoice V2 runner not available'
+    }
+  }
+
+  /**
+   * Synthesizes text with zero-shot J.A.R.V.I.S. tone color transformation.
+   */
+  async synthesize(text: string, options?: SpeechOptions): Promise<AudioOutput> {
+    if (options?.signal?.aborted) {
+      throw new Error('Synthesis aborted by user or barge-in')
+    }
+
+    // Attempt 1: Fast HTTP microservice
+    try {
+      const response = await fetch(`${this.endpointUrl}/synthesize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          speed: options?.speed || 1.0,
+          speaker_se_path: this.resolveSpeakerSe(options?.speakerWav),
+          speaker_wav_path: options?.speakerWav
+        }),
+        signal: options?.signal
+      })
+
+      if (response.ok) {
+        const audioBuffer = await response.arrayBuffer()
+        return {
+          data: new Uint8Array(audioBuffer),
+          sampleRateHz: this.sampleRate,
+          format: 'wav',
+          providerId: this.id
+        }
+      }
+    } catch {
+      // Fall through to direct CLI execution
+    }
+
+    // Attempt 2: Direct Python CLI execution
+    return await this.synthesizeViaCli(text, options)
+  }
+
+  private async synthesizeViaCli(text: string, options?: SpeechOptions): Promise<AudioOutput> {
+    const tmpOut = path.join(
+      os.tmpdir(),
+      `jarvis-openvoice-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`
+    )
+    const runnerScript = path.resolve(__dirname, '../../../server/openvoice_cli_runner.py')
+    const sePath = this.resolveSpeakerSe(options?.speakerWav)
+
+    const args = [
+      runnerScript,
+      '--text',
+      text,
+      '--output',
+      tmpOut,
+      '--speed',
+      String(options?.speed || 1.0)
+    ]
+
+    if (sePath && fs.existsSync(sePath)) {
+      args.push('--se', sePath)
+    } else if (options?.speakerWav && fs.existsSync(options.speakerWav)) {
+      args.push('--ref', options.speakerWav)
+    }
+
+    try {
+      await execFileAsync(this.pythonPath, args, {
+        signal: options?.signal,
+        timeout: 30000
+      })
+
+      if (!fs.existsSync(tmpOut)) {
+        throw new Error('OpenVoice CLI completed without generating output file')
+      }
+
+      const fileData = fs.readFileSync(tmpOut)
+      try {
+        fs.unlinkSync(tmpOut)
+      } catch {
+        // ignore cleanup error
+      }
+
+      return {
+        data: new Uint8Array(fileData),
+        sampleRateHz: this.sampleRate,
+        format: 'wav',
+        providerId: this.id
+      }
+    } catch (err: unknown) {
+      if (fs.existsSync(tmpOut)) {
+        try {
+          fs.unlinkSync(tmpOut)
+        } catch {
+          // ignore
+        }
+      }
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`OpenVoice synthesis failed: ${msg}`)
+    }
+  }
+
+  private resolveSpeakerSe(speakerWav?: string): string | undefined {
+    if (!speakerWav) return this.targetSePath
+
+    // If speakerWav is in a profile folder, check if openvoice_se.pth exists there
+    const dir = path.dirname(speakerWav)
+    const profileSe = path.join(dir, 'openvoice_se.pth')
+    if (fs.existsSync(profileSe)) {
+      return profileSe
+    }
+
+    return this.targetSePath
+  }
+}

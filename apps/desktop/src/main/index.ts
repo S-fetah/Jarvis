@@ -1817,7 +1817,33 @@ function registerIpcHandlers(): void {
       if (prof) {
         resolvedOptions.speakerWav = prof.folderPath
         resolvedOptions.voice = prof.baseVoice || (prof.gender === 'female' ? 'af_bella' : 'bm_george')
+        if (prof.hasOpenVoiceSE || prof.recommendedEngine === 'openvoice-v2') {
+          if (!resolvedOptions.providerId || resolvedOptions.providerId === 'auto') {
+            resolvedOptions.providerId = 'openvoice-v2'
+          }
+        }
       }
+    } else if (resolvedOptions.speakerWav) {
+      // Profile path was passed in speakerWav
+      if (!resolvedOptions.providerId || resolvedOptions.providerId === 'auto') {
+        const profileSe = path.join(resolvedOptions.speakerWav, 'openvoice_se.pth')
+        if (fs.existsSync(profileSe)) {
+          resolvedOptions.providerId = 'openvoice-v2'
+        }
+      }
+    }
+
+    // Auto-route known Kokoro voices (af_*, am_*, bf_*, bm_*)
+    if (
+      resolvedOptions.voice &&
+      /^(?:af|am|bf|bm)_[a-z]+$/.test(resolvedOptions.voice) &&
+      (!resolvedOptions.providerId || resolvedOptions.providerId === 'auto')
+    ) {
+      resolvedOptions.providerId = 'kokoro-82m'
+    }
+
+    if (resolvedOptions.providerId === 'auto') {
+      delete resolvedOptions.providerId
     }
 
     const output = await voiceManager.synthesize(text, resolvedOptions)

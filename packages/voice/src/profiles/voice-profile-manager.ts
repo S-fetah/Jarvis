@@ -9,6 +9,8 @@ export interface VoiceProfile {
   referenceWavPath: string
   hasXttsLatents: boolean
   hasKokoroStyle: boolean
+  hasOpenVoiceSE?: boolean
+  recommendedEngine?: string
   folderPath: string
   gender?: 'female' | 'male' | 'neutral'
   baseVoice?: string
@@ -60,6 +62,7 @@ export class VoiceProfileManager {
           const meta = JSON.parse(raw)
           const hasXttsLatents = fs.existsSync(path.join(folderPath, 'xtts_speaker.bin'))
           const hasKokoroStyle = fs.existsSync(path.join(folderPath, 'kokoro_style.bin'))
+          const hasOpenVoiceSE = fs.existsSync(path.join(folderPath, 'openvoice_se.pth'))
 
           const detectedGender: 'female' | 'male' | 'neutral' =
             meta.gender ||
@@ -77,6 +80,8 @@ export class VoiceProfileManager {
             referenceWavPath: path.join(folderPath, 'reference.wav'),
             hasXttsLatents,
             hasKokoroStyle,
+            hasOpenVoiceSE,
+            recommendedEngine: meta.recommendedEngine || (hasOpenVoiceSE ? 'openvoice-v2' : undefined),
             folderPath,
             gender: detectedGender,
             baseVoice: meta.baseVoice || (detectedGender === 'female' ? 'af_bella' : 'bm_george')

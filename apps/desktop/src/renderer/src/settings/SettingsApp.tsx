@@ -150,7 +150,7 @@ export function SettingsApp(): React.JSX.Element {
         const prof = voiceProfiles.find((p) => p.id === profId)
         if (prof) {
           speakerWav = prof.folderPath
-          voiceName = prof.baseVoice || (prof.gender === 'female' ? 'af_bella' : 'bm_george')
+          voiceName = `profile:${prof.id}`
         }
       } else if (playgroundVoiceId.startsWith('voice:')) {
         voiceName = playgroundVoiceId.replace('voice:', '')
@@ -1273,6 +1273,7 @@ export function SettingsApp(): React.JSX.Element {
                       className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
                     >
                       <option value="kokoro-82m">Kokoro-82M ONNX (CPU Native, &lt;150ms TTFA)</option>
+                      <option value="openvoice-v2">OpenVoice V2 (High-Fidelity J.A.R.V.I.S. Clone, CPU Native)</option>
                       <option value="xtts-v2">Coqui XTTS-v2 (Zero-Shot Cloned Profiles)</option>
                       <option value="system-speech">Windows SAPI (100% Offline, Zero-Download)</option>
                       <option value="edge-tts">Edge TTS (Cloud Streaming)</option>
@@ -1725,7 +1726,7 @@ export function SettingsApp(): React.JSX.Element {
                         <optgroup label="Cloned Voice Profiles">
                           {voiceProfiles.map((p) => (
                             <option key={p.id} value={`profile:${p.id}`}>
-                              ⭐ {p.name} ({p.gender === 'female' ? 'Female' : 'Male'} • {p.baseVoice || 'Auto'})
+                              ⭐ {p.name} ({p.hasOpenVoiceSE ? 'Neural Tone Cloned' : p.gender === 'female' ? 'Female' : 'Male'} • {p.baseVoice || 'Auto'})
                             </option>
                           ))}
                         </optgroup>
@@ -1763,8 +1764,9 @@ export function SettingsApp(): React.JSX.Element {
                       className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
                     >
                       <option value="auto">Auto (Configured Default: {voiceConfig?.ttsProvider || 'kokoro-82m'})</option>
-                      <option value="xtts-v2">Coqui XTTS-v2 (Zero-shot Voice Cloning)</option>
+                      <option value="openvoice-v2">OpenVoice V2 (High-Fidelity J.A.R.V.I.S. Neural Clone)</option>
                       <option value="kokoro-82m">Kokoro-82M (Instant CPU Neural)</option>
+                      <option value="xtts-v2">Coqui XTTS-v2 (Zero-shot Voice Cloning)</option>
                       <option value="edge-tts">Microsoft Edge-TTS (Cloud Neural)</option>
                       <option value="system-speech">System Speech (Windows SAPI)</option>
                     </select>

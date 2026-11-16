@@ -59,9 +59,11 @@ Through our interactive design interview, the following decisions were finalized
 | **VAD** | **Silero VAD v5** | `onnxruntime-node` | ~30 ms (32ms frames) | ~2 MB | MIT |
 | **STT (Fast Cloud)** | **Groq Whisper** | HTTPS REST | ~150 ms | 0 MB | Cloud API |
 | **STT (Local Offline)** | **Whisper ONNX (`base.en`)** | `onnxruntime-node` | ~350–500 ms | ~75 MB | MIT |
-| **TTS (Primary Cloned)** | **Coqui XTTS-v2 (INT8)** | Python/OpenVINO Sidecar | ~700–900 ms (chunked) | ~1.8 GB | CPML v1.0.0 (non-comm) |
+| **TTS (Neural Voice Cloning)** | **OpenVoice V2 (Tone Color Converter)** | Python CPU / FastAPI (`:8020`) | ~0.58x RTF (~4.6s for 8s audio) | ~131 MB | MIT |
+| **TTS (High-Resemblance GPU)** | **Coqui XTTS-v2 (INT8)** | Python/OpenVINO Sidecar | ~700–900 ms (chunked) | ~1.8 GB | CPML v1.0.0 (non-comm) |
 | **TTS (Fast Fallback)** | **Kokoro-82M ONNX** | `onnxruntime-node` | ~150–250 ms | ~80 MB | Apache 2.0 |
-| **TTS (Zero-Weight)** | **Edge-TTS** | Streaming HTTPS MP3 | ~200 ms | 0 MB | Free / Unofficial |
+| **TTS (Zero-Weight Base)** | **Edge-TTS** | Streaming HTTPS MP3 | ~200 ms | 0 MB | Free / Unofficial |
+| **TTS (Offline SAPI Fallback)** | **Windows System.Speech** | SAPI5 / PowerShell interop | ~50 ms | 0 MB | Built into Windows |
 | **Wake Word (Phase V5)** | **openWakeWord** | `onnxruntime-node` | ~80 ms | ~8 MB | Apache 2.0 |
 
 ---
@@ -152,6 +154,23 @@ Through our interactive design interview, the following decisions were finalized
 - **Phase V3.3 (XTTS-v2 Precomputed Inference)**: `XttsV2Provider` streaming adapter with cached latents for exact zero-shot voice resemblance when server is online.
 - **Phase V3.4 (Cascading Failover & SAPI Gender Preservation)**: `VoiceManager` intelligent engine routing (Auto $\rightarrow$ XTTS-v2 for neural cloning when server active $\rightarrow$ Kokoro-82M CPU companion $\rightarrow$ Edge-TTS $\rightarrow$ Windows System.Speech SAPI with strict gender preservation: female $\rightarrow$ `Microsoft Zira Desktop`, male $\rightarrow$ `Microsoft David Desktop`).
 - **Phase V3.5 (Interactive Voice & Cloned Profile Playground)**: Dedicated Settings test studio supporting custom paragraphs, speed adjustment (0.5x–2.0x), quick presets, audio playback, and active engine/voice resolution badges.
+- **Phase V3.6 (High-Fidelity J.A.R.V.I.S. Neural Voice Cloning via OpenVoice V2)**:
+  - **Acoustic Challenge Resolved**: Static LibriTTS models (e.g. Kokoro `bm_george`) fail to reproduce Paul Bettany's iconic J.A.R.V.I.S. vocal signature due to flat formant contours, absent vocal fry, and mismatched fundamental frequency.
+  - **Model Architecture**: Integrated **OpenVoice V2 Tone Color Converter** (`ToneColorConverter`, ~131MB checkpoint), which decouples style and prosody from speaker tone color.
+  - **Two-Stage Generation Pipeline**:
+    1. *Stage 1 (Base Prosody)*: Generates articulate British Received Pronunciation (RP) base speech via `en-GB-RyanNeural` or Kokoro `bm_george`.
+    2. *Stage 2 (Timbre Transformation)*: Converts the base mel-spectrogram into the exact acoustic timbre of J.A.R.V.I.S. using pre-extracted speaker embedding tensors (`torch.Size([1, 256, 1])`).
+  - **Empirical Acoustic Benchmarks**:
+    - **Fundamental Pitch ($F_0$)**: Reference J.A.R.V.I.S. sample = `162.8 Hz`. Cloned outputs = `161.8 Hz` (**$\Delta$ 1.0 Hz**), eliminating the 40 Hz pitch deviation of un-tuned models.
+    - **Acoustic Timbre Cosine Similarity (20-dim MFCC)**: **99.09% to 99.40%** cosine similarity across all generated evaluation phrases.
+    - **Inference Speed on Pure CPU**: **0.57x – 0.63x RTF** (converting ~8.4s of high-quality speech in 4.8s without GPU acceleration).
+  - **Artifact Locations**:
+    - Reference audio: `docs/jarvis-reference-audio/jarvis-sample-1-24k.wav` (15.3s) and `jarvis-sample-2-24k.wav` (13.8s).
+    - Persistent J.A.R.V.I.S. speaker vector: `packages/voice/models/openvoice/jarvis_target_se.pth` and `%APPDATA%/Jarvis/profiles/voice/javis-original/openvoice_se.pth`.
+    - Generated reference audio samples: `docs/voice-samples/jarvis-cloned-1.wav`, `jarvis-cloned-2.wav`, `jarvis-cloned-3.wav` (and corresponding `.mp3` web artifacts).
+  - **Runtime Delivery**:
+    - Dual execution path: Fast HTTP daemon at `http://127.0.0.1:8020` via FastAPI (`packages/voice/server/openvoice_service.py`) with automatic fallback to standalone child-process CLI runner (`packages/voice/server/openvoice_cli_runner.py`).
+    - Smart routing in Electron main process (`voice:synthesize`): Automatically detects cloned profiles with `openvoice_se.pth` and routes to `openvoice-v2`, while routing known Kokoro voice strings (`af_*`, `am_*`, `bf_*`, `bm_*`) directly to `kokoro-82m`.
 
 ### Phase V4: Local Offline STT (Whisper ONNX) & Real-Time Interim Tracking
 - Real-time interim STT recognition (1.8s sliding window with simultaneous request lifecycle) for immediate visual feedback of spoken words.

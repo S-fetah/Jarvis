@@ -19,6 +19,7 @@ import { SentenceChunker } from './utils/sentence-chunker'
 import { SystemSpeechTTSProvider } from './providers/tts/system-speech-tts-provider'
 import { KokoroTTSProvider } from './providers/tts/kokoro-tts-provider'
 import { XTTSv2Provider } from './providers/tts/xtts-tts-provider'
+import { OpenVoiceTTSProvider } from './providers/tts/openvoice-tts-provider'
 
 export interface VoiceManagerOptions {
   config?: Partial<VoiceConfig>
@@ -68,6 +69,7 @@ export class VoiceManager extends EventEmitter {
       this.registerTTSProvider(new SystemSpeechTTSProvider())
       this.registerTTSProvider(new KokoroTTSProvider())
       this.registerTTSProvider(new XTTSv2Provider())
+      this.registerTTSProvider(new OpenVoiceTTSProvider())
     }
 
     this.vadProvider = options?.vadProvider || new SileroVADProvider()
