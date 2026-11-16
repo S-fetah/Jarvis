@@ -264,16 +264,22 @@ export class ModelBalancer {
       if (this.isProviderReady('openai')) {
         return { model: 'gpt-4o', providerId: 'openai', category: 'coding', reason: 'GPT-4o technical execution' }
       }
-      if (this.isProviderReady('gemini')) {
-        return { model: 'gemini-2.0-flash', providerId: 'gemini', category: 'coding', reason: 'Gemini 2.0 Flash high-speed code generation' }
+      if (this.isProviderReady('mistral')) {
+        return { model: 'codestral-latest', providerId: 'mistral', category: 'coding', reason: 'Mistral Codestral specialized code model' }
       }
       if (this.isProviderReady('groq')) {
-        return { model: 'llama-3.3-70b-versatile', providerId: 'groq', category: 'coding', reason: 'Groq Llama 3.3 70B' }
+        return { model: 'qwen/qwen3.8-27b', providerId: 'groq', category: 'coding', reason: 'Groq ultra-fast code generation' }
+      }
+      if (this.isProviderReady('gemini')) {
+        return { model: 'gemini-flash-latest', providerId: 'gemini', category: 'coding', reason: 'Gemini high-speed code generation' }
       }
     }
 
     // 2. Analytical Reasoning
     if (isReasoning) {
+      if (this.isProviderReady('mistral')) {
+        return { model: 'codestral-latest', providerId: 'mistral', category: 'reasoning', reason: 'Mistral frontier reasoning' }
+      }
       if (this.isProviderReady('deepseek')) {
         return { model: 'deepseek-reasoner', providerId: 'deepseek', category: 'reasoning', reason: 'DeepSeek R1 frontier chain-of-thought' }
       }
@@ -281,7 +287,7 @@ export class ModelBalancer {
         return { model: 'claude-3-7-sonnet-20250219', providerId: 'anthropic', category: 'reasoning', reason: 'Claude 3.7 hybrid reasoning' }
       }
       if (this.isProviderReady('gemini')) {
-        return { model: 'gemini-1.5-pro', providerId: 'gemini', category: 'reasoning', reason: 'Gemini Pro deep analysis' }
+        return { model: 'gemini-flash-latest', providerId: 'gemini', category: 'reasoning', reason: 'Gemini analysis' }
       }
       if (this.isProviderReady('openai')) {
         return { model: 'o3-mini', providerId: 'openai', category: 'reasoning', reason: 'OpenAI o3-mini logical reasoning' }
@@ -293,8 +299,11 @@ export class ModelBalancer {
       if (this.isProviderReady('groq')) {
         return { model: 'llama-3.1-8b-instant', providerId: 'groq', category: 'fast_chat', reason: 'Groq ultra-low latency response' }
       }
+      if (this.isProviderReady('mistral')) {
+        return { model: 'codestral-latest', providerId: 'mistral', category: 'fast_chat', reason: 'Mistral rapid chat' }
+      }
       if (this.isProviderReady('gemini')) {
-        return { model: 'gemini-2.0-flash-lite', providerId: 'gemini', category: 'fast_chat', reason: 'Gemini Flash Lite rapid chat' }
+        return { model: 'gemini-flash-latest', providerId: 'gemini', category: 'fast_chat', reason: 'Gemini Flash rapid chat' }
       }
       if (this.isProviderReady('openai')) {
         return { model: 'gpt-4o-mini', providerId: 'openai', category: 'fast_chat', reason: 'GPT-4o-mini lightweight response' }
@@ -302,11 +311,17 @@ export class ModelBalancer {
     }
 
     // 4. Default / General Capability Fallback
-    if (this.isProviderReady('gemini')) {
-      return { model: 'gemini-2.0-flash', providerId: 'gemini', category: 'general', reason: 'Gemini 2.0 Flash balanced multimodal default' }
-    }
     if (this.isProviderReady('groq')) {
-      return { model: 'llama-3.3-70b-versatile', providerId: 'groq', category: 'general', reason: 'Groq Llama 3.3 70B' }
+      return { model: 'qwen/qwen3.8-27b', providerId: 'groq', category: 'general', reason: 'Groq ultra-low latency general model' }
+    }
+    if (this.isProviderReady('mistral')) {
+      return { model: 'codestral-latest', providerId: 'mistral', category: 'general', reason: 'Mistral Codestral general model' }
+    }
+    if (this.isProviderReady('cohere')) {
+      return { model: 'command-r-08-2024', providerId: 'cohere', category: 'general', reason: 'Cohere Command-R model' }
+    }
+    if (this.isProviderReady('gemini')) {
+      return { model: 'gemini-flash-latest', providerId: 'gemini', category: 'general', reason: 'Gemini Flash balanced default' }
     }
     if (this.isProviderReady('deepseek')) {
       return { model: 'deepseek-chat', providerId: 'deepseek', category: 'general', reason: 'DeepSeek V3 general model' }
@@ -373,19 +388,19 @@ export class ModelBalancer {
 
     // Check all ready providers in priority order
     const priorityList: ProviderId[] = [
-      'gemini',
       'groq',
-      'cerebras',
-      'nvidia',
       'mistral',
       'cohere',
+      'openrouter',
+      'gemini',
+      'cerebras',
+      'nvidia',
       'cloudflare',
       'pollinations',
       'ovh',
       'deepseek',
       'openai',
       'anthropic',
-      'openrouter',
       'ollama',
       'custom',
       'freellmapi'
@@ -411,20 +426,19 @@ export class ModelBalancer {
     queue.push(primary)
 
     const fallbackConfigs: Array<{ providerId: ProviderId; model: string }> = [
-      { providerId: 'gemini', model: 'gemini-2.0-flash-lite' },
-      { providerId: 'groq', model: 'llama-3.1-8b-instant' },
-      { providerId: 'cerebras', model: 'llama3.3-70b' },
-      { providerId: 'nvidia', model: 'meta/llama-3.3-70b-instruct' },
+      { providerId: 'groq', model: 'qwen/qwen3.8-27b' },
       { providerId: 'mistral', model: 'codestral-latest' },
       { providerId: 'cohere', model: 'command-r-08-2024' },
+      { providerId: 'gemini', model: 'gemini-flash-latest' },
+      { providerId: 'cerebras', model: 'llama3.3-70b' },
+      { providerId: 'nvidia', model: 'meta/llama-3.3-70b-instruct' },
       { providerId: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct' },
       { providerId: 'pollinations', model: 'openai' },
       { providerId: 'ovh', model: 'Meta-Llama-3_3-70B-Instruct' },
       { providerId: 'deepseek', model: 'deepseek-chat' },
       { providerId: 'openai', model: 'gpt-4o-mini' },
       { providerId: 'anthropic', model: 'claude-3-5-haiku-20241022' },
-      { providerId: 'ollama', model: 'llama3.2' },
-      { providerId: 'freellmapi', model: 'gemini-flash-lite' }
+      { providerId: 'ollama', model: 'llama3.2' }
     ]
 
     for (const fb of fallbackConfigs) {

@@ -71,6 +71,7 @@ export const Composer = React.memo(function Composer({
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([])
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
+  const [interimTranscript, setInterimTranscript] = useState('')
   const [audioLevel, setAudioLevel] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -82,19 +83,29 @@ export const Composer = React.memo(function Composer({
         const audio = await globalAudioCapture.stopRecording()
         if (audio.data.length > 0 && window.jarvisAPI?.voiceTranscribe) {
           const transcript = await window.jarvisAPI.voiceTranscribe(audio)
-          if (transcript?.text) {
-            setInputPrompt((prev) => (prev ? `${prev} ${transcript.text}` : transcript.text))
+          const textToInsert = transcript?.text || interimTranscript
+          if (textToInsert) {
+            setInputPrompt((prev) => (prev ? `${prev} ${textToInsert}` : textToInsert))
             textareaRef.current?.focus()
           }
+        } else if (interimTranscript) {
+          setInputPrompt((prev) => (prev ? `${prev} ${interimTranscript}` : interimTranscript))
+          textareaRef.current?.focus()
         }
       } catch (err) {
         console.error('[Voice] Transcription failed:', err)
       } finally {
         setIsTranscribing(false)
+        setInterimTranscript('')
       }
     } else {
       try {
-        await globalAudioCapture.startRecording()
+        setInterimTranscript('')
+        await globalAudioCapture.startRecording({
+          onInterim: (liveText) => {
+            setInterimTranscript(liveText)
+          }
+        })
         setIsRecording(true)
         globalAudioCapture.onLevel(setAudioLevel)
       } catch (err) {
@@ -299,6 +310,22 @@ export const Composer = React.memo(function Composer({
               compact
             />
           </div>
+
+          {isRecording && (
+            <div className="mx-2.5 mt-2 flex items-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs text-red-200">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+              </span>
+              <span className="text-3xs font-semibold uppercase tracking-wider text-red-400">Live Speech:</span>
+              <span className="flex-1 truncate font-mono text-[11px] text-jarvis-ivory">
+                {interimTranscript || 'Listening... speak clearly'}
+              </span>
+              {interimTranscript ? (
+                <span className="font-mono text-3xs text-emerald-400/90">✓ recognized</span>
+              ) : null}
+            </div>
+          )}
 
           <textarea
             ref={textareaRef}

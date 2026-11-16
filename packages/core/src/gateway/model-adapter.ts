@@ -378,7 +378,12 @@ export class ModelGatewayAdapter {
       try {
         return await this.balancer.chatStream(messages, onChunk, options)
       } catch (err: any) {
-        console.warn('[ModelGatewayAdapter] Balancer chatStream failed, falling back to legacy gateway:', err?.message)
+        console.warn('[ModelGatewayAdapter] Balancer chatStream failed:', err?.message)
+        if (this.config.baseUrl && !this.config.baseUrl.includes('31415')) {
+          console.warn('[ModelGatewayAdapter] Attempting fallback to configured custom gateway:', this.config.baseUrl)
+        } else {
+          throw err
+        }
       }
     }
     const apiKey = await this.getEffectiveApiKey()
@@ -560,7 +565,12 @@ export class ModelGatewayAdapter {
       try {
         return await this.balancer.chatWithTools(messages, tools, options)
       } catch (err: any) {
-        console.warn('[ModelGatewayAdapter] Balancer chatWithTools failed, falling back to legacy gateway:', err?.message)
+        console.warn('[ModelGatewayAdapter] Balancer chatWithTools failed:', err?.message)
+        if (this.config.baseUrl && !this.config.baseUrl.includes('31415')) {
+          console.warn('[ModelGatewayAdapter] Attempting fallback to configured custom gateway:', this.config.baseUrl)
+        } else {
+          throw err
+        }
       }
     }
     const apiKey = await this.getEffectiveApiKey()

@@ -45,6 +45,7 @@ const QuickChatComposer = React.memo(function QuickChatComposer({
   const [inputPrompt, setInputPrompt] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
+  const [interimTranscript, setInterimTranscript] = useState('')
   const canSend = Boolean(inputPrompt.trim()) && !isStreaming
 
   const handleToggleRecording = async (): Promise<void> => {
@@ -55,18 +56,27 @@ const QuickChatComposer = React.memo(function QuickChatComposer({
         const audio = await globalAudioCapture.stopRecording()
         if (audio.data.length > 0 && window.jarvisAPI?.voiceTranscribe) {
           const transcript = await window.jarvisAPI.voiceTranscribe(audio)
-          if (transcript?.text) {
-            setInputPrompt((prev) => (prev ? `${prev} ${transcript.text}` : transcript.text))
+          const textToInsert = transcript?.text || interimTranscript
+          if (textToInsert) {
+            setInputPrompt((prev) => (prev ? `${prev} ${textToInsert}` : textToInsert))
           }
+        } else if (interimTranscript) {
+          setInputPrompt((prev) => (prev ? `${prev} ${interimTranscript}` : interimTranscript))
         }
       } catch (err) {
         console.error('[Voice] QuickChat transcription failed:', err)
       } finally {
         setIsTranscribing(false)
+        setInterimTranscript('')
       }
     } else {
       try {
-        await globalAudioCapture.startRecording()
+        setInterimTranscript('')
+        await globalAudioCapture.startRecording({
+          onInterim: (liveText) => {
+            setInterimTranscript(liveText)
+          }
+        })
         setIsRecording(true)
       } catch (err) {
         console.error('[Voice] QuickChat mic start failed:', err)
@@ -92,6 +102,21 @@ const QuickChatComposer = React.memo(function QuickChatComposer({
   return (
     <form onSubmit={handleSubmit} className="mt-1.5">
       <div className="rounded-lg border border-jarvis-border bg-jarvis-base p-1.5 transition focus-within:border-jarvis-accent/55 focus-within:ring-1 focus-within:ring-jarvis-accent/15">
+        {isRecording && (
+          <div className="mb-1.5 flex items-center gap-1.5 rounded border border-red-500/25 bg-red-500/10 px-2 py-1 text-3xs text-red-200">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500"></span>
+            </span>
+            <span className="font-semibold uppercase tracking-wider text-red-400">Live Speech:</span>
+            <span className="flex-1 truncate font-mono text-3xs text-jarvis-ivory">
+              {interimTranscript || 'Listening...'}
+            </span>
+            {interimTranscript ? (
+              <span className="font-mono text-3xs text-emerald-400/90">✓ live</span>
+            ) : null}
+          </div>
+        )}
         <textarea
           value={inputPrompt}
           onChange={(event) => setInputPrompt(event.target.value)}

@@ -5,7 +5,7 @@ export class GroqProvider extends BaseOpenAICompatibleProvider {
     super({
       id: 'groq',
       name: 'Groq Cloud',
-      defaultModel: 'llama-3.3-70b-versatile',
+      defaultModel: 'qwen/qwen3.8-27b',
       getApiKey,
       getBaseUrl: getBaseUrl || (() => 'https://api.groq.com/openai/v1')
     })

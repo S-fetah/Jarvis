@@ -385,7 +385,6 @@ export class CredentialVault {
 
   public hasKey(id: ProviderId): boolean {
     if (id === 'ollama' || id === 'pollinations' || id === 'ovh') return true // Local or keyless free providers
-    if (id === 'freellmapi') return true // FreeLLMAPI can authenticate via default or local DB
     const rec = this.data.providers[id]
     return Boolean(rec?.encryptedKey && rec.encryptedKey.length > 0)
   }
