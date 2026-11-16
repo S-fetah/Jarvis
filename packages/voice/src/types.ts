@@ -101,6 +101,7 @@ export interface VoiceConfig {
   sttProvider: string
   ttsProvider: string
   ttsFallbackProvider?: string
+  ttsVoice?: string
   /** Reference audio file path for voice cloning (used by XTTS-v2) */
   ttsSpeakerWav?: string
   vadEnabled: boolean

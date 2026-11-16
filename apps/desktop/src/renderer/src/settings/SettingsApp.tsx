@@ -1283,6 +1283,49 @@ export function SettingsApp(): React.JSX.Element {
                     </p>
                   </div>
 
+                  {/* Default Voice / Persona */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-jarvis-ivory">Default Voice / Persona</label>
+                    <select
+                      value={voiceConfig?.ttsVoice || 'bm_george'}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setVoiceConfig((prev: any) => ({ ...prev, ttsVoice: val }))
+                        window.jarvisAPI?.voiceUpdateConfig?.({ ttsVoice: val })
+                      }}
+                      className="w-full rounded-lg border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none font-mono"
+                    >
+                      {voiceProfiles.length > 0 && (
+                        <optgroup label="Cloned Voice Profiles">
+                          {voiceProfiles.map((p) => (
+                            <option key={p.id} value={`profile:${p.id}`}>
+                              ⭐ {p.name} ({p.gender === 'female' ? 'Female' : 'Male'})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Kokoro-82M Male Voices">
+                        <option value="bm_george">Kokoro: George (British Butler / Jarvis-style)</option>
+                        <option value="am_michael">Kokoro: Michael (Deep & Warm)</option>
+                        <option value="am_adam">Kokoro: Adam (Broadcast-ready)</option>
+                        <option value="bm_lewis">Kokoro: Lewis (British Articulate)</option>
+                      </optgroup>
+                      <optgroup label="Kokoro-82M Female Voices">
+                        <option value="af_bella">Kokoro: Bella (Crisp & Articulate)</option>
+                        <option value="af_heart">Kokoro: Heart (Warm & Natural)</option>
+                        <option value="af_sarah">Kokoro: Sarah (Conversational)</option>
+                        <option value="bf_emma">Kokoro: Emma (British Elegant)</option>
+                      </optgroup>
+                      <optgroup label="Windows System.Speech (SAPI)">
+                        <option value="Microsoft David Desktop">SAPI: Microsoft David (Male)</option>
+                        <option value="Microsoft Zira Desktop">SAPI: Microsoft Zira (Female)</option>
+                      </optgroup>
+                    </select>
+                    <p className="text-3xs text-jarvis-muted">
+                      Default persona for conversational voice responses throughout the application.
+                    </p>
+                  </div>
+
                   {/* Fallback TTS Engine */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-jarvis-ivory">Fallback TTS Engine</label>

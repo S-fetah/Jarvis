@@ -1808,7 +1808,19 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('voice:synthesize', async (event, { text, options }) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
-    const output = await voiceManager.synthesize(text, options)
+    const resolvedOptions = { ...(options || {}) }
+
+    // If target voice is an enrolled cloned profile, resolve folder path and companion voice
+    if (resolvedOptions.voice?.startsWith('profile:')) {
+      const profId = resolvedOptions.voice.replace('profile:', '')
+      const prof = await voiceProfileManager.getProfile(profId)
+      if (prof) {
+        resolvedOptions.speakerWav = prof.folderPath
+        resolvedOptions.voice = prof.baseVoice || (prof.gender === 'female' ? 'af_bella' : 'bm_george')
+      }
+    }
+
+    const output = await voiceManager.synthesize(text, resolvedOptions)
     let audioData = output.data
     let format = output.format
     if (format === 'pcm16') {

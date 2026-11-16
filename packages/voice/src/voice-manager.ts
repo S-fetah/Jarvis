@@ -45,6 +45,7 @@ export class VoiceManager extends EventEmitter {
       sttProvider: options?.config?.sttProvider ?? 'groq-whisper',
       ttsProvider: options?.config?.ttsProvider ?? 'edge-tts',
       ttsFallbackProvider: options?.config?.ttsFallbackProvider ?? 'system-speech',
+      ttsVoice: options?.config?.ttsVoice ?? 'bm_george',
       ttsSpeakerWav: options?.config?.ttsSpeakerWav,
       vadEnabled: options?.config?.vadEnabled ?? true,
       interruptOnUserSpeech: options?.config?.interruptOnUserSpeech ?? true,
@@ -313,6 +314,7 @@ export class VoiceManager extends EventEmitter {
 
     const mergedOptions: SpeechOptions = {
       ...options,
+      voice: options?.voice ?? this.config.ttsVoice,
       speed: options?.speed ?? this.config.speed,
       language: options?.language ?? this.config.language,
       speakerWav: options?.speakerWav ?? this.config.ttsSpeakerWav,
