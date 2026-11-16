@@ -57,6 +57,13 @@ export class OwlMotion {
     this.reduceMotion = reduce
   }
 
+  public triggerInterruptedAlert(): void {
+    this.idleTime = 0
+    this.blinkTime = 0
+    this.doubleBlink = true
+    this.nextBlink = 1.0
+  }
+
   /** Plays a one-shot action unless another one is still running. */
   public trigger(action: OwlAction): boolean {
     this.idleTime = 0
@@ -155,6 +162,17 @@ export class OwlMotion {
     if (this.state === 'thinking') baseLid = 0.38
     if (this.state === 'working') baseLid = 0.22
     if (this.state === 'error') baseLid = 0.3
+    if (this.state === 'listening') {
+      baseLid = 0
+      eyeWide = 1
+      headPitch += 0.04
+    }
+    if (this.state === 'speaking') {
+      baseLid = 0.1
+      headPitch += Math.sin(this.time * 6.0) * 0.035
+      squashY = 1 + Math.sin(this.time * 6.0) * 0.012
+      puff = Math.max(puff, 0.2 + 0.1 * Math.sin(this.time * 6.0))
+    }
 
     const dozing = this.state === 'idle' && this.idleTime > DOZE_AFTER && !this.action
     if (dozing) baseLid = 0.62 + 0.25 * (0.5 + 0.5 * Math.sin(this.time * 0.6))

@@ -15,6 +15,7 @@ export class MascotAnimationController {
   private mouseTarget: THREE.Vector2 = new THREE.Vector2(0, 0)
   private currentMouse: THREE.Vector2 = new THREE.Vector2(0, 0)
   private completionTimer: number = 0
+  private snapTimer: number = 0
   private reduceMotion: boolean = false
 
   constructor() {
@@ -44,6 +45,10 @@ export class MascotAnimationController {
 
   public getState(): MascotState {
     return this.state
+  }
+
+  public triggerInterruptionSnap(): void {
+    this.snapTimer = 0.35
   }
 
   public setMousePosition(normX: number, normY: number): void {
@@ -132,10 +137,32 @@ export class MascotAnimationController {
         breathePitch = -0.04 * motionFactor
         break
 
+      case 'listening':
+        // Attentive upright posture with forward lean, alert micro-movements
+        hoverY = (Math.sin(t * 3.0) * 0.02 + 0.025) * motionFactor
+        breathePitch = 0.08 * motionFactor
+        breatheYaw = Math.sin(t * 1.5) * 0.03 * motionFactor
+        scaleMultiplier = 1.05
+        break
+
+      case 'speaking':
+        // Speaking cadence: gentle bob and rhythmic pitch nodding
+        hoverY = Math.sin(t * 4.8) * 0.02 * motionFactor
+        breathePitch = (Math.sin(t * 5.2) * 0.035 + 0.02) * motionFactor
+        breatheYaw = Math.sin(t * 2.2) * 0.025 * motionFactor
+        scaleMultiplier = 1.03
+        break
+
       case 'loading':
       case 'hidden':
         scaleMultiplier = 0.001
         break
+    }
+
+    if (this.snapTimer > 0) {
+      this.snapTimer -= dt
+      breatheRoll += Math.sin(this.snapTimer * 25.0) * 0.09 * motionFactor
+      breathePitch += 0.06 * motionFactor
     }
 
     // Combine procedural motion with extended full-screen desktop cursor tracking

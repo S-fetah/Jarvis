@@ -1776,6 +1776,16 @@ function registerIpcHandlers(): void {
     return true
   })
 
+  ipcMain.handle('voice:process-chunk', async (event, chunkData: number[] | Int16Array) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    const int16Chunk =
+      chunkData instanceof Int16Array
+        ? chunkData
+        : new Int16Array(chunkData)
+    await voiceManager.processAudioStreamChunk(int16Chunk)
+    return true
+  })
+
   ipcMain.handle('voice:transcribe', async (event, audioInput) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
     const rawData =

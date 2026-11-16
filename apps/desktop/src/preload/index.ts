@@ -314,6 +314,10 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('voice:interrupt')
   },
 
+  voiceProcessChunk: (chunk: Int16Array | number[]): Promise<boolean> => {
+    return ipcRenderer.invoke('voice:process-chunk', chunk)
+  },
+
   voiceGetConfig: (): Promise<any> => {
     return ipcRenderer.invoke('voice:get-config')
   },

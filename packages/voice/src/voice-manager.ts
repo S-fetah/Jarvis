@@ -7,15 +7,19 @@ import type {
   TextToSpeechProvider,
   Transcript,
   TranscriptionOptions,
+  VADProvider,
   VoiceConfig,
   VoiceEvent,
   VoiceState
 } from './types'
+import { SileroVADProvider } from './providers/vad/silero-vad-provider'
+import { SpeechBoundaryDetector } from './vad/speech-boundary-detector'
 
 export interface VoiceManagerOptions {
   config?: Partial<VoiceConfig>
   sttProviders?: SpeechToTextProvider[]
   ttsProviders?: TextToSpeechProvider[]
+  vadProvider?: VADProvider
 }
 
 export class VoiceManager extends EventEmitter {
@@ -23,6 +27,8 @@ export class VoiceManager extends EventEmitter {
   private config: VoiceConfig
   private sttProviders = new Map<string, SpeechToTextProvider>()
   private ttsProviders = new Map<string, TextToSpeechProvider>()
+  private vadProvider: VADProvider
+  private speechBoundaryDetector: SpeechBoundaryDetector
   private currentAbortController: AbortController | null = null
 
   constructor(options?: VoiceManagerOptions) {
@@ -53,6 +59,40 @@ export class VoiceManager extends EventEmitter {
         this.registerTTSProvider(provider)
       }
     }
+
+    this.vadProvider = options?.vadProvider || new SileroVADProvider()
+    this.speechBoundaryDetector = new SpeechBoundaryDetector({
+      vadProvider: this.vadProvider,
+      speechThreshold: 0.5,
+      silenceTimeoutMs: options?.config?.silenceTimeoutMs ?? 500
+    })
+
+    this.speechBoundaryDetector.on('speechStart', () => {
+      // Barge-in check: if currently speaking, interrupt immediately!
+      if (this.state === 'speaking' && this.config.interruptOnUserSpeech) {
+        this.interrupt()
+        this.emitEvent({ type: 'voice:interrupted' })
+        this.setState('listening')
+      } else if (this.state === 'idle') {
+        this.setState('listening')
+        this.emitEvent({ type: 'voice:listening_started' })
+      }
+    })
+
+    this.speechBoundaryDetector.on('speechEnd', async (audio: AudioInput) => {
+      if (this.state === 'listening') {
+        this.emitEvent({ type: 'voice:listening_stopped' })
+        try {
+          await this.transcribe(audio)
+        } catch (err) {
+          console.error('[VoiceManager] Auto-transcribe error on speechEnd:', err)
+        }
+      }
+    })
+
+    this.speechBoundaryDetector.on('frame', (data) => {
+      this.emit('vadFrame', data)
+    })
   }
 
   registerSTTProvider(provider: SpeechToTextProvider): void {
@@ -86,6 +126,19 @@ export class VoiceManager extends EventEmitter {
   updateConfig(partial: Partial<VoiceConfig>): VoiceConfig {
     this.config = { ...this.config, ...partial }
     return { ...this.config }
+  }
+
+  getVADProvider(): VADProvider {
+    return this.vadProvider
+  }
+
+  getSpeechBoundaryDetector(): SpeechBoundaryDetector {
+    return this.speechBoundaryDetector
+  }
+
+  async processAudioStreamChunk(pcm16Chunk: Int16Array): Promise<void> {
+    if (!this.config.vadEnabled) return
+    await this.speechBoundaryDetector.processAudioChunk(pcm16Chunk)
   }
 
   interrupt(): void {
@@ -213,6 +266,11 @@ export class VoiceManager extends EventEmitter {
 
     this.setState('error')
     throw new Error('TTS synthesis failed on all available providers.')
+  }
+
+  onVoiceEvent(callback: (event: VoiceEvent) => void): () => void {
+    this.on('voiceEvent', callback)
+    return () => this.off('voiceEvent', callback)
   }
 
   private emitEvent(event: VoiceEvent): void {

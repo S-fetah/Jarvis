@@ -143,6 +143,8 @@ export type MascotState =
   | 'needsApproval'
   | 'completed'
   | 'error'
+  | 'listening'
+  | 'speaking'
   | 'hidden'
 
 export interface MascotPosition {
@@ -306,6 +308,7 @@ export interface JarvisAPI {
     options?: { voice?: string; speed?: number; language?: string; speakerWav?: string }
   ) => Promise<{ data: Uint8Array | number[]; sampleRateHz: number; format: string; durationMs?: number }>
   voiceInterrupt?: () => Promise<boolean>
+  voiceProcessChunk?: (chunk: Int16Array | number[]) => Promise<boolean>
   voiceGetConfig?: () => Promise<any>
   voiceUpdateConfig?: (config: any) => Promise<any>
   onVoiceEvent?: (callback: (event: any) => void) => () => void

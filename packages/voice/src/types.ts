@@ -76,8 +76,12 @@ export interface TextToSpeechProvider {
 
 export interface VADProvider {
   readonly id: string
-  processFrame(pcm16Frame: Int16Array, sampleRateHz: number): boolean
+  readonly threshold?: number
+  readonly sampleRate?: number
+  processFrame(pcm16Frame: Int16Array, sampleRateHz?: number): boolean
+  processFrameProb?(pcm16Frame: Int16Array, sampleRateHz?: number): Promise<number>
   reset(): void
+  healthCheck?(): Promise<ProviderHealth>
 }
 
 export interface WakeWordProvider {
@@ -96,6 +100,7 @@ export interface VoiceConfig {
   ttsSpeakerWav?: string
   vadEnabled: boolean
   interruptOnUserSpeech: boolean
+  silenceTimeoutMs?: number
   language: string
   speed: number
   volume: number

@@ -54,4 +54,26 @@ describe('MascotAnimationController', () => {
     // Reduced motion oscillation amplitude is smaller
     expect(Math.abs(reducedGroup.position.y)).toBeLessThanOrEqual(Math.abs(normalGroup.position.y) + 0.05)
   })
+
+  it('handles voice reactive states: listening, speaking, and interruption snap', () => {
+    const controller = new MascotAnimationController()
+    const group = new THREE.Group()
+
+    // Listening state
+    controller.setState('listening')
+    expect(controller.getState()).toBe('listening')
+    controller.update(0.1, group)
+    expect(group.position.y).toBeDefined()
+
+    // Speaking state
+    controller.setState('speaking')
+    expect(controller.getState()).toBe('speaking')
+    controller.update(0.1, group)
+    expect(group.position.y).toBeDefined()
+
+    // Interruption snap
+    controller.triggerInterruptionSnap()
+    controller.update(0.05, group)
+    expect(group.rotation.z).toBeDefined()
+  })
 })

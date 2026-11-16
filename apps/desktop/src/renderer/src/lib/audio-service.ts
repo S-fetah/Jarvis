@@ -46,12 +46,21 @@ export class AudioCaptureService {
 
       // Calculate RMS for visual audio level (0.0 to 1.0)
       let sum = 0
+      const int16 = new Int16Array(inputData.length)
       for (let i = 0; i < inputData.length; i++) {
-        sum += inputData[i] * inputData[i]
+        const val = inputData[i]
+        sum += val * val
+        const s = Math.max(-1, Math.min(1, val))
+        int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
       }
       const rms = Math.min(1.0, Math.sqrt(sum / inputData.length) * 5)
       for (const listener of this.levelListeners) {
         listener(rms)
+      }
+
+      // Stream frame to Silero VAD engine for real-time speech boundary & barge-in
+      if (window.jarvisAPI?.voiceProcessChunk) {
+        window.jarvisAPI.voiceProcessChunk(int16).catch(() => {})
       }
     }
 
@@ -201,3 +210,12 @@ export class AudioPlaybackService {
 
 export const globalAudioCapture = new AudioCaptureService()
 export const globalAudioPlayback = new AudioPlaybackService()
+
+// Auto-mute audio playback on instant barge-in interruption
+if (typeof window !== 'undefined' && window.jarvisAPI?.onVoiceEvent) {
+  window.jarvisAPI.onVoiceEvent((event: any) => {
+    if (event?.type === 'voice:interrupted') {
+      globalAudioPlayback.stop()
+    }
+  })
+}

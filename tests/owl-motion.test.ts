@@ -49,4 +49,25 @@ describe('OwlMotion', () => {
     motion.setReduceMotion(true)
     expect(motion.trigger('hop')).toBe(false)
   })
+
+  it('updates pose for listening and speaking voice states and triggers interrupted alert', () => {
+    const motion = new OwlMotion()
+
+    // Listening: wide open eyes (lid = 0), forward pitch
+    motion.setState('listening')
+    const listeningPose = motion.update(0.1)
+    expect(listeningPose.lid).toBe(0)
+    expect(listeningPose.headPitch).toBeGreaterThan(0)
+
+    // Speaking: chest squash oscillation & beak pulse
+    motion.setState('speaking')
+    const speakingPose = motion.update(0.1)
+    expect(speakingPose.squashY).toBeDefined()
+    expect(speakingPose.headPitch).toBeDefined()
+
+    // Interrupted alert triggers rapid double-blink
+    motion.triggerInterruptedAlert()
+    const alertPose = motion.update(0.05)
+    expect(alertPose.lid).toBeGreaterThan(0)
+  })
 })

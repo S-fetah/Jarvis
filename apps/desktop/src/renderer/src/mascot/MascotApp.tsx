@@ -208,9 +208,10 @@ export function MascotApp(): React.JSX.Element {
 
     window.addEventListener('resize', handleResize)
 
-    // 6. Listen to Mascot State & Full-Screen Cursor Tracking from IPC
+    // 6. Listen to Mascot State, Voice Events & Full-Screen Cursor Tracking from IPC
     let unsubState: (() => void) | undefined
     let unsubCursor: (() => void) | undefined
+    let unsubVoice: (() => void) | undefined
 
     if (window.jarvisAPI) {
       unsubState = window.jarvisAPI.onMascotStateChanged((state) => {
@@ -218,6 +219,38 @@ export function MascotApp(): React.JSX.Element {
         controllerRef.current.setState(state)
         motionRef.current.setState(state)
       })
+
+      if (window.jarvisAPI.onVoiceEvent) {
+        unsubVoice = window.jarvisAPI.onVoiceEvent((evt) => {
+          if (!evt) return
+          if (
+            evt.type === 'voice:listening_started' ||
+            (evt.type === 'voice:state_change' && evt.state === 'listening')
+          ) {
+            setCurrentState('listening')
+            controllerRef.current.setState('listening')
+            motionRef.current.setState('listening')
+          } else if (
+            evt.type === 'voice:speech_started' ||
+            (evt.type === 'voice:state_change' && evt.state === 'speaking')
+          ) {
+            setCurrentState('speaking')
+            controllerRef.current.setState('speaking')
+            motionRef.current.setState('speaking')
+          } else if (evt.type === 'voice:interrupted') {
+            controllerRef.current.triggerInterruptionSnap()
+            motionRef.current.triggerInterruptedAlert()
+          } else if (
+            evt.type === 'voice:listening_stopped' ||
+            evt.type === 'voice:speech_finished' ||
+            (evt.type === 'voice:state_change' && evt.state === 'idle')
+          ) {
+            setCurrentState('idle')
+            controllerRef.current.setState('idle')
+            motionRef.current.setState('idle')
+          }
+        })
+      }
 
       if (window.jarvisAPI.onMascotCursorTracking) {
         unsubCursor = window.jarvisAPI.onMascotCursorTracking((offset) => {
@@ -243,6 +276,7 @@ export function MascotApp(): React.JSX.Element {
       window.removeEventListener('resize', handleResize)
       if (unsubState) unsubState()
       if (unsubCursor) unsubCursor()
+      if (unsubVoice) unsubVoice()
 
       // Dispose GPU resources
       renderer.dispose()
