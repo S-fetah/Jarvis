@@ -305,7 +305,7 @@ const api: JarvisAPI = {
 
   voiceSynthesize: (
     text: string,
-    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string }
+    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string; providerId?: string }
   ): Promise<{ data: Uint8Array | number[]; sampleRateHz: number; format: string; durationMs?: number }> => {
     return ipcRenderer.invoke('voice:synthesize', { text, options })
   },

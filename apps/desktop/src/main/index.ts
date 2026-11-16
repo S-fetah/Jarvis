@@ -42,7 +42,8 @@ import {
   EdgeTTSProvider,
   KokoroTTSProvider,
   XTTSv2Provider,
-  VoiceProfileManager
+  VoiceProfileManager,
+  pcm16ToWav
 } from '@jarvis/voice'
 import { MascotManager } from './windows/mascot-manager'
 import { TrayManager } from './windows/tray-manager'
@@ -1808,10 +1809,16 @@ function registerIpcHandlers(): void {
   ipcMain.handle('voice:synthesize', async (event, { text, options }) => {
     if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
     const output = await voiceManager.synthesize(text, options)
+    let audioData = output.data
+    let format = output.format
+    if (format === 'pcm16') {
+      audioData = pcm16ToWav(output.data, output.sampleRateHz, 1)
+      format = 'wav'
+    }
     return {
-      data: Array.from(output.data),
+      data: Array.from(audioData),
       sampleRateHz: output.sampleRateHz,
-      format: output.format,
+      format,
       durationMs: output.durationMs
     }
   })

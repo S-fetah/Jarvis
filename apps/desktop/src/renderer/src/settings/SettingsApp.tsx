@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Sliders,
   Sparkles,
+  Square,
   Sun,
   Trash2,
   Volume2,
@@ -42,6 +43,7 @@ import { Badge, Button, Switch } from '../components/ui'
 import { applyTheme, readCachedTheme } from '../lib/theme'
 import { cn } from '../lib/cn'
 import { scanPromptSafety } from '@jarvis/protocol'
+import { globalAudioPlayback } from '../lib/audio-service'
 
 type SettingsTab = 'providers' | 'models' | 'prompts' | 'voice' | 'app'
 
@@ -99,6 +101,85 @@ export function SettingsApp(): React.JSX.Element {
   const [isEnrolling, setIsEnrolling] = useState<boolean>(false)
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null)
   const [testingVoiceId, setTestingVoiceId] = useState<string | null>(null)
+
+  // Voice Playground State
+  const [playgroundText, setPlaygroundText] = useState<string>(
+    'Hello! I am Jarvis, your personal AI desktop companion. I can help orchestrate complex workflows, explain codebases, and run local commands directly on your machine.'
+  )
+  const [playgroundVoiceId, setPlaygroundVoiceId] = useState<string>('default')
+  const [playgroundEngine, setPlaygroundEngine] = useState<string>('auto')
+  const [playgroundSpeed, setPlaygroundSpeed] = useState<number>(1.0)
+  const [isSynthesizing, setIsSynthesizing] = useState<boolean>(false)
+  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false)
+  const [playgroundStats, setPlaygroundStats] = useState<{
+    latencyMs?: number
+    durationMs?: number
+    sampleRateHz?: number
+    format?: string
+    error?: string
+  } | null>(null)
+
+  useEffect(() => {
+    const unsub = globalAudioPlayback.onStateChange(setIsPlayingAudio)
+    return () => {
+      unsub()
+      globalAudioPlayback.stop()
+    }
+  }, [])
+
+  const handlePlaygroundSynthesize = async (): Promise<void> => {
+    if (!playgroundText.trim() || isSynthesizing) return
+    setIsSynthesizing(true)
+    setPlaygroundStats(null)
+    const startTime = Date.now()
+
+    try {
+      if (!window.jarvisAPI?.voiceSynthesize) {
+        throw new Error('voiceSynthesize API is not available')
+      }
+
+      let speakerWav: string | undefined = undefined
+      let voiceName: string | undefined = undefined
+
+      if (playgroundVoiceId.startsWith('profile:')) {
+        const profId = playgroundVoiceId.replace('profile:', '')
+        const prof = voiceProfiles.find((p) => p.id === profId)
+        if (prof) {
+          speakerWav = prof.folderPath
+        }
+      } else if (playgroundVoiceId.startsWith('voice:')) {
+        voiceName = playgroundVoiceId.replace('voice:', '')
+      }
+
+      const providerId = playgroundEngine !== 'auto' ? playgroundEngine : undefined
+
+      const res = await window.jarvisAPI.voiceSynthesize(playgroundText.trim(), {
+        speed: playgroundSpeed,
+        speakerWav,
+        voice: voiceName,
+        providerId
+      })
+
+      const latencyMs = Date.now() - startTime
+      setPlaygroundStats({
+        latencyMs,
+        durationMs: res?.durationMs,
+        sampleRateHz: res?.sampleRateHz,
+        format: res?.format
+      })
+
+      if (res?.data && res.data.length > 0) {
+        await globalAudioPlayback.play(res.data, res.sampleRateHz || 24000)
+      } else {
+        throw new Error('No audio bytes returned from synthesizer')
+      }
+    } catch (err: any) {
+      console.error('[Voice Playground] Synthesis error:', err)
+      setPlaygroundStats({ error: err.message || String(err) })
+    } finally {
+      setIsSynthesizing(false)
+    }
+  }
 
   // Initialize theme and load all state on mount
   useEffect(() => {
@@ -1330,13 +1411,17 @@ export function SettingsApp(): React.JSX.Element {
                               setTestingVoiceId(p.id)
                               try {
                                 if (window.jarvisAPI?.voiceSynthesize) {
-                                  await window.jarvisAPI.voiceSynthesize(
+                                  const res = await window.jarvisAPI.voiceSynthesize(
                                     `Hello, this is a test of the ${p.name} voice profile. All systems operational.`,
                                     { speakerWav: p.folderPath }
                                   )
+                                  if (res?.data) {
+                                    await globalAudioPlayback.play(res.data, res.sampleRateHz || 24000)
+                                  }
                                 }
-                              } catch (err) {
+                              } catch (err: any) {
                                 console.error('Test synthesis error:', err)
+                                setVoiceFeedback(`Test synthesis error: ${err.message || err}`)
                               } finally {
                                 setTestingVoiceId(null)
                               }
@@ -1485,6 +1570,233 @@ export function SettingsApp(): React.JSX.Element {
                         </>
                       ) : (
                         <span>Precompute & Enroll Profile</span>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Voice & Cloned Profile Playground */}
+              <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Volume2 className="h-4 w-4 text-jarvis-accent" />
+                    <h2 className="text-xs font-semibold text-jarvis-ivory">Voice & Cloned Profile Playground</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isPlayingAudio && (
+                      <span className="flex items-center gap-1.5 text-3xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                        Playing
+                      </span>
+                    )}
+                    <Badge variant="outline" className="text-3xs font-mono">
+                      Interactive Test Studio
+                    </Badge>
+                  </div>
+                </div>
+
+                <p className="text-xs text-jarvis-muted leading-relaxed">
+                  Select any enrolled cloned voice profile or neural engine, enter or paste full paragraphs of text, and test speech synthesis, pronunciation, and latency in real time.
+                </p>
+
+                {/* Selectors Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Voice Profile Selector */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-jarvis-ivory">Target Voice / Profile</label>
+                    <select
+                      value={playgroundVoiceId}
+                      onChange={(e) => setPlaygroundVoiceId(e.target.value)}
+                      className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                    >
+                      <option value="default">Default Voice ({voiceConfig?.ttsProvider || 'neural'})</option>
+                      {voiceProfiles.length > 0 && (
+                        <optgroup label="Cloned Voice Profiles">
+                          {voiceProfiles.map((p) => (
+                            <option key={p.id} value={`profile:${p.id}`}>
+                              ⭐ {p.name} {p.hasXttsLatents ? '(XTTS Cloned)' : '(WAV Cloned)'}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Kokoro-82M Preset Voices">
+                        <option value="voice:af_heart">Kokoro: Heart (Female)</option>
+                        <option value="voice:am_michael">Kokoro: Michael (Male)</option>
+                        <option value="voice:af_bella">Kokoro: Bella (Female)</option>
+                        <option value="voice:af_sarah">Kokoro: Sarah (Female)</option>
+                      </optgroup>
+                      <optgroup label="Edge-TTS Voices">
+                        <option value="voice:en-US-JennyNeural">Edge-TTS: Jenny (Neural)</option>
+                        <option value="voice:en-US-GuyNeural">Edge-TTS: Guy (Neural)</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  {/* TTS Engine Selector */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-jarvis-ivory">TTS Engine Override</label>
+                    <select
+                      value={playgroundEngine}
+                      onChange={(e) => setPlaygroundEngine(e.target.value)}
+                      className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-2.5 py-1.5 font-mono text-xs text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                    >
+                      <option value="auto">Auto (Configured Default: {voiceConfig?.ttsProvider || 'kokoro-82m'})</option>
+                      <option value="xtts-v2">Coqui XTTS-v2 (Zero-shot Voice Cloning)</option>
+                      <option value="kokoro-82m">Kokoro-82M (Instant CPU Neural)</option>
+                      <option value="edge-tts">Microsoft Edge-TTS (Cloud Neural)</option>
+                      <option value="system-speech">System Speech (Windows SAPI)</option>
+                    </select>
+                  </div>
+
+                  {/* Speed Slider */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-medium text-jarvis-ivory">Playback Speed</label>
+                      <span className="font-mono text-xs text-jarvis-accent">{playgroundSpeed.toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.05"
+                      value={playgroundSpeed}
+                      onChange={(e) => setPlaygroundSpeed(parseFloat(e.target.value))}
+                      className="w-full accent-jarvis-accent cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets Bar */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-3xs font-semibold uppercase tracking-wider text-jarvis-muted">Sample Presets:</span>
+                    <span className="text-3xs font-mono text-jarvis-muted/70">{playgroundText.length} characters</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPlaygroundText('Hello! I am Jarvis, your personal AI companion. All voice synthesis and cloning pipelines are active and calibrated.')}
+                      className="rounded border border-jarvis-border/80 bg-jarvis-base px-2 py-1 text-3xs text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory transition font-mono"
+                    >
+                      👋 Greeting
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlaygroundText('The asynchronous event loop in Node.js orchestrates non-blocking I/O operations through the libuv thread pool. Let us examine the call stack and microtask queue.')}
+                      className="rounded border border-jarvis-border/80 bg-jarvis-base px-2 py-1 text-3xs text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory transition font-mono"
+                    >
+                      💻 Technical Paragraph
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlaygroundText('In a world where intelligence runs quietly on your own workstation, privacy is not a compromise—it is the default architecture. Zero external dependencies, pure local execution, and total sovereignty over your data.')}
+                      className="rounded border border-jarvis-border/80 bg-jarvis-base px-2 py-1 text-3xs text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory transition font-mono"
+                    >
+                      📖 Long Story
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlaygroundText('All twenty-six automated test suites passed with zero errors. System ready.')}
+                      className="rounded border border-jarvis-border/80 bg-jarvis-base px-2 py-1 text-3xs text-jarvis-muted hover:border-jarvis-accent/50 hover:text-jarvis-ivory transition font-mono"
+                    >
+                      ⚡ Quick Confirmation
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlaygroundText('')}
+                      className="rounded border border-jarvis-border/60 bg-transparent px-2 py-1 text-3xs text-jarvis-muted/70 hover:text-jarvis-ivory transition font-mono ml-auto"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {/* Textarea */}
+                <textarea
+                  rows={4}
+                  value={playgroundText}
+                  onChange={(e) => setPlaygroundText(e.target.value)}
+                  placeholder="Enter or paste paragraphs of text to test how the voice sounds and enunciates..."
+                  className="w-full rounded-md border border-jarvis-border bg-jarvis-base px-3 py-2 text-xs leading-relaxed text-jarvis-ivory placeholder:text-jarvis-muted/70 focus:border-jarvis-accent focus:outline-none"
+                />
+
+                {/* Stats / Error Banner */}
+                {playgroundStats && (
+                  <div
+                    className={cn(
+                      'rounded-lg border p-2.5 text-xs font-mono flex flex-wrap items-center justify-between gap-2',
+                      playgroundStats.error
+                        ? 'border-red-500/40 bg-red-500/10 text-red-300'
+                        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                    )}
+                  >
+                    {playgroundStats.error ? (
+                      <div className="flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                        <span>Synthesis Error: {playgroundStats.error}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                          <Check className="h-3.5 w-3.5" /> Synthesized Successfully
+                        </span>
+                        {playgroundStats.latencyMs !== undefined && (
+                          <span className="text-jarvis-muted">Latency: <span className="text-jarvis-ivory font-bold">{playgroundStats.latencyMs}ms</span></span>
+                        )}
+                        {playgroundStats.durationMs !== undefined && (
+                          <span className="text-jarvis-muted">Duration: <span className="text-jarvis-ivory font-bold">{(playgroundStats.durationMs / 1000).toFixed(1)}s</span></span>
+                        )}
+                        {playgroundStats.sampleRateHz !== undefined && (
+                          <span className="text-jarvis-muted">Format: <span className="text-jarvis-ivory font-bold">{playgroundStats.sampleRateHz}Hz {playgroundStats.format || 'wav'}</span></span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions Bar */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="text-3xs text-jarvis-muted">
+                    Tip: Choose your cloned profile to hear it read custom paragraphs!
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isPlayingAudio && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 text-xs border-red-500/40 text-red-400 hover:bg-red-500/10"
+                        onClick={() => {
+                          globalAudioPlayback.stop()
+                          setIsPlayingAudio(false)
+                          window.jarvisAPI?.voiceInterrupt?.()
+                        }}
+                      >
+                        <Square className="mr-1.5 h-3 w-3 fill-red-400" />
+                        Stop Playback
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={isSynthesizing || !playgroundText.trim()}
+                      className="h-8 text-xs px-4"
+                      onClick={handlePlaygroundSynthesize}
+                    >
+                      {isSynthesizing ? (
+                        <>
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          <span>Synthesizing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
+                          <span>Synthesize & Play</span>
+                        </>
                       )}
                     </Button>
                   </div>

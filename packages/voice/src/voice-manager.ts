@@ -223,7 +223,7 @@ export class VoiceManager extends EventEmitter {
       ? anySignal(options.signal, this.currentAbortController.signal)
       : this.currentAbortController.signal
 
-    const primaryId = this.config.ttsProvider
+    const primaryId = options?.providerId || this.config.ttsProvider
     const fallbackId = this.config.ttsFallbackProvider
     const primary = this.ttsProviders.get(primaryId)
     const fallback = fallbackId ? this.ttsProviders.get(fallbackId) : undefined

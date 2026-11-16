@@ -51,7 +51,9 @@ export interface Transcript {
 export interface SpeechOptions {
   voice?: string
   speed?: number
+  volume?: number
   language?: string
+  providerId?: string
   /** Path or URI to a 3–6 second reference audio sample for zero-shot voice cloning (e.g. XTTS-v2) */
   speakerWav?: string
   signal?: AbortSignal

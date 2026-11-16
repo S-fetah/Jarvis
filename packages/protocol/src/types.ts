@@ -305,7 +305,7 @@ export interface JarvisAPI {
   }) => Promise<{ text: string; language?: string; durationMs?: number }>
   voiceSynthesize?: (
     text: string,
-    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string }
+    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string; providerId?: string }
   ) => Promise<{ data: Uint8Array | number[]; sampleRateHz: number; format: string; durationMs?: number }>
   voiceInterrupt?: () => Promise<boolean>
   voiceProcessChunk?: (chunk: Int16Array | number[]) => Promise<boolean>

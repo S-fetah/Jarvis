@@ -312,14 +312,29 @@ export class AudioPlaybackService {
     return this.audioContext
   }
 
-  async play(audioBytes: Uint8Array | number[]): Promise<void> {
+  async play(audioBytes: Uint8Array | number[], sampleRate = 24000): Promise<void> {
     this.stop()
 
     const rawBuffer = audioBytes instanceof Uint8Array ? audioBytes : new Uint8Array(audioBytes)
-    const ctx = this.getAudioContext()
+    if (rawBuffer.length === 0) return
 
-    // Decode audio bytes (MP3, WAV, etc.)
-    const audioBuffer = await ctx.decodeAudioData(rawBuffer.buffer.slice(0) as ArrayBuffer)
+    const ctx = this.getAudioContext()
+    let audioBuffer: AudioBuffer
+
+    try {
+      audioBuffer = await ctx.decodeAudioData(
+        rawBuffer.buffer.slice(rawBuffer.byteOffset, rawBuffer.byteOffset + rawBuffer.byteLength) as ArrayBuffer
+      )
+    } catch {
+      // Direct raw PCM fallback if container header is missing
+      const sampleCount = Math.floor(rawBuffer.byteLength / 2)
+      const int16 = new Int16Array(rawBuffer.buffer, rawBuffer.byteOffset, sampleCount)
+      audioBuffer = ctx.createBuffer(1, sampleCount, sampleRate)
+      const channelData = audioBuffer.getChannelData(0)
+      for (let i = 0; i < sampleCount; i++) {
+        channelData[i] = int16[i] / 32768.0
+      }
+    }
 
     const source = ctx.createBufferSource()
     source.buffer = audioBuffer
