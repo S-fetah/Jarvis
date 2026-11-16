@@ -18,8 +18,9 @@ def main():
     parser.add_argument("--se", default=None, help="Target speaker embedding path (.pth)")
     parser.add_argument("--ref", default=None, help="Reference audio path if SE not pre-computed")
     parser.add_argument("--base-voice", default="en-GB-RyanNeural", help="Base TTS voice")
-    parser.add_argument("--speed", type=float, default=1.0, help="Speech speed")
-    parser.add_argument("--tau", type=float, default=0.3, help="Tone conversion tau")
+    parser.add_argument("--speed", type=float, default=0.95, help="Speech speed (0.95 matches Paul Bettany cadence)")
+    parser.add_argument("--tau", type=float, default=0.0, help="Tone conversion tau (0.0 = deterministic, 0 noise)")
+    parser.add_argument("--warm-eq", action="store_true", default=True, help="Apply broadcast warmth EQ")
 
     args = parser.parse_args()
 
@@ -74,10 +75,12 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         base_wav = os.path.join(tmpdir, "base.wav")
+        conv_wav = os.path.join(tmpdir, "conv.wav")
         mp3_tmp = os.path.join(tmpdir, "base.mp3")
 
         async def gen_base():
-            rate_str = f"{int((args.speed - 1.0) * 100):+d}%" if args.speed != 1.0 else "+0%"
+            rate_delta = int((args.speed - 1.0) * 100)
+            rate_str = f"{rate_delta:+d}%" if rate_delta != 0 else "+0%"
             comm = edge_tts.Communicate(args.text, args.base_voice, rate=rate_str)
             await comm.save(mp3_tmp)
 
@@ -98,9 +101,26 @@ def main():
             audio_src_path=base_wav,
             src_se=source_se,
             tgt_se=target_se,
-            output_path=output_path,
+            output_path=conv_wav,
             tau=args.tau
         )
+
+        # 4. Optional warm acoustic EQ
+        if args.warm_eq:
+            eq_filter = (
+                "bass=g=2.5:f=180,"
+                "equalizer=f=3500:width_type=q:w=1.2:g=-1.5,"
+                "treble=g=-2.0:f=8000,"
+                "acompressor=threshold=-18dB:ratio=2.5:attack=20:release=150"
+            )
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", conv_wav, "-af", eq_filter, output_path],
+                capture_output=True,
+                check=True
+            )
+        else:
+            import shutil
+            shutil.copyfile(conv_wav, output_path)
 
     print(f"[OpenVoice Runner] Output successfully saved: {output_path}")
     return 0

@@ -53,10 +53,11 @@ def init_converter():
 class SynthesizeRequest(BaseModel):
     text: str
     base_voice: str = "en-GB-RyanNeural"
-    speed: float = 1.0
+    speed: float = 0.95
     speaker_se_path: str | None = None
     speaker_wav_path: str | None = None
-    tau: float = 0.3
+    tau: float = 0.0
+    warm_eq: bool = True
 
 @app.on_event("startup")
 def on_startup():
@@ -120,7 +121,23 @@ async def synthesize(req: SynthesizeRequest):
             tau=req.tau
         )
 
-        with open(out_wav, "rb") as f:
+        final_path = out_wav
+        if req.warm_eq:
+            eq_wav = os.path.join(tmpdir, "eq.wav")
+            eq_filter = (
+                "bass=g=2.5:f=180,"
+                "equalizer=f=3500:width_type=q:w=1.2:g=-1.5,"
+                "treble=g=-2.0:f=8000,"
+                "acompressor=threshold=-18dB:ratio=2.5:attack=20:release=150"
+            )
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", out_wav, "-af", eq_filter, eq_wav],
+                capture_output=True,
+                check=True
+            )
+            final_path = eq_wav
+
+        with open(final_path, "rb") as f:
             audio_bytes = f.read()
 
         return Response(content=audio_bytes, media_type="audio/wav")
