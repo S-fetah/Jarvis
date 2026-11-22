@@ -20,7 +20,7 @@ def main():
     parser.add_argument("--ref", default=None, help="Reference audio path if SE not pre-computed")
     parser.add_argument("--base-voice", default="en-GB-RyanNeural", help="Base TTS voice")
     parser.add_argument("--speed", type=float, default=0.95, help="Speech speed (0.95 matches Paul Bettany cadence)")
-    parser.add_argument("--tau", type=float, default=0.0, help="Tone conversion tau (0.0 = deterministic, 0 noise)")
+    parser.add_argument("--tau", type=float, default=0.05, help="Tone conversion tau (0.05 = natural human fluidity)")
     parser.add_argument("--warm-eq", action="store_true", default=True, help="Apply broadcast warmth EQ")
 
     args = parser.parse_args()
@@ -101,7 +101,7 @@ def main():
         async def gen_base():
             rate_delta = int((args.speed - 1.0) * 100)
             rate_str = f"{rate_delta:+d}%" if rate_delta != 0 else "+0%"
-            comm = edge_tts.Communicate(input_text, args.base_voice, rate=rate_str, pitch="+25Hz")
+            comm = edge_tts.Communicate(input_text, args.base_voice, rate=rate_str, pitch="+0Hz")
             await comm.save(mp3_tmp)
 
         asyncio.run(gen_base())

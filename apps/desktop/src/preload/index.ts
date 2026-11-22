@@ -45,6 +45,10 @@ const api: JarvisAPI = {
     return ipcRenderer.invoke('conversation:delete', id)
   },
 
+  renameConversation: (id: string, title: string): Promise<boolean> => {
+    return ipcRenderer.invoke('conversation:rename', { id, title })
+  },
+
   sendMessage: (
     conversationId: string,
     content: string,

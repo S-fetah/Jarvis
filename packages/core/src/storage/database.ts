@@ -185,6 +185,19 @@ export class JarvisDatabase {
     this.save()
   }
 
+  public renameConversation(id: string, title: string): boolean {
+    if (!this.db) return false
+    const now = Date.now()
+    const newTitle = title.trim() || 'Conversation'
+    this.db.run('UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?', [
+      newTitle,
+      now,
+      id
+    ])
+    this.save()
+    return true
+  }
+
   public getSetting(key: string): string | null {
     if (!this.db) return null
     const stmt = this.db.prepare('SELECT value FROM settings WHERE key = :key')

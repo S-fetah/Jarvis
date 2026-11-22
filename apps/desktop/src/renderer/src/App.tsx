@@ -310,6 +310,16 @@ export default function App(): React.JSX.Element {
     }
   }
 
+  const handleRenameConversation = async (id: string, newTitle: string): Promise<void> => {
+    if (!window.jarvisAPI?.renameConversation) return
+    const success = await window.jarvisAPI.renameConversation(id, newTitle)
+    if (success) {
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === id ? { ...conv, title: newTitle.trim() || conv.title } : conv))
+      )
+    }
+  }
+
   // Assistant Mode & Style Handlers
   const handleStyleChange = async (style: TalkingStyle): Promise<void> => {
     setTalkingStyle(style)
@@ -527,6 +537,7 @@ export default function App(): React.JSX.Element {
             onNewChat={handleNewChat}
             onSelectConversation={handleSelectConversation}
             onDeleteConversation={handleDeleteConversation}
+            onRenameConversation={handleRenameConversation}
             onSelectWorkspace={handleSelectWorkspace}
           />
 

@@ -925,6 +925,10 @@ function registerIpcHandlers(): void {
     return true
   })
 
+  ipcMain.handle('conversation:rename', async (_, { id, title }: { id: string; title: string }) => {
+    return db.renameConversation(id, title)
+  })
+
   // --- Live LLM Streaming Chat ---
   // One running agent loop per conversation; chat:cancel aborts it (plan §8 Test G).
   const chatRuns = new Map<string, AbortController>()

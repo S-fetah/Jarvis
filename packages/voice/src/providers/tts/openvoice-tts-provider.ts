@@ -206,7 +206,8 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
         body: JSON.stringify({
           text: cleanedText,
           speed: options?.speed || 0.95,
-          pitch: '+25Hz',
+          pitch: '+0Hz',
+          tau: 0.05,
           speaker_se_path: this.resolveSpeakerSe(options?.speakerWav),
           speaker_wav_path: options?.speakerWav
         }),

@@ -74,10 +74,10 @@ class SynthesizeRequest(BaseModel):
     text: str
     base_voice: str = "en-GB-RyanNeural"
     speed: float = 0.95
-    pitch: str = "+25Hz"
+    pitch: str = "+0Hz"
     speaker_se_path: str | None = None
     speaker_wav_path: str | None = None
-    tau: float = 0.0
+    tau: float = 0.05
     warm_eq: bool = True
 
 @app.get("/health")

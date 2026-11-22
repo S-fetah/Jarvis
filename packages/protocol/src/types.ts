@@ -214,6 +214,7 @@ export interface JarvisAPI {
   getActiveConversation: () => Promise<Conversation>
   createConversation: (title?: string) => Promise<Conversation>
   deleteConversation: (id: string) => Promise<boolean>
+  renameConversation: (id: string, title: string) => Promise<boolean>
   sendMessage: (
     conversationId: string,
     content: string,

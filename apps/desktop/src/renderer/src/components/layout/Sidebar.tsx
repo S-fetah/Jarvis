@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { FolderOpen, MessageSquare, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react'
+import { Check, FolderOpen, MessageSquare, Pencil, Plus, Search, ShieldCheck, Trash2, X } from 'lucide-react'
 import type { Conversation } from '@jarvis/protocol'
 import { basename, formatDayGroup, formatTime } from '../../lib/format'
 import { cn } from '../../lib/cn'
@@ -13,6 +13,7 @@ interface SidebarProps {
   onNewChat: () => void
   onSelectConversation: (conversation: Conversation) => void
   onDeleteConversation: (event: React.MouseEvent, id: string) => void
+  onRenameConversation?: (id: string, newTitle: string) => void
   onSelectWorkspace: () => void
 }
 
@@ -26,9 +27,29 @@ export function Sidebar({
   onNewChat,
   onSelectConversation,
   onDeleteConversation,
+  onRenameConversation,
   onSelectWorkspace
 }: SidebarProps): React.JSX.Element {
   const [query, setQuery] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+
+  const handleStartRename = (event: React.MouseEvent, conversation: Conversation) => {
+    event.stopPropagation()
+    setEditingId(conversation.id)
+    setEditTitle(conversation.title)
+  }
+
+  const handleSaveRename = (id: string) => {
+    if (editTitle.trim()) {
+      onRenameConversation?.(id, editTitle.trim())
+    }
+    setEditingId(null)
+  }
+
+  const handleCancelRename = () => {
+    setEditingId(null)
+  }
 
   const grouped = useMemo(() => {
     const filtered = conversations.filter((conversation) =>
@@ -100,41 +121,99 @@ export function Sidebar({
                   {group.items.map((conversation) => {
                     const active = conversation.id === activeConvId
                     const noteCount = conversation.messages?.length || 0
+
+                    if (editingId === conversation.id) {
+                      return (
+                        <div
+                          key={conversation.id}
+                          className="relative mb-0.5 rounded-md border border-jarvis-accent bg-jarvis-surface p-1.5 shadow-sm"
+                        >
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault()
+                              handleSaveRename(conversation.id)
+                            }}
+                            className="flex items-center gap-1"
+                          >
+                            <input
+                              type="text"
+                              autoFocus
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') handleCancelRename()
+                              }}
+                              className="h-6 w-full rounded border border-jarvis-border bg-jarvis-base px-1.5 text-[12px] text-jarvis-ivory focus:border-jarvis-accent focus:outline-none"
+                              placeholder="Conversation title..."
+                            />
+                            <button
+                              type="submit"
+                              aria-label="Save title"
+                              title="Save title"
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-jarvis-accent hover:bg-jarvis-accentSoft"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelRename}
+                              aria-label="Cancel rename"
+                              title="Cancel"
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-jarvis-muted hover:bg-jarvis-hover hover:text-jarvis-ivory"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </form>
+                        </div>
+                      )
+                    }
+
                     return (
                       <div key={conversation.id} className="group relative">
-                        <button
-                          type="button"
-                          onClick={() => onSelectConversation(conversation)}
-                          aria-current={active ? 'page' : undefined}
-                          className={cn(
-                            'w-full rounded-md border-l-2 py-2 pl-2.5 pr-9 text-left transition-colors',
-                            active
-                              ? 'border-jarvis-accent bg-jarvis-accentSoft text-jarvis-ivory'
-                              : 'border-transparent text-jarvis-sage hover:bg-jarvis-hover hover:text-jarvis-ivory'
-                          )}
-                        >
-                          <span className="block truncate text-[12.5px] font-medium leading-snug">
-                            {conversation.title || 'Conversation'}
-                          </span>
-                          <span className="mt-0.5 flex items-center gap-1.5 text-3xs text-jarvis-muted">
-                            <span>{formatTime(conversation.updatedAt || conversation.createdAt)}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>
-                              {noteCount} {noteCount === 1 ? 'note' : 'notes'}
+                          <button
+                            type="button"
+                            onClick={() => onSelectConversation(conversation)}
+                            aria-current={active ? 'page' : undefined}
+                            className={cn(
+                              'w-full rounded-md border-l-2 py-2 pl-2.5 pr-14 text-left transition-colors',
+                              active
+                                ? 'border-jarvis-accent bg-jarvis-accentSoft text-jarvis-ivory'
+                                : 'border-transparent text-jarvis-sage hover:bg-jarvis-hover hover:text-jarvis-ivory'
+                            )}
+                          >
+                            <span className="block truncate text-[12.5px] font-medium leading-snug">
+                              {conversation.title || 'Conversation'}
                             </span>
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => onDeleteConversation(event, conversation.id)}
-                          aria-label={`Delete ${conversation.title || 'conversation'}`}
-                          title="Delete conversation"
-                          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-jarvis-muted opacity-0 transition hover:bg-jarvis-dangerSoft hover:text-jarvis-danger focus-visible:opacity-100 group-hover:opacity-100"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )
+                            <span className="mt-0.5 flex items-center gap-1.5 text-3xs text-jarvis-muted">
+                              <span>{formatTime(conversation.updatedAt || conversation.createdAt)}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>
+                                {noteCount} {noteCount === 1 ? 'note' : 'notes'}
+                              </span>
+                            </span>
+                          </button>
+                          <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={(event) => handleStartRename(event, conversation)}
+                              aria-label={`Rename ${conversation.title || 'conversation'}`}
+                              title="Rename conversation"
+                              className="flex h-6 w-6 items-center justify-center rounded text-jarvis-muted transition hover:bg-jarvis-hover hover:text-jarvis-ivory"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => onDeleteConversation(event, conversation.id)}
+                              aria-label={`Delete ${conversation.title || 'conversation'}`}
+                              title="Delete conversation"
+                              className="flex h-6 w-6 items-center justify-center rounded text-jarvis-muted transition hover:bg-jarvis-dangerSoft hover:text-jarvis-danger"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )
                   })}
                 </div>
               </div>

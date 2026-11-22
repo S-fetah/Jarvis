@@ -88,7 +88,7 @@ describe('OpenVoiceTTSProvider & J.A.R.V.I.S. Voice Cloning', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: expect.stringContaining('"pitch":"+25Hz"')
+        body: expect.stringContaining('"pitch":"+0Hz"')
       })
     )
   })
