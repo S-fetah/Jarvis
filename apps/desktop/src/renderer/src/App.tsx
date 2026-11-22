@@ -30,6 +30,7 @@ import { TooltipProvider } from './components/ui'
 import { applyTheme, cacheTheme, onSystemThemeChange, readCachedTheme } from './lib/theme'
 import { basename } from './lib/format'
 import { cn } from './lib/cn'
+import { globalAudioPlayback } from './lib/audio-service'
 
 export default function App(): React.JSX.Element {
   // --- State Management ---
@@ -80,6 +81,28 @@ export default function App(): React.JSX.Element {
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([])
   const [activeProcesses, setActiveProcesses] = useState<ManagedProcess[]>([])
   const [expandedLogsProcessId, setExpandedLogsProcessId] = useState<string | null>(null)
+  const [voiceAnswerEnabled, setVoiceAnswerEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('jarvis:voice-answer-enabled') !== 'false'
+  })
+  const [isPlayingSpeech, setIsPlayingSpeech] = useState<boolean>(false)
+
+  useEffect(() => {
+    const unsub = globalAudioPlayback.onStateChange(setIsPlayingSpeech)
+    return () => {
+      unsub()
+    }
+  }, [])
+
+  const handleToggleVoiceAnswer = (): void => {
+    setVoiceAnswerEnabled((prev) => {
+      const next = !prev
+      localStorage.setItem('jarvis:voice-answer-enabled', String(next))
+      if (!next) {
+        globalAudioPlayback.stop()
+      }
+      return next
+    })
+  }
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -353,6 +376,20 @@ export default function App(): React.JSX.Element {
       if (localUrlMatch && !canvasState.open) {
         void handleOpenCanvas({ url: localUrlMatch[1], type: 'browser', title: localUrlMatch[1] })
       }
+
+      // Auto-speak answer when voice answering is enabled
+      if (voiceAnswerEnabled && res.reply && window.jarvisAPI?.voiceSynthesize) {
+        window.jarvisAPI
+          .voiceSynthesize(res.reply)
+          .then((audio) => {
+            if (audio?.data && audio.data.length > 0) {
+              void globalAudioPlayback.play(audio.data, audio.sampleRateHz || 24000)
+            }
+          })
+          .catch((err) => {
+            console.warn('[Jarvis] Auto-voice response error:', err)
+          })
+      }
     } catch (err: any) {
       console.error('[Jarvis] Send message error:', err)
       const errorMsg: ChatMessage = {
@@ -522,6 +559,9 @@ export default function App(): React.JSX.Element {
               }
               canvasOpen={canvasState.open}
               onToggleCanvas={() => setCanvasState((prev) => ({ ...prev, open: !prev.open }))}
+              voiceAnswerEnabled={voiceAnswerEnabled}
+              onToggleVoiceAnswer={handleToggleVoiceAnswer}
+              isPlayingSpeech={isPlayingSpeech}
             />
 
             <ProcessStrip

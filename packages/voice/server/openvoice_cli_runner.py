@@ -13,7 +13,8 @@ import soundfile
 
 def main():
     parser = argparse.ArgumentParser(description="Jarvis OpenVoice Synthesis Runner")
-    parser.add_argument("--text", required=True, help="Text to synthesize")
+    parser.add_argument("--text", default=None, help="Text to synthesize")
+    parser.add_argument("--text-file", default=None, help="Path to UTF-8 file containing text to synthesize")
     parser.add_argument("--output", required=True, help="Path for output WAV file")
     parser.add_argument("--se", default=None, help="Target speaker embedding path (.pth)")
     parser.add_argument("--ref", default=None, help="Reference audio path if SE not pre-computed")
@@ -23,6 +24,21 @@ def main():
     parser.add_argument("--warm-eq", action="store_true", default=True, help="Apply broadcast warmth EQ")
 
     args = parser.parse_args()
+
+    # Read input text from file or CLI argument
+    input_text = ""
+    if args.text_file and os.path.exists(args.text_file):
+        with open(args.text_file, "r", encoding="utf-8") as f:
+            input_text = f.read().strip()
+    elif args.text:
+        input_text = args.text.strip()
+    else:
+        if not sys.stdin.isatty():
+            input_text = sys.stdin.read().strip()
+
+    if not input_text:
+        print("[OpenVoice Runner] Error: No input text provided.", file=sys.stderr)
+        return 1
 
     # Determine paths and repo root
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -81,7 +97,7 @@ def main():
         async def gen_base():
             rate_delta = int((args.speed - 1.0) * 100)
             rate_str = f"{rate_delta:+d}%" if rate_delta != 0 else "+0%"
-            comm = edge_tts.Communicate(args.text, args.base_voice, rate=rate_str)
+            comm = edge_tts.Communicate(input_text, args.base_voice, rate=rate_str)
             await comm.save(mp3_tmp)
 
         asyncio.run(gen_base())

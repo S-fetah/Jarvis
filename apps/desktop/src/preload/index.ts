@@ -305,9 +305,33 @@ const api: JarvisAPI = {
 
   voiceSynthesize: (
     text: string,
-    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string; providerId?: string }
-  ): Promise<{ data: Uint8Array | number[]; sampleRateHz: number; format: string; durationMs?: number }> => {
+    options?: {
+      voice?: string
+      speed?: number
+      language?: string
+      speakerWav?: string
+      providerId?: string
+      spokenIntroOnly?: boolean
+      bypassCache?: boolean
+    }
+  ): Promise<{
+    data: Uint8Array | number[]
+    sampleRateHz: number
+    format: string
+    durationMs?: number
+    providerId?: string
+    voice?: string
+    cached?: boolean
+  }> => {
     return ipcRenderer.invoke('voice:synthesize', { text, options })
+  },
+
+  voiceClearAudioCache: (): Promise<{ clearedCount: number; freedBytes: number }> => {
+    return ipcRenderer.invoke('voice:clear-audio-cache')
+  },
+
+  voiceGetAudioCacheStats: (): Promise<{ entryCount: number; totalBytes: number; cacheDir: string }> => {
+    return ipcRenderer.invoke('voice:get-audio-cache-stats')
   },
 
   voiceInterrupt: (): Promise<boolean> => {

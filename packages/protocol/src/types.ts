@@ -305,7 +305,15 @@ export interface JarvisAPI {
   }) => Promise<{ text: string; language?: string; durationMs?: number }>
   voiceSynthesize?: (
     text: string,
-    options?: { voice?: string; speed?: number; language?: string; speakerWav?: string; providerId?: string }
+    options?: {
+      voice?: string
+      speed?: number
+      language?: string
+      speakerWav?: string
+      providerId?: string
+      spokenIntroOnly?: boolean
+      bypassCache?: boolean
+    }
   ) => Promise<{
     data: Uint8Array | number[]
     sampleRateHz: number
@@ -313,7 +321,10 @@ export interface JarvisAPI {
     durationMs?: number
     providerId?: string
     voice?: string
+    cached?: boolean
   }>
+  voiceClearAudioCache?: () => Promise<{ clearedCount: number; freedBytes: number }>
+  voiceGetAudioCacheStats?: () => Promise<{ entryCount: number; totalBytes: number; cacheDir: string }>
   voiceInterrupt?: () => Promise<boolean>
   voiceProcessChunk?: (chunk: Int16Array | number[]) => Promise<boolean>
   voiceGetConfig?: () => Promise<any>

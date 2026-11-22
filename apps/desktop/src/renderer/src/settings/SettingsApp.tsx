@@ -245,8 +245,15 @@ export function SettingsApp(): React.JSX.Element {
     format?: string
     providerId?: string
     voice?: string
+    cached?: boolean
     error?: string
   } | null>(null)
+  const [cacheStats, setCacheStats] = useState<{
+    entryCount: number
+    totalBytes: number
+    cacheDir: string
+  } | null>(null)
+  const [isClearingCache, setIsClearingCache] = useState<boolean>(false)
 
   useEffect(() => {
     const unsub = globalAudioPlayback.onStateChange(setIsPlayingAudio)
@@ -465,8 +472,10 @@ export function SettingsApp(): React.JSX.Element {
         sampleRateHz: res?.sampleRateHz,
         format: res?.format,
         providerId: res?.providerId || providerId || 'auto',
-        voice: res?.voice || voiceName || 'default'
+        voice: res?.voice || voiceName || 'default',
+        cached: res?.cached
       })
+      void loadCacheStats()
 
       if (res?.data && res.data.length > 0) {
         await globalAudioPlayback.play(res.data, res.sampleRateHz || 24000)
@@ -478,6 +487,33 @@ export function SettingsApp(): React.JSX.Element {
       setPlaygroundStats({ error: err.message || String(err) })
     } finally {
       setIsSynthesizing(false)
+    }
+  }
+
+  const loadCacheStats = async (): Promise<void> => {
+    if (window.jarvisAPI?.voiceGetAudioCacheStats) {
+      try {
+        const stats = await window.jarvisAPI.voiceGetAudioCacheStats()
+        setCacheStats(stats)
+      } catch (e) {
+        console.warn('Failed to load audio cache stats:', e)
+      }
+    }
+  }
+
+  const handleClearAudioCache = async (): Promise<void> => {
+    if (isClearingCache || !window.jarvisAPI?.voiceClearAudioCache) return
+    setIsClearingCache(true)
+    try {
+      const res = await window.jarvisAPI.voiceClearAudioCache()
+      await loadCacheStats()
+      setVoiceFeedback(`Audio cache cleared (${res.clearedCount} files removed).`)
+      setTimeout(() => setVoiceFeedback(null), 3500)
+    } catch (e: any) {
+      setVoiceFeedback(`Failed to clear audio cache: ${e.message || e}`)
+      setTimeout(() => setVoiceFeedback(null), 4000)
+    } finally {
+      setIsClearingCache(false)
     }
   }
 
@@ -544,6 +580,7 @@ export function SettingsApp(): React.JSX.Element {
         const profs = await window.jarvisAPI.voiceListProfiles()
         if (profs) setVoiceProfiles(profs)
       }
+      void loadCacheStats()
     } catch (err) {
       console.warn('[SettingsApp] Failed to load voice config or profiles:', err)
     }
@@ -2404,6 +2441,12 @@ export function SettingsApp(): React.JSX.Element {
                         <span className="flex items-center gap-1 text-emerald-400 font-semibold">
                           <Check className="h-3.5 w-3.5" /> Synthesized
                         </span>
+                        {playgroundStats.cached && (
+                          <Badge variant="outline" className="text-3xs bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-mono flex items-center gap-1">
+                            <Zap className="h-3 w-3 fill-current text-emerald-400" />
+                            Session Cache Hit
+                          </Badge>
+                        )}
                         {playgroundStats.providerId && (
                           <Badge variant="outline" className="text-3xs bg-jarvis-accent/15 text-jarvis-accent border-jarvis-accent/40 font-mono">
                             Engine: {playgroundStats.providerId}
@@ -2627,6 +2670,56 @@ export function SettingsApp(): React.JSX.Element {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Temporary Session Audio Cache */}
+              <div className="rounded-xl border border-jarvis-border bg-jarvis-surface p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-semibold text-jarvis-ivory flex items-center gap-1.5">
+                      <Zap className="h-4 w-4 text-emerald-400" />
+                      <span>Temporary Session Audio Cache</span>
+                    </h3>
+                    <p className="text-3xs text-jarvis-muted mt-0.5 leading-relaxed">
+                      Synthesized speech files are temporarily saved during this session to serve repeated prompts with zero latency (&lt;5ms). Cache is automatically purged on application exit and startup.
+                    </p>
+                  </div>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={isClearingCache || !cacheStats || cacheStats.entryCount === 0}
+                    onClick={() => void handleClearAudioCache()}
+                    className="gap-1.5 text-xs shrink-0"
+                  >
+                    {isClearingCache ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-jarvis-accent" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5 text-jarvis-muted" />
+                    )}
+                    <span>Clear Session Cache</span>
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-3 pt-1 text-2xs font-mono text-jarvis-muted">
+                  <span className="flex items-center gap-1">
+                    <span className="text-jarvis-ivory font-bold">{cacheStats?.entryCount ?? 0}</span> cached utterances
+                  </span>
+                  <span className="text-jarvis-border">•</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-jarvis-ivory font-bold">
+                      {cacheStats?.totalBytes ? `${(cacheStats.totalBytes / 1024).toFixed(1)} KB` : '0 KB'}
+                    </span> disk usage
+                  </span>
+                  {cacheStats?.cacheDir && (
+                    <>
+                      <span className="text-jarvis-border">•</span>
+                      <span className="truncate max-w-[260px] text-3xs text-jarvis-muted/70" title={cacheStats.cacheDir}>
+                        {cacheStats.cacheDir}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}

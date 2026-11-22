@@ -9,6 +9,7 @@ import type {
   SpeechOptions,
   TextToSpeechProvider
 } from '../../types'
+import { cleanTextForSpeech } from '../../utils/text-cleaner'
 
 const execFileAsync = promisify(execFile)
 
@@ -109,14 +110,20 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
       throw new Error('Synthesis aborted by user or barge-in')
     }
 
+    // Clean text of emojis, markdown, and list numbering for natural speech
+    const cleanedText = cleanTextForSpeech(text) || text.trim()
+    if (!cleanedText) {
+      throw new Error('No synthesizable text after cleaning')
+    }
+
     // Attempt 1: Fast HTTP microservice
     try {
       const response = await fetch(`${this.endpointUrl}/synthesize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text,
-          speed: options?.speed || 1.0,
+          text: cleanedText,
+          speed: options?.speed || 0.95,
           speaker_se_path: this.resolveSpeakerSe(options?.speakerWav),
           speaker_wav_path: options?.speakerWav
         }),
@@ -137,7 +144,7 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
     }
 
     // Attempt 2: Direct Python CLI execution
-    return await this.synthesizeViaCli(text, options)
+    return await this.synthesizeViaCli(cleanedText, options)
   }
 
   private async synthesizeViaCli(text: string, options?: SpeechOptions): Promise<AudioOutput> {
@@ -145,20 +152,27 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
       os.tmpdir(),
       `jarvis-openvoice-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`
     )
+    const tmpTextFile = path.join(
+      os.tmpdir(),
+      `jarvis-openvoice-text-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`
+    )
     const runnerScript = this.getRunnerScript()
     if (!fs.existsSync(runnerScript)) {
       throw new Error(`OpenVoice runner script not found: ${runnerScript}`)
     }
     const sePath = this.resolveSpeakerSe(options?.speakerWav)
 
+    // Write text to utf-8 file to prevent Windows CLI argument encoding and length bugs
+    fs.writeFileSync(tmpTextFile, text, 'utf-8')
+
     const args = [
       runnerScript,
-      '--text',
-      text,
+      '--text-file',
+      tmpTextFile,
       '--output',
       tmpOut,
       '--speed',
-      String(options?.speed || 1.0)
+      String(options?.speed || 0.95)
     ]
 
     if (sePath && fs.existsSync(sePath)) {
@@ -170,7 +184,7 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
     try {
       await execFileAsync(this.pythonPath, args, {
         signal: options?.signal,
-        timeout: 30000
+        timeout: 60000
       })
 
       if (!fs.existsSync(tmpOut)) {
@@ -180,6 +194,11 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
       const fileData = fs.readFileSync(tmpOut)
       try {
         fs.unlinkSync(tmpOut)
+      } catch {
+        // ignore cleanup error
+      }
+      try {
+        fs.unlinkSync(tmpTextFile)
       } catch {
         // ignore cleanup error
       }
@@ -194,6 +213,13 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
       if (fs.existsSync(tmpOut)) {
         try {
           fs.unlinkSync(tmpOut)
+        } catch {
+          // ignore
+        }
+      }
+      if (fs.existsSync(tmpTextFile)) {
+        try {
+          fs.unlinkSync(tmpTextFile)
         } catch {
           // ignore
         }

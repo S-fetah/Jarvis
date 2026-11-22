@@ -28,6 +28,7 @@ export interface AudioOutput {
   durationMs?: number
   providerId?: string
   voice?: string
+  cached?: boolean
 }
 
 export interface ProviderHealth {
@@ -59,6 +60,8 @@ export interface SpeechOptions {
   /** Path or URI to a 3–6 second reference audio sample for zero-shot voice cloning (e.g. XTTS-v2) */
   speakerWav?: string
   signal?: AbortSignal
+  spokenIntroOnly?: boolean
+  bypassCache?: boolean
 }
 
 export interface SpeechToTextProvider {

@@ -15,6 +15,8 @@ describe('PromptEngine (Privacy-First Prompt & Mode Architecture)', () => {
     expect(prompt).not.toContain('ADR-004')
     expect(prompt).toContain('Jarvis')
     expect(prompt).toContain('private')
+    expect(prompt).toContain('Dual-Layer Response Architecture')
+    expect(prompt).toContain('Paul Bettany')
   })
 
   it('generates direct style instructions with focus on brevity', () => {

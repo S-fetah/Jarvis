@@ -20,12 +20,14 @@ import { SystemSpeechTTSProvider } from './providers/tts/system-speech-tts-provi
 import { KokoroTTSProvider } from './providers/tts/kokoro-tts-provider'
 import { XTTSv2Provider } from './providers/tts/xtts-tts-provider'
 import { OpenVoiceTTSProvider } from './providers/tts/openvoice-tts-provider'
+import { AudioCacheManager } from './cache/audio-cache-manager'
 
 export interface VoiceManagerOptions {
   config?: Partial<VoiceConfig>
   sttProviders?: SpeechToTextProvider[]
   ttsProviders?: TextToSpeechProvider[]
   vadProvider?: VADProvider
+  audioCache?: AudioCacheManager
 }
 
 export class VoiceManager extends EventEmitter {
@@ -36,9 +38,18 @@ export class VoiceManager extends EventEmitter {
   private vadProvider: VADProvider
   private speechBoundaryDetector: SpeechBoundaryDetector
   private currentAbortController: AbortController | null = null
+  private audioCache?: AudioCacheManager
 
   constructor(options?: VoiceManagerOptions) {
     super()
+
+    if (options?.audioCache !== undefined) {
+      this.audioCache = options.audioCache || undefined
+    } else if (process.env.VITEST || process.env.NODE_ENV === 'test') {
+      this.audioCache = undefined
+    } else {
+      this.audioCache = new AudioCacheManager()
+    }
 
     this.config = {
       enabled: options?.config?.enabled ?? false,
@@ -323,15 +334,31 @@ export class VoiceManager extends EventEmitter {
       signal: combinedSignal
     }
 
+    // Check temporary session audio cache unless explicitly bypassed
+    if (this.audioCache && !options?.bypassCache) {
+      const cached = await this.audioCache.get(text, mergedOptions)
+      if (cached) {
+        this.setState('idle')
+        this.currentAbortController = null
+        return cached
+      }
+    }
+
     // Try primary
     if (primary) {
       try {
         const output = await primary.synthesize(text, mergedOptions)
         this.setState('idle')
-        return {
+        const result: AudioOutput = {
           ...output,
           providerId: output.providerId || primary.id
         }
+        if (this.audioCache && !options?.bypassCache) {
+          try {
+            await this.audioCache.set(text, mergedOptions, result)
+          } catch {}
+        }
+        return result
       } catch (primaryErr) {
         if (combinedSignal.aborted) {
           this.setState('interrupted')
@@ -353,10 +380,16 @@ export class VoiceManager extends EventEmitter {
       try {
         const output = await fallback.synthesize(text, mergedOptions)
         this.setState('idle')
-        return {
+        const result: AudioOutput = {
           ...output,
           providerId: output.providerId || fallback.id
         }
+        if (this.audioCache && !options?.bypassCache) {
+          try {
+            await this.audioCache.set(text, mergedOptions, result)
+          } catch {}
+        }
+        return result
       } catch (fallbackErr) {
         this.setState(combinedSignal.aborted ? 'interrupted' : 'error')
         throw fallbackErr
@@ -367,6 +400,20 @@ export class VoiceManager extends EventEmitter {
 
     this.setState('error')
     throw new Error('TTS synthesis failed on all available providers.')
+  }
+
+  /**
+   * Retrieves the current session audio cache manager.
+   */
+  getAudioCache(): AudioCacheManager | undefined {
+    return this.audioCache
+  }
+
+  /**
+   * Clears the temporary session audio cache.
+   */
+  clearAudioCache(): { clearedCount: number; freedBytes: number } {
+    return this.audioCache ? this.audioCache.clear() : { clearedCount: 0, freedBytes: 0 }
   }
 
   /**

@@ -10,6 +10,8 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
+  Volume2,
+  VolumeX,
   X,
   Zap
 } from 'lucide-react'
@@ -31,7 +33,7 @@ import { JarvisMark } from '../components/brand/JarvisMark'
 import { Badge, Button, IconButton, Spinner } from '../components/ui'
 import { applyTheme, readCachedTheme } from '../lib/theme'
 import { cn } from '../lib/cn'
-import { globalAudioCapture } from '../lib/audio-service'
+import { globalAudioCapture, globalAudioPlayback } from '../lib/audio-service'
 
 interface QuickChatComposerProps {
   onSubmit: (prompt: string) => void
@@ -191,6 +193,28 @@ export function QuickChatApp(): React.JSX.Element {
   })
   const [taskState, setTaskState] = useState<TaskState | null>(null)
   const [copiedCommand, setCopiedCommand] = useState(false)
+  const [voiceAnswerEnabled, setVoiceAnswerEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('jarvis:voice-answer-enabled') !== 'false'
+  })
+  const [isPlayingSpeech, setIsPlayingSpeech] = useState<boolean>(false)
+
+  useEffect(() => {
+    const unsub = globalAudioPlayback.onStateChange(setIsPlayingSpeech)
+    return () => {
+      unsub()
+    }
+  }, [])
+
+  const handleToggleVoiceAnswer = (): void => {
+    setVoiceAnswerEnabled((prev) => {
+      const next = !prev
+      localStorage.setItem('jarvis:voice-answer-enabled', String(next))
+      if (!next) {
+        globalAudioPlayback.stop()
+      }
+      return next
+    })
+  }
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -274,6 +298,20 @@ export function QuickChatApp(): React.JSX.Element {
       }
 
       setMessages((prev) => [...prev, finalAssistantMsg])
+
+      // Auto-speak answer when voice answering is enabled
+      if (voiceAnswerEnabled && res.reply && window.jarvisAPI?.voiceSynthesize) {
+        window.jarvisAPI
+          .voiceSynthesize(res.reply)
+          .then((audio) => {
+            if (audio?.data && audio.data.length > 0) {
+              void globalAudioPlayback.play(audio.data, audio.sampleRateHz || 24000)
+            }
+          })
+          .catch((err) => {
+            console.warn('[QuickChat] Auto-voice response error:', err)
+          })
+      }
     } catch (err: any) {
       console.error('[QuickChat] Send error:', err)
       const errorMsg: ChatMessage = {
@@ -352,6 +390,25 @@ export function QuickChatApp(): React.JSX.Element {
         </div>
 
         <div className="no-drag flex items-center gap-0.5">
+          <IconButton
+            label={
+              voiceAnswerEnabled
+                ? 'Voice answers: ON (Click to mute)'
+                : 'Voice answers: OFF (Click to unmute)'
+            }
+            size="sm"
+            onClick={handleToggleVoiceAnswer}
+            active={voiceAnswerEnabled}
+            className={cn(voiceAnswerEnabled && 'text-emerald-400')}
+          >
+            {isPlayingSpeech ? (
+              <Volume2 className="h-3.5 w-3.5 animate-pulse text-emerald-400" />
+            ) : voiceAnswerEnabled ? (
+              <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+            ) : (
+              <VolumeX className="h-3.5 w-3.5 text-jarvis-muted" />
+            )}
+          </IconButton>
           <IconButton
             label={settings.lightMode ? 'Disable fast mode' : 'Enable fast mode'}
             size="sm"

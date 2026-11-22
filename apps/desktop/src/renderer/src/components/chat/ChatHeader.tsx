@@ -1,5 +1,5 @@
 import React from 'react'
-import { Activity, FolderOpen, Maximize2, Minimize2, PanelRight } from 'lucide-react'
+import { Activity, FolderOpen, Maximize2, Minimize2, PanelRight, Volume2, VolumeX } from 'lucide-react'
 import type { ModelCatalog, TaskStatus } from '@jarvis/protocol'
 import { basename } from '../../lib/format'
 import { cn } from '../../lib/cn'
@@ -23,6 +23,9 @@ interface ChatHeaderProps {
   onToggleChatWidth?: () => void
   canvasOpen?: boolean
   onToggleCanvas?: () => void
+  voiceAnswerEnabled?: boolean
+  onToggleVoiceAnswer?: () => void
+  isPlayingSpeech?: boolean
 }
 
 const statusLabel: Record<TaskStatus, string> = {
@@ -63,7 +66,10 @@ export function ChatHeader({
   chatWidthMode = 'adaptive',
   onToggleChatWidth,
   canvasOpen = false,
-  onToggleCanvas
+  onToggleCanvas,
+  voiceAnswerEnabled = true,
+  onToggleVoiceAnswer,
+  isPlayingSpeech = false
 }: ChatHeaderProps): React.JSX.Element {
   return (
     <header className="flex h-[62px] shrink-0 items-center gap-3 border-b border-jarvis-border bg-jarvis-base px-5">
@@ -117,6 +123,40 @@ export function ChatHeader({
               ) : (
                 <Maximize2 className="h-3.5 w-3.5" />
               )}
+            </Button>
+          </Tooltip>
+        )}
+
+        {onToggleVoiceAnswer && (
+          <Tooltip
+            label={
+              voiceAnswerEnabled
+                ? 'Voice Answers: Enabled (Click to mute speech)'
+                : 'Voice Answers: Disabled (Click to enable speech)'
+            }
+          >
+            <Button
+              variant={voiceAnswerEnabled ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={onToggleVoiceAnswer}
+              aria-pressed={voiceAnswerEnabled}
+              className={cn(
+                'gap-1.5 transition-colors',
+                voiceAnswerEnabled
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                  : 'text-jarvis-muted hover:text-jarvis-ivory'
+              )}
+            >
+              {isPlayingSpeech ? (
+                <Volume2 className="h-3.5 w-3.5 animate-pulse text-emerald-400" />
+              ) : voiceAnswerEnabled ? (
+                <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+              ) : (
+                <VolumeX className="h-3.5 w-3.5 text-jarvis-muted" />
+              )}
+              <span className="hidden sm:inline font-mono text-[11px]">
+                {voiceAnswerEnabled ? 'Voice ON' : 'Voice OFF'}
+              </span>
             </Button>
           </Tooltip>
         )}

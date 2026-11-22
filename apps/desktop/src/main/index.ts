@@ -44,6 +44,7 @@ import {
   XTTSv2Provider,
   OpenVoiceTTSProvider,
   VoiceProfileManager,
+  cleanTextForSpeech,
   pcm16ToWav
 } from '@jarvis/voice'
 import { MascotManager } from './windows/mascot-manager'
@@ -58,9 +59,62 @@ let settingsWindowManager: SettingsWindowManager | null = null
 let trayManager: TrayManager | null = null
 let isQuitting = false
 const processManager = new ProcessManager()
+let openVoiceDaemonProcess: any = null
+
+function startOpenVoiceDaemon(): void {
+  try {
+    const startDirs = [__dirname, process.cwd()]
+    let serviceScript = ''
+    for (const start of startDirs) {
+      let curr = start
+      for (let i = 0; i < 6; i++) {
+        const candidate = path.join(curr, 'packages', 'voice', 'server', 'openvoice_service.py')
+        if (fs.existsSync(candidate)) {
+          serviceScript = candidate
+          break
+        }
+        const parent = path.dirname(curr)
+        if (parent === curr) break
+        curr = parent
+      }
+      if (serviceScript) break
+    }
+
+    if (serviceScript) {
+      fetch('http://127.0.0.1:8020/health')
+        .then((res) => {
+          if (res.ok) {
+            console.log('[Jarvis Main] OpenVoice V2 microservice already active on port 8020.')
+          }
+        })
+        .catch(() => {
+          console.log('[Jarvis Main] Launching OpenVoice V2 background daemon on port 8020...')
+          openVoiceDaemonProcess = spawn('python', [serviceScript], {
+            detached: false,
+            stdio: 'ignore'
+          })
+          openVoiceDaemonProcess.unref()
+        })
+    }
+  } catch (e) {
+    console.warn('[Jarvis Main] OpenVoice daemon startup check:', e)
+  }
+}
 
 app.on('before-quit', async () => {
   isQuitting = true
+  if (openVoiceDaemonProcess) {
+    try {
+      openVoiceDaemonProcess.kill()
+    } catch {}
+    openVoiceDaemonProcess = null
+  }
+  try {
+    const stats = voiceManager.clearAudioCache()
+    if (stats.clearedCount > 0) {
+      console.log(`[Jarvis Main] Temporary session audio cache cleared on exit (${stats.clearedCount} files, ${stats.freedBytes} bytes).`)
+    }
+  } catch {}
   await processManager.stopAll()
 })
 const policyEngine = new PolicyEngine()
@@ -493,6 +547,17 @@ app.whenReady().then(async () => {
     loadPersistedSettingsFromDb()
   } catch (err) {
     console.error('[Jarvis Main] Failed to initialize SQLite:', err)
+  }
+
+  // Pre-warm / start OpenVoice V2 background daemon for sub-second speech synthesis
+  startOpenVoiceDaemon()
+
+  // Clear any residual temporary session audio files from prior sessions on startup
+  try {
+    const stats = voiceManager.clearAudioCache()
+    console.log(`[Jarvis Main] Temporary session audio cache initialized on startup (${stats.clearedCount} stale files cleaned).`)
+  } catch (err) {
+    console.warn('[Jarvis Main] Error clearing audio cache on startup:', err)
   }
 
   app.on('browser-window-created', (_, window) => {
@@ -1878,7 +1943,11 @@ function registerIpcHandlers(): void {
       delete resolvedOptions.providerId
     }
 
-    const output = await voiceManager.synthesize(text, resolvedOptions)
+    const speechText = cleanTextForSpeech(text, {
+      spokenIntroOnly: resolvedOptions.spokenIntroOnly
+    }) || text.trim()
+
+    const output = await voiceManager.synthesize(speechText, resolvedOptions)
     let audioData = output.data
     let format = output.format
     if (format === 'pcm16') {
@@ -1891,8 +1960,19 @@ function registerIpcHandlers(): void {
       format,
       durationMs: output.durationMs,
       providerId: output.providerId,
-      voice: output.voice
+      voice: output.voice,
+      cached: output.cached
     }
+  })
+
+  ipcMain.handle('voice:clear-audio-cache', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return voiceManager.clearAudioCache()
+  })
+
+  ipcMain.handle('voice:get-audio-cache-stats', async (event) => {
+    if (!isAuthorizedSender(event.sender)) throw new Error('Unauthorized sender')
+    return voiceManager.getAudioCache()?.getStats() || { entryCount: 0, totalBytes: 0, cacheDir: '' }
   })
 
   ipcMain.handle('voice:list-profiles', async (event) => {
