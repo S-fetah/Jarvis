@@ -32,6 +32,12 @@ docs/slides.html
 npm-debug.log*
 .jarvis.pid
 
+# Voice models & large checkpoints (exceeds GitHub 100MB limit)
+packages/voice/models/**/checkpoints_v2/
+*.pth
+!packages/voice/models/openvoice/jarvis_target_se.pth
+!docs/voice-samples/processed/**/se.pth
+
 # OS Files
 .DS_Store
 Thumbs.db
