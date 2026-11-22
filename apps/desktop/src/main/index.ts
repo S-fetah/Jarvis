@@ -216,6 +216,9 @@ const voiceManager = new VoiceManager({
 
 const voiceProfileManager = new VoiceProfileManager()
 
+// Warm up local OpenVoice neural cloning microservice in background for zero-delay speech
+void openVoiceTTS.ensureServiceRunning().catch(() => {})
+
 voiceManager.on('voiceEvent', (event) => {
   broadcastToWindows('voice:event', event)
 })

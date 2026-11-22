@@ -30,7 +30,7 @@ import { TooltipProvider } from './components/ui'
 import { applyTheme, cacheTheme, onSystemThemeChange, readCachedTheme } from './lib/theme'
 import { basename } from './lib/format'
 import { cn } from './lib/cn'
-import { globalAudioPlayback } from './lib/audio-service'
+import { globalAudioPlayback, speakPipelinedSpeech } from './lib/audio-service'
 
 export default function App(): React.JSX.Element {
   // --- State Management ---
@@ -377,18 +377,9 @@ export default function App(): React.JSX.Element {
         void handleOpenCanvas({ url: localUrlMatch[1], type: 'browser', title: localUrlMatch[1] })
       }
 
-      // Auto-speak answer when voice answering is enabled
+      // Auto-speak answer when voice answering is enabled (pipelined streaming speech)
       if (voiceAnswerEnabled && res.reply && window.jarvisAPI?.voiceSynthesize) {
-        window.jarvisAPI
-          .voiceSynthesize(res.reply)
-          .then((audio) => {
-            if (audio?.data && audio.data.length > 0) {
-              void globalAudioPlayback.play(audio.data, audio.sampleRateHz || 24000)
-            }
-          })
-          .catch((err) => {
-            console.warn('[Jarvis] Auto-voice response error:', err)
-          })
+        void speakPipelinedSpeech(res.reply)
       }
     } catch (err: any) {
       console.error('[Jarvis] Send message error:', err)

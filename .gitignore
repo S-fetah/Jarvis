@@ -36,6 +36,7 @@ npm-debug.log*
 packages/voice/models/**/checkpoints_v2/
 *.pth
 !packages/voice/models/openvoice/jarvis_target_se.pth
+!packages/voice/models/openvoice/ryan_source_se.pth
 !docs/voice-samples/processed/**/se.pth
 
 # OS Files

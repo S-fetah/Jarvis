@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cleanTextForSpeech } from '../packages/voice/src/utils/text-cleaner'
+import { cleanTextForSpeech, splitSentencesForSpeech } from '../packages/voice/src/utils/text-cleaner'
 
 describe('cleanTextForSpeech', () => {
   it('strips emojis and markdown bold/italic formatting', () => {
@@ -97,5 +97,33 @@ Basically, if it's on the internet, I can find it and summarize it for you. What
     expect(cleaned).not.toContain('📄')
     expect(cleaned).not.toContain('🚀')
     expect(cleaned).not.toContain('&')
+  })
+
+  describe('splitSentencesForSpeech', () => {
+    it('splits text into coherent sentences without breaking common abbreviations', () => {
+      const raw =
+        'Good evening, sir. All automated systems and workspace tasks are operating at optimal efficiency! ' +
+        'I have detected three potential optimizations in your repository, e.g. caching and streaming. Shall I proceed?'
+      const sentences = splitSentencesForSpeech(raw)
+      expect(sentences.length).toBe(4)
+      expect(sentences[0]).toBe('Good evening, sir.')
+      expect(sentences[1]).toBe(
+        'All automated systems and workspace tasks are operating at optimal efficiency!'
+      )
+      expect(sentences[2]).toContain('e.g. caching and streaming.')
+      expect(sentences[3]).toBe('Shall I proceed?')
+    })
+
+    it('returns empty array on empty or whitespace text', () => {
+      expect(splitSentencesForSpeech('')).toEqual([])
+      expect(splitSentencesForSpeech('   ')).toEqual([])
+    })
+
+    it('handles single sentence correctly', () => {
+      const single = 'Certainly, sir. Standing by for further commands.'
+      const res = splitSentencesForSpeech(single)
+      expect(res.length).toBeGreaterThanOrEqual(1)
+      expect(res[0]).toBe('Certainly, sir.')
+    })
   })
 })

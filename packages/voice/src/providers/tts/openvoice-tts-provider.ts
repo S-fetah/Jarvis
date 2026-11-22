@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { execFile } from 'child_process'
+import { execFile, spawn, type ChildProcess } from 'child_process'
 import { promisify } from 'util'
 import os from 'os'
 import type {
@@ -18,6 +18,7 @@ export interface OpenVoiceConfig {
   sampleRate?: number // Default: 24000
   pythonPath?: string // Default: 'python'
   targetSePath?: string
+  autoStartService?: boolean // Default: true
 }
 
 export class OpenVoiceTTSProvider implements TextToSpeechProvider {
@@ -29,11 +30,15 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
   private readonly sampleRate: number
   private readonly pythonPath: string
   private readonly targetSePath: string
+  private readonly autoStartService: boolean
+  private serviceProcess: ChildProcess | null = null
+  private serviceStarting = false
 
   constructor(config?: OpenVoiceConfig) {
     this.endpointUrl = config?.endpointUrl || 'http://127.0.0.1:8020'
     this.sampleRate = config?.sampleRate || 24000
     this.pythonPath = config?.pythonPath || 'python'
+    this.autoStartService = config?.autoStartService ?? true
     this.targetSePath =
       config?.targetSePath ||
       this.findRepoFile('packages', 'voice', 'models', 'openvoice', 'jarvis_target_se.pth')
@@ -60,25 +65,98 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
     return this.findRepoFile('packages', 'voice', 'server', 'openvoice_cli_runner.py')
   }
 
+  private getServiceScript(): string {
+    return this.findRepoFile('packages', 'voice', 'server', 'openvoice_service.py')
+  }
+
   supportsStreaming(): boolean {
     return false
   }
 
-  async healthCheck(): Promise<ProviderHealth> {
-    // 1. Check if HTTP microservice is running
+  public async isServiceHealthy(): Promise<boolean> {
     try {
       const res = await fetch(`${this.endpointUrl}/health`, {
         signal: AbortSignal.timeout(600)
       })
       if (res.ok) {
-        return {
-          ok: true,
-          providerId: this.id,
-          message: `OpenVoice V2 neural clone service active at ${this.endpointUrl}`
+        const data = (await res.json()) as any
+        return data?.ok === true
+      }
+    } catch {
+      // not running
+    }
+    return false
+  }
+
+  public async ensureServiceRunning(): Promise<boolean> {
+    if (!this.autoStartService) return false
+    if (await this.isServiceHealthy()) return true
+    if (this.serviceStarting) return false
+
+    this.serviceStarting = true
+    try {
+      const serviceScript = this.getServiceScript()
+      if (!fs.existsSync(serviceScript)) return false
+
+      const child = spawn(this.pythonPath, [serviceScript], {
+        detached: false,
+        stdio: 'ignore'
+      })
+      child.unref()
+      this.serviceProcess = child
+
+      process.on('exit', () => {
+        try {
+          child.kill()
+        } catch {
+          // ignore
+        }
+      })
+
+      // Probe up to 4 seconds for service availability
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 500))
+        if (await this.isServiceHealthy()) {
+          this.serviceStarting = false
+          return true
         }
       }
     } catch {
-      // Microservice not running, test CLI runner availability
+      // ignore spawn errors
+    } finally {
+      this.serviceStarting = false
+    }
+    return false
+  }
+
+  public getServiceProcess(): ChildProcess | null {
+    return this.serviceProcess
+  }
+
+  public stopService(): void {
+    if (this.serviceProcess) {
+      try {
+        this.serviceProcess.kill()
+      } catch {
+        // ignore
+      }
+      this.serviceProcess = null
+    }
+  }
+
+  async healthCheck(): Promise<ProviderHealth> {
+    // 1. Check if HTTP microservice is running
+    if (await this.isServiceHealthy()) {
+      return {
+        ok: true,
+        providerId: this.id,
+        message: `OpenVoice V2 neural clone service active at ${this.endpointUrl}`
+      }
+    }
+
+    // Attempt background warmup
+    if (this.autoStartService) {
+      void this.ensureServiceRunning().catch(() => {})
     }
 
     // 2. Fall back to Python CLI runner verification
@@ -118,12 +196,17 @@ export class OpenVoiceTTSProvider implements TextToSpeechProvider {
 
     // Attempt 1: Fast HTTP microservice
     try {
+      if (this.autoStartService) {
+        void this.ensureServiceRunning().catch(() => {})
+      }
+
       const response = await fetch(`${this.endpointUrl}/synthesize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: cleanedText,
           speed: options?.speed || 0.95,
+          pitch: '+25Hz',
           speaker_se_path: this.resolveSpeakerSe(options?.speakerWav),
           speaker_wav_path: options?.speakerWav
         }),

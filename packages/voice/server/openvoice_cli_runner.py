@@ -55,7 +55,11 @@ def main():
 
     ckpt_dir = os.path.join(repo_root, "packages", "voice", "models", "openvoice", "checkpoints_v2", "converter")
     default_se_path = os.path.join(repo_root, "packages", "voice", "models", "openvoice", "jarvis_target_se.pth")
+    default_source_se_path = os.path.join(repo_root, "packages", "voice", "models", "openvoice", "ryan_source_se.pth")
     target_se_path = args.se or default_se_path
+
+    # Maximize CPU parallelism
+    torch.set_num_threads(min(8, os.cpu_count() or 4))
 
     config_path = os.path.join(ckpt_dir, "config.json")
     checkpoint_path = os.path.join(ckpt_dir, "checkpoint.pth")
@@ -97,7 +101,7 @@ def main():
         async def gen_base():
             rate_delta = int((args.speed - 1.0) * 100)
             rate_str = f"{rate_delta:+d}%" if rate_delta != 0 else "+0%"
-            comm = edge_tts.Communicate(input_text, args.base_voice, rate=rate_str)
+            comm = edge_tts.Communicate(input_text, args.base_voice, rate=rate_str, pitch="+25Hz")
             await comm.save(mp3_tmp)
 
         asyncio.run(gen_base())
@@ -109,25 +113,29 @@ def main():
             check=True
         )
 
-        # 2. Extract source SE
-        source_se = converter.extract_se([base_wav])
+        # 2. Extract or load source SE
+        if args.base_voice == "en-GB-RyanNeural" and os.path.exists(default_source_se_path):
+            source_se = torch.load(default_source_se_path, map_location="cpu")
+        else:
+            source_se = converter.extract_se([base_wav])
 
         # 3. Convert tone color to J.A.R.V.I.S.
-        converter.convert(
-            audio_src_path=base_wav,
-            src_se=source_se,
-            tgt_se=target_se,
-            output_path=conv_wav,
-            tau=args.tau
-        )
+        with torch.inference_mode():
+            converter.convert(
+                audio_src_path=base_wav,
+                src_se=source_se,
+                tgt_se=target_se,
+                output_path=conv_wav,
+                tau=args.tau
+            )
 
-        # 4. Optional warm acoustic EQ
+        # 4. Optional cinematic acoustic mastering
         if args.warm_eq:
             eq_filter = (
-                "bass=g=2.5:f=180,"
-                "equalizer=f=3500:width_type=q:w=1.2:g=-1.5,"
-                "treble=g=-2.0:f=8000,"
-                "acompressor=threshold=-18dB:ratio=2.5:attack=20:release=150"
+                "bass=g=1.5:f=180,"
+                "equalizer=f=3200:width_type=q:w=1.0:g=-1.0,"
+                "treble=g=1.0:f=6500,"
+                "acompressor=threshold=-16dB:ratio=2.2:attack=15:release=120"
             )
             subprocess.run(
                 ["ffmpeg", "-y", "-i", conv_wav, "-af", eq_filter, output_path],

@@ -144,3 +144,55 @@ export function cleanTextForSpeech(rawText: string, options?: CleanTextOptions):
 
   return text
 }
+
+/**
+ * Splits cleaned speech text into natural spoken sentence chunks for pipelined synthesis and playback.
+ * Preserves common English abbreviations, decimal numbers, and breaks conversational greetings early
+ * to ensure near-instantaneous Time-To-First-Audio (TTFA).
+ */
+export function splitSentencesForSpeech(text: string, options?: CleanTextOptions): string[] {
+  if (!text || !text.trim()) return []
+  const cleaned = cleanTextForSpeech(text, options)
+  if (!cleaned) return []
+
+  // Temporarily protect common abbreviations and decimal numbers from sentence splitting
+  const protectedText = cleaned
+    .replace(/\be\.g\./gi, 'e___dot___g___dot___')
+    .replace(/\bi\.e\./gi, 'i___dot___e___dot___')
+    .replace(/\betc\./gi, 'etc___dot___')
+    .replace(/\bvs\./gi, 'vs___dot___')
+    .replace(/\b(mr|mrs|ms|dr|prof|sr|jr)\./gi, '$1___dot___')
+    .replace(/(\d+)\.(\d+)/g, '$1___dot___$2')
+
+  const rawParts = protectedText.match(/[^.!?]+(?:[.!?]+|$)/g) || [protectedText]
+  const sentences: string[] = []
+  let buffer = ''
+
+  for (const part of rawParts) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+
+    buffer = buffer ? `${buffer} ${trimmed}` : trimmed
+
+    // Conversational opening hook (e.g. "Good evening, sir.", "Certainly, sir."): emit immediately for instant playback
+    const isFirstIntro =
+      sentences.length === 0 &&
+      buffer.length >= 10 &&
+      /(?:sir|certainly|absolutely|indeed|welcome|hello|morning|evening|afternoon|understood)[.!?]$/i.test(
+        buffer
+      )
+
+    if (/[.!?]$/.test(buffer) && (isFirstIntro || buffer.length >= 25)) {
+      const restored = buffer.replace(/___dot___/g, '.')
+      sentences.push(restored)
+      buffer = ''
+    }
+  }
+
+  if (buffer.trim()) {
+    sentences.push(buffer.trim().replace(/___dot___/g, '.'))
+  }
+
+  return sentences
+}
+

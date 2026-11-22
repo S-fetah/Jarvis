@@ -295,15 +295,26 @@ export class AudioCaptureService {
   }
 }
 
+interface QueuedAudioChunk {
+  audioBytes: Uint8Array | number[]
+  sampleRate: number
+  resolve: () => void
+  reject: (err: any) => void
+}
+
 export class AudioPlaybackService {
   private audioContext: AudioContext | null = null
   private currentSource: AudioBufferSourceNode | null = null
   private isCurrentlyPlaying = false
   private stateListeners: ((playing: boolean) => void)[] = []
+  private playbackQueue: QueuedAudioChunk[] = []
+  private generationId = 0
 
   private getAudioContext(): AudioContext {
     if (!this.audioContext || this.audioContext.state === 'closed') {
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
       this.audioContext = new AudioContextClass()
     }
     if (this.audioContext.state === 'suspended') {
@@ -312,28 +323,79 @@ export class AudioPlaybackService {
     return this.audioContext
   }
 
-  async play(audioBytes: Uint8Array | number[], sampleRate = 24000): Promise<void> {
-    this.stop()
-
-    const rawBuffer = audioBytes instanceof Uint8Array ? audioBytes : new Uint8Array(audioBytes)
-    if (rawBuffer.length === 0) return
-
-    const ctx = this.getAudioContext()
-    let audioBuffer: AudioBuffer
-
+  private async decodeAudio(
+    ctx: AudioContext,
+    rawBuffer: Uint8Array,
+    sampleRate: number
+  ): Promise<AudioBuffer> {
     try {
-      audioBuffer = await ctx.decodeAudioData(
-        rawBuffer.buffer.slice(rawBuffer.byteOffset, rawBuffer.byteOffset + rawBuffer.byteLength) as ArrayBuffer
+      return await ctx.decodeAudioData(
+        rawBuffer.buffer.slice(
+          rawBuffer.byteOffset,
+          rawBuffer.byteOffset + rawBuffer.byteLength
+        ) as ArrayBuffer
       )
     } catch {
       // Direct raw PCM fallback if container header is missing
       const sampleCount = Math.floor(rawBuffer.byteLength / 2)
       const int16 = new Int16Array(rawBuffer.buffer, rawBuffer.byteOffset, sampleCount)
-      audioBuffer = ctx.createBuffer(1, sampleCount, sampleRate)
+      const audioBuffer = ctx.createBuffer(1, sampleCount, sampleRate)
       const channelData = audioBuffer.getChannelData(0)
       for (let i = 0; i < sampleCount; i++) {
         channelData[i] = int16[i] / 32768.0
       }
+      return audioBuffer
+    }
+  }
+
+  /**
+   * Plays audio immediately, clearing any active playback and queued chunks.
+   */
+  async play(audioBytes: Uint8Array | number[], sampleRate = 24000): Promise<void> {
+    this.stop()
+    return this.enqueue(audioBytes, sampleRate)
+  }
+
+  /**
+   * Enqueues an audio chunk for seamless, gapless playback.
+   * If nothing is currently playing, starts immediately.
+   */
+  enqueue(audioBytes: Uint8Array | number[], sampleRate = 24000): Promise<void> {
+    const rawBuffer = audioBytes instanceof Uint8Array ? audioBytes : new Uint8Array(audioBytes)
+    if (rawBuffer.length === 0) return Promise.resolve()
+
+    return new Promise<void>((resolve, reject) => {
+      this.playbackQueue.push({ audioBytes: rawBuffer, sampleRate, resolve, reject })
+      if (!this.isCurrentlyPlaying) {
+        void this.playNextQueueItem()
+      }
+    })
+  }
+
+  private async playNextQueueItem(): Promise<void> {
+    if (this.playbackQueue.length === 0) {
+      this.setPlaying(false)
+      return
+    }
+
+    const currentGen = this.generationId
+    const item = this.playbackQueue.shift()!
+    const rawBuffer =
+      item.audioBytes instanceof Uint8Array ? item.audioBytes : new Uint8Array(item.audioBytes)
+
+    const ctx = this.getAudioContext()
+    let audioBuffer: AudioBuffer
+    try {
+      audioBuffer = await this.decodeAudio(ctx, rawBuffer, item.sampleRate)
+    } catch (err) {
+      item.reject(err)
+      void this.playNextQueueItem()
+      return
+    }
+
+    if (this.generationId !== currentGen) {
+      item.resolve()
+      return
     }
 
     const source = ctx.createBufferSource()
@@ -343,19 +405,25 @@ export class AudioPlaybackService {
     this.currentSource = source
     this.setPlaying(true)
 
-    return new Promise((resolve) => {
-      source.onended = () => {
-        if (this.currentSource === source) {
-          this.currentSource = null
-          this.setPlaying(false)
-        }
-        resolve()
+    source.onended = () => {
+      if (this.currentSource === source) {
+        this.currentSource = null
       }
-      source.start(0)
-    })
+      item.resolve()
+      if (this.generationId === currentGen) {
+        void this.playNextQueueItem()
+      }
+    }
+
+    source.start(0)
   }
 
   stop(): void {
+    this.generationId++
+    while (this.playbackQueue.length > 0) {
+      const item = this.playbackQueue.shift()
+      item?.resolve()
+    }
     if (this.currentSource) {
       try {
         this.currentSource.stop(0)
@@ -364,6 +432,10 @@ export class AudioPlaybackService {
       this.currentSource = null
     }
     this.setPlaying(false)
+  }
+
+  getQueueLength(): number {
+    return this.playbackQueue.length
   }
 
   isPlaying(): boolean {
@@ -389,10 +461,132 @@ export class AudioPlaybackService {
 export const globalAudioCapture = new AudioCaptureService()
 export const globalAudioPlayback = new AudioPlaybackService()
 
+/**
+ * Splits cleaned speech text into natural spoken sentence chunks for pipelined synthesis and playback.
+ */
+export function splitSentencesForSpeech(text: string): string[] {
+  if (!text || !text.trim()) return []
+
+  let cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^\|.*\|$/gm, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_~^|\\<>[\]{}]/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^>\s+/gm, '')
+    .replace(/^[\s]*[-*+•]\s+/gm, '')
+    .replace(/^[\s]*\d+[.)]\s+/gm, '')
+    .replace(
+      /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{200D}\u{FE0F}\u{20E3}]/gu,
+      ''
+    )
+    .replace(/&/g, ' and ')
+    .replace(/%/g, ' percent ')
+    .replace(/@/g, ' at ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n+/g, '. ')
+    .replace(/\s+/g, ' ')
+    .replace(/:\s*\./g, ': ')
+    .replace(/([.!?])\s*\./g, '$1')
+    .replace(/\.{2,}/g, '.')
+    .replace(/\s+([.,!?;:])/g, '$1')
+    .trim()
+
+  if (!cleaned) return []
+
+  const protectedText = cleaned
+    .replace(/\be\.g\./gi, 'e___dot___g___dot___')
+    .replace(/\bi\.e\./gi, 'i___dot___e___dot___')
+    .replace(/\betc\./gi, 'etc___dot___')
+    .replace(/\bvs\./gi, 'vs___dot___')
+    .replace(/\b(mr|mrs|ms|dr|prof|sr|jr)\./gi, '$1___dot___')
+    .replace(/(\d+)\.(\d+)/g, '$1___dot___$2')
+
+  const rawParts = protectedText.match(/[^.!?]+(?:[.!?]+|$)/g) || [protectedText]
+  const sentences: string[] = []
+  let buffer = ''
+
+  for (const part of rawParts) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+
+    buffer = buffer ? `${buffer} ${trimmed}` : trimmed
+
+    const isFirstIntro =
+      sentences.length === 0 &&
+      buffer.length >= 10 &&
+      /(?:sir|certainly|absolutely|indeed|welcome|hello|morning|evening|afternoon|understood)[.!?]$/i.test(
+        buffer
+      )
+
+    if (/[.!?]$/.test(buffer) && (isFirstIntro || buffer.length >= 25)) {
+      const restored = buffer.replace(/___dot___/g, '.')
+      sentences.push(restored)
+      buffer = ''
+    }
+  }
+
+  if (buffer.trim()) {
+    sentences.push(buffer.trim().replace(/___dot___/g, '.'))
+  }
+
+  return sentences
+}
+
+/**
+ * Pipelined speech streaming controller.
+ * Synthesizes and plays back sentences sequentially, so the user hears audio immediately
+ * while remaining sentences are fetched and buffered in the background.
+ */
+let activePipelinedSpeechSession = 0
+
+export async function speakPipelinedSpeech(
+  text: string,
+  options?: { signal?: AbortSignal }
+): Promise<void> {
+  const sessionId = ++activePipelinedSpeechSession
+  globalAudioPlayback.stop()
+
+  const sentences = splitSentencesForSpeech(text)
+  if (sentences.length === 0 || !window.jarvisAPI?.voiceSynthesize) return
+
+  // 1. Synthesize and play the first sentence immediately (near-instant Time-To-First-Audio)
+  try {
+    const firstAudio = await window.jarvisAPI.voiceSynthesize(sentences[0])
+    if (activePipelinedSpeechSession !== sessionId || options?.signal?.aborted) return
+
+    if (firstAudio?.data && firstAudio.data.length > 0) {
+      void globalAudioPlayback.enqueue(firstAudio.data, firstAudio.sampleRateHz || 24000)
+    }
+  } catch (err) {
+    console.warn('[Jarvis Voice] Failed to synthesize first sentence:', err)
+  }
+
+  // 2. Synthesize subsequent sentences in background pipeline
+  for (let i = 1; i < sentences.length; i++) {
+    if (activePipelinedSpeechSession !== sessionId || options?.signal?.aborted) break
+
+    try {
+      const audio = await window.jarvisAPI.voiceSynthesize(sentences[i])
+      if (activePipelinedSpeechSession !== sessionId || options?.signal?.aborted) break
+
+      if (audio?.data && audio.data.length > 0) {
+        void globalAudioPlayback.enqueue(audio.data, audio.sampleRateHz || 24000)
+      }
+    } catch (err) {
+      console.warn(`[Jarvis Voice] Failed to synthesize sentence ${i + 1}:`, err)
+    }
+  }
+}
+
 // Auto-mute audio playback on instant barge-in interruption
 if (typeof window !== 'undefined' && window.jarvisAPI?.onVoiceEvent) {
   window.jarvisAPI.onVoiceEvent((event: any) => {
     if (event?.type === 'voice:interrupted') {
+      activePipelinedSpeechSession++
       globalAudioPlayback.stop()
     }
   })

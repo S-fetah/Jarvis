@@ -64,4 +64,39 @@ describe('OpenVoiceTTSProvider & J.A.R.V.I.S. Voice Cloning', () => {
     expect(synthSpy).toHaveBeenCalled()
     expect(output.providerId).toBe('openvoice-v2')
   })
+
+  it('synthesizes via HTTP microservice when endpoint is online', async () => {
+    const provider = new OpenVoiceTTSProvider({ autoStartService: false })
+    const mockWav = new Uint8Array([82, 73, 70, 70, 10, 0, 0, 0]) // RIFF header
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
+      if (String(url).endsWith('/synthesize')) {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => mockWav.buffer
+        } as any
+      }
+      return { ok: false, status: 500 } as any
+    })
+
+    const output = await provider.synthesize('Good evening, sir.')
+    expect(output.providerId).toBe('openvoice-v2')
+    expect(output.data).toEqual(mockWav)
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'http://127.0.0.1:8020/synthesize',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: expect.stringContaining('"pitch":"+25Hz"')
+      })
+    )
+  })
+
+  it('manages background service lifecycle safely', async () => {
+    const provider = new OpenVoiceTTSProvider({ autoStartService: false })
+    expect(provider.getServiceProcess()).toBeNull()
+    provider.stopService()
+    expect(provider.getServiceProcess()).toBeNull()
+  })
 })
